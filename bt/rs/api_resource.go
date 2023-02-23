@@ -195,7 +195,7 @@ func copyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 		fieldName := tfObj.Type().Field(i).Name
 		field := apiObj.FieldByName(fieldName)
 		tfField := tfObj.Field(i)
-		tflog.Info(ctx, "🍺 copyTFtoAPI field "+fieldName)
+		tflog.Trace(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s [%s]", fieldName, field.Kind()))
 
 		if fieldName == "ID" {
 			m := tfField.MethodByName("IsNull")
@@ -213,6 +213,11 @@ func copyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			mCallable := m.Interface().(func() bool)
 			if mCallable() {
 				continue
+			}
+			if field.IsNil() {
+				typeField, _ := apiObj.Type().FieldByName(fieldName)
+				nestedKind := typeField.Type.Elem()
+				field.Set(reflect.New(nestedKind))
 			}
 			field = field.Elem()
 		}
@@ -238,7 +243,7 @@ func copyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value)
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
 		field := apiObj.FieldByName(fieldName)
-		tflog.Info(ctx, "🍺 copyAPItoTF field "+fieldName)
+		tflog.Trace(ctx, "🍺 copyAPItoTF field "+fieldName)
 
 		if fieldName == "ID" {
 			val := field.Elem().Int()
