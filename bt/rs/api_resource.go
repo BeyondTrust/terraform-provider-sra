@@ -28,20 +28,11 @@ type apiResource[T any, TApi api.APIResource, TTf any] struct {
 }
 
 func (r *apiResource[T, TApi, TTf]) Configure(ctx context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
+	if req.ProviderData == nil || r == nil {
 		return
 	}
 
-	client := req.ProviderData.(*api.APIClient)
-
-	tflog.Info(ctx, fmt.Sprintln("💥 ", reflect.TypeOf(r)))
-
-	if r == nil {
-		tflog.Info(ctx, fmt.Sprintln("💥 r is nil"))
-		return
-	}
-	r.apiClient = client
-
+	r.apiClient = req.ProviderData.(*api.APIClient)
 }
 
 func (r *apiResource[T, TApi, TTf]) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
