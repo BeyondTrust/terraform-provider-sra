@@ -65,7 +65,7 @@ func (r *apiResource[T, TApi, TTf]) Create(ctx context.Context, req resource.Cre
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
-	copyTFtoAPI(tfObj, apiObj)
+	copyTFtoAPI(ctx, tfObj, apiObj)
 
 	rb, _ := json.Marshal(item)
 	tflog.Info(ctx, "🙀 executing jump item post", map[string]interface{}{
@@ -138,7 +138,7 @@ func (r *apiResource[T, TApi, TTf]) Update(ctx context.Context, req resource.Upd
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
-	copyTFtoAPI(tfObj, apiObj)
+	copyTFtoAPI(ctx, tfObj, apiObj)
 
 	rb, _ := json.Marshal(item)
 	tflog.Info(ctx, "🙀 executing jump item update", map[string]interface{}{
@@ -190,17 +190,21 @@ func (r *apiResource[T, TApi, TTf]) Delete(ctx context.Context, req resource.Del
 	}
 }
 
-func copyTFtoAPI(tfObj reflect.Value, apiObj reflect.Value) {
+func copyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value) {
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
 		field := apiObj.FieldByName(fieldName)
 		tfField := tfObj.Field(i)
+		tflog.Info(ctx, "🍺 copyTFtoAPI field "+fieldName)
 
 		if fieldName == "ID" {
-			if !field.IsNil() {
-				val := tfField.Elem().Interface().(types.String)
+			m := tfField.MethodByName("IsNull")
+			mCallable := m.Interface().(func() bool)
+			if !mCallable() {
+				val := tfField.Interface().(types.String)
 				id, _ := strconv.Atoi(val.ValueString())
-				field.Elem().SetInt(int64(id))
+				idVal := reflect.ValueOf(&id)
+				field.Set(idVal)
 			}
 			continue
 		}

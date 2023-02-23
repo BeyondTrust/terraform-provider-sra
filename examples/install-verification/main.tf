@@ -21,7 +21,7 @@ output "shell_jump_items" {
 resource "bt_shell_jump" "fun_jump" {
     name = "fun_jump"
     jumpoint_id = 1
-    hostname = "10.10.10.15"
+    hostname = "10.10.10.12"
     protocol = "ssh"
     jump_group_id = 23
     jump_group_type = "personal"
