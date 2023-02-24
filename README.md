@@ -18,4 +18,17 @@
   * /ds: directory for all of the datasource related things
     * Things that need to live here TBD
   * /models: model files that are mapped to terraform types, and have tags mapping to what we expect the users to provide in their terraform files; these mappings should mirror the json mappings. **IMPORTANT** the fields and names must match exactly to the API models for the same resources. the terraform code has a lot of boilerplate, and I tried to make this generic to avoid having to do it everywhere. in order to do that, we have to be able to generically copy back and forth between terraform types and json types, and to do that the fields need to be identical, and the types mapped correctly (e.g. string maps to types.String)
-  * /rs: the resources related things. things that need crud operations fall into this category
+  * /rs: the resources related things. things that need crud operations fall into this category, aka where the useful stuff will live
+    * api_resource.go: contains the base struct for all resources and a lot of ugly generic code that's intending to reduce boilerplate code in the other resource files. See comments in this file for more information
+    * other resource go files: see shell_jump.go for more information
+  provider.go: the main provider definition file. responsible for handing the top level definitions, the public name of the provider, handing initial config, etc.
+* /examples: some example tf files that can be used during development
+* /tests: various acceptance tests for the terraform packages (the things under /bt)
+* .gitignore: self explanatory
+* go.mod/go.sum: go module files (largely managed by go)
+* main.go: main go file for our provider module. contains the address of our provider
+* Makefile: make shortcuts for some common dev actions
+* README.md: you are here
+* TODO.md: things that need to be done still
+
+For more information on what the code is doing, see the comments in `./bt/rs/api_resource.go` and the various shell jump implementations.

@@ -16,17 +16,24 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
+// Factory function to return the list of all resource–generating factories to the main provider
+// Add new resource factory functions here.
 func ResourceList() []func() resource.Resource {
 	return []func() resource.Resource{
 		newShellJumpResource,
 	}
 }
 
-// resource Type, api model type, tf model type
+// The base type that allows the other generic functions in this file to apply to the actual implementations.
+// The actual resource struct must compose this struct to get all the functionality defined in this
+// file. This has 3 generic types defined tha must be supplied. The first is the type of the
+// resource provider itself, the second is the type of the API model, the third is the type
+// of the Terraform model
 type apiResource[T any, TApi api.APIResource, TTf any] struct {
 	apiClient *api.APIClient
 }
 
+// Generic Configure function for resource providers. It simply maps the ProviderData as the API client on the resource
 func (r *apiResource[T, TApi, TTf]) Configure(ctx context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
 	if req.ProviderData == nil || r == nil {
 		return
@@ -35,9 +42,12 @@ func (r *apiResource[T, TApi, TTf]) Configure(ctx context.Context, req resource.
 	r.apiClient = req.ProviderData.(*api.APIClient)
 }
 
+// Generic Metadata implementation. It reads the type name of the resource type provided and derives the public facing resource
+// name from that. It does this by dropping "Resource" from the type name and converting the rest to snake_case, which is
+// prefixed with "bt_". For example, shellJumpResource is publicly exposed as bt_shell_jump
 func (r *apiResource[T, TApi, TTf]) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	var tmp T
-	name := fmt.Sprintf("%s", reflect.TypeOf(tmp))
+	name := reflect.TypeOf(tmp).String()
 	parts := strings.Split(name, ".")
 
 	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, toSnakeCase(strings.ReplaceAll(parts[len(parts)-1], "Resource", "")))
@@ -52,6 +62,37 @@ func toSnakeCase(str string) string {
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
 }
+
+/*
+The following are generic implementations of Create, Read, Update and Delete, which satisfy the basic requirements for a Terraform
+resource. They work with the api client by using the API model type that is provided by the resource implementations. The API
+client uses this type to infer the endpoints to query.
+
+Largely the flow of these methods are all:
+  1. Read the plan or state from the request, which is read into the Terraform model type.
+  2. Convert this Terraform model to an API model (using reflect)
+  3. Make the appropriate API request
+  4. Copy the API response back to a Terraform model
+  5. Set the updated Terraform model as the new plan or state in the response
+  * also checks for errors when appropriate along the way
+
+The conversion between API and Terraform modules are necessary because:
+  * json encoding relies on the fields having standard Go types
+  * terraform relies on its own type wrappers as the field types
+
+For the conversion to work, some conventions **must** be followed:
+  * the API model and the Terraform model must have the exact same fields, and the names must match exactly
+  	* order of fields in the definition should not be important
+  * Types should map correctly, that is a API model "string" should map to Terraform's "types.String"
+
+Additionally, for Terraform to be happy:
+  * If a field can be null in a response from the server, it should be a pointer to the type on the API model
+    * Additionally, specify the omitempty hint on the json tag for the field
+  * If a field can be null in a POST/PATCH request but will have some non-null value in the response,
+    this should be mapped as a non-null type in the API model
+  * For fields where we will supply a default value for fields not specified by the user, the defaults must be
+    set on the plan by the resource in ModifyPlan. See shell_jump.go for specifics
+*/
 
 func (r *apiResource[T, TApi, TTf]) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan TTf
@@ -190,6 +231,31 @@ func (r *apiResource[T, TApi, TTf]) Delete(ctx context.Context, req resource.Del
 	}
 }
 
+// Generic ImportState implementation that just imports by ID
+func (r *apiResource[T, TApi, TTf]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+/*
+These next functions do the actual copying from TF -> API and API -> TF. They take a context parameter first
+for logging purposes. The general idea for these is:
+
+  1. loop over all the fields on one of the object (I chose to loop over the TF model's fields, but that's mostly arbitrary as they should have the same fields 😀)
+  2. For each field:
+	1. Get the field name so we can pull the same field from the API object (pulling by name in case the fields are in a different order… this is why names must match)
+	2. Special handling for ID. Every model must have ID, and it is expected to be of type *int on the API model and base.String on the TF model.
+		* This is because our IDs are actual numbers in the response json, but Terraform require IDs to be strings for the import command to work
+		* ID can be null because the user does not specify an ID in POST requests
+		* We allow null IDs on TF models but expect all API models to have an ID set
+	3. Check to see if our API model describes this field as a pointer
+		* if yes, check to see if the value is nil on the source model
+		  * if nil, there is nothing to do
+		  * if not nil, then replace "field" with the value of the pointer so we can set the value we're pointing to instead of the pointer itself
+		    * if the destination is an API model, its pointer is likely nil, so we have to set the pointer to a new object of the appropriate type before dereferencing
+	4. Set the value on the destination. This conversion is done based on the type of the API model field, because those are standard Go types that have reflect mappings
+	    * Currently we only map int and string types. Other types will panic. Additional types will need to be added to the switch mappings as needed
+*/
+
 func copyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value) {
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
@@ -235,16 +301,21 @@ func copyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 	}
 }
 
-func (r *apiResource[T, TApi, TTf]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-}
-
 func copyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value) {
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
 		field := apiObj.FieldByName(fieldName)
 		tflog.Trace(ctx, "🍺 copyAPItoTF field "+fieldName)
 
+		// FIXME (maybe?) The reflect library doesn't have a nice wrapper method for setting
+		// the Terraform types, and I didn't know enough about the other reflect
+		// methods to set the pointer directly in a way that works. So these
+		// ugly looking expressions get the raw pointer and set what it
+		// points to with the proper value from the source model
+		//
+		// The unsafe pointer of the address of the field is a pointer to the TF type… we're setting
+		// the dereferenced value of that. This is effectively what the nice reflect wrappers do
+		// *(*types.String)(tfObj.Field(i).Addr().UnsafePointer())
 		if fieldName == "ID" {
 			val := field.Elem().Int()
 			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(strconv.Itoa(int(val)))
