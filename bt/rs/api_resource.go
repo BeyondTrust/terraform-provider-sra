@@ -26,15 +26,14 @@ func ResourceList() []func() resource.Resource {
 
 // The base type that allows the other generic functions in this file to apply to the actual implementations.
 // The actual resource struct must compose this struct to get all the functionality defined in this
-// file. This has 3 generic types defined tha must be supplied. The first is the type of the
-// resource provider itself, the second is the type of the API model, the third is the type
-// of the Terraform model
-type apiResource[T any, TApi api.APIResource, TTf any] struct {
+// file. This has 2 generic types defined tha must be supplied. The first is the type of the
+// API model, the second is the type of the Terraform model
+type apiResource[TApi api.APIResource, TTf any] struct {
 	apiClient *api.APIClient
 }
 
 // Generic Configure function for resource providers. It simply maps the ProviderData as the API client on the resource
-func (r *apiResource[T, TApi, TTf]) Configure(ctx context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
+func (r *apiResource[TApi, TTf]) Configure(ctx context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
 	if req.ProviderData == nil || r == nil {
 		return
 	}
@@ -45,12 +44,12 @@ func (r *apiResource[T, TApi, TTf]) Configure(ctx context.Context, req resource.
 // Generic Metadata implementation. It reads the type name of the resource type provided and derives the public facing resource
 // name from that. It does this by dropping "Resource" from the type name and converting the rest to snake_case, which is
 // prefixed with "bt_". For example, shellJumpResource is publicly exposed as bt_shell_jump
-func (r *apiResource[T, TApi, TTf]) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	var tmp T
+func (r *apiResource[TApi, TTf]) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	var tmp TApi
 	name := reflect.TypeOf(tmp).String()
 	parts := strings.Split(name, ".")
 
-	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, toSnakeCase(strings.ReplaceAll(parts[len(parts)-1], "Resource", "")))
+	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, toSnakeCase(parts[len(parts)-1]))
 	tflog.Info(ctx, fmt.Sprintf("🥃 Registered provider name [%s]", resp.TypeName))
 }
 
@@ -94,7 +93,7 @@ Additionally, for Terraform to be happy:
     set on the plan by the resource in ModifyPlan. See shell_jump.go for specifics
 */
 
-func (r *apiResource[T, TApi, TTf]) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan TTf
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -131,7 +130,7 @@ func (r *apiResource[T, TApi, TTf]) Create(ctx context.Context, req resource.Cre
 	}
 }
 
-func (r *apiResource[T, TApi, TTf]) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	tflog.Info(ctx, fmt.Sprintln("Reading"))
 	var state TTf
 	diags := req.State.Get(ctx, &state)
@@ -167,7 +166,7 @@ func (r *apiResource[T, TApi, TTf]) Read(ctx context.Context, req resource.ReadR
 	}
 }
 
-func (r *apiResource[T, TApi, TTf]) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan TTf
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -206,7 +205,7 @@ func (r *apiResource[T, TApi, TTf]) Update(ctx context.Context, req resource.Upd
 	}
 }
 
-func (r *apiResource[T, TApi, TTf]) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Info(ctx, "Starting delete")
 	var state TTf
 	diags := req.State.Get(ctx, &state)
@@ -232,7 +231,7 @@ func (r *apiResource[T, TApi, TTf]) Delete(ctx context.Context, req resource.Del
 }
 
 // Generic ImportState implementation that just imports by ID
-func (r *apiResource[T, TApi, TTf]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *apiResource[TApi, TTf]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 

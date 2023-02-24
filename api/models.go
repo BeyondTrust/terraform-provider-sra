@@ -1,5 +1,7 @@
 package api
 
+// Models should be named like ResourceName. This name is mapped to snake_case for the
+// name users will use in the terraform definitions for these resources
 type ShellJump struct {
 	ID              *int   `json:"id,omitempty"`
 	Name            string `json:"name"`
