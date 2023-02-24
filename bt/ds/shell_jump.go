@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 	"terraform-provider-beyondtrust-sra/api"
-	. "terraform-provider-beyondtrust-sra/bt/models"
+	"terraform-provider-beyondtrust-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -25,7 +25,7 @@ type shellJumpDataSource struct {
 }
 
 type shellJumpDataSourceModel struct {
-	Items []ShellJumpModel `tfsdk:"items"`
+	Items []models.ShellJumpModel `tfsdk:"items"`
 }
 
 func (d *shellJumpDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -107,7 +107,7 @@ func (d *shellJumpDataSource) Read(ctx context.Context, req datasource.ReadReque
 	}
 
 	for _, item := range items {
-		shellJumpState := ShellJumpModel{
+		shellJumpState := models.ShellJumpModel{
 			ID:            types.StringValue(strconv.Itoa(int(*item.ID))),
 			Name:          types.StringValue(item.Name),
 			JumpointID:    types.Int64Value(int64(item.JumpointID)),

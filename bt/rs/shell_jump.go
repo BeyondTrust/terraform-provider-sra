@@ -3,7 +3,7 @@ package rs
 import (
 	"context"
 	"terraform-provider-beyondtrust-sra/api"
-	. "terraform-provider-beyondtrust-sra/bt/models"
+	"terraform-provider-beyondtrust-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -25,7 +25,7 @@ func newShellJumpResource() resource.Resource {
 }
 
 type shellJumpResource struct {
-	apiResource[shellJumpResource, api.ShellJump, ShellJumpModel]
+	apiResource[shellJumpResource, api.ShellJump, models.ShellJumpModel]
 }
 
 func (r *shellJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -95,7 +95,7 @@ func (r *shellJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		tflog.Info(ctx, "No plan to modify")
 		return
 	}
-	var plan ShellJumpModel
+	var plan models.ShellJumpModel
 	diags := req.Plan.Get(ctx, &plan)
 	tflog.Info(ctx, "Read plan")
 	resp.Diagnostics.Append(diags...)
