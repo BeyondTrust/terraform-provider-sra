@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 )
 
 type APIResource interface {
-	id() *int
 	endpoint() string
 }
 
@@ -84,7 +84,10 @@ func UpdateItem[I APIResource](c *APIClient, item I) (*I, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/%s/%d", c.BaseURL, item.endpoint(), *item.id()), strings.NewReader(string(rb)))
+	itemObj := reflect.ValueOf(item)
+	id := itemObj.FieldByName("ID").Elem().Int()
+
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/%s/%d", c.BaseURL, item.endpoint(), id), strings.NewReader(string(rb)))
 	if err != nil {
 		return nil, err
 	}

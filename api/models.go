@@ -18,9 +18,6 @@ type ShellJump struct {
 	SessionPolicyID *int   `json:"session_policy_id,omitempty"`
 }
 
-func (s ShellJump) id() *int {
-	return s.ID
-}
 func (_ ShellJump) endpoint() string {
 	return "jump-item/shell-jump"
 }
