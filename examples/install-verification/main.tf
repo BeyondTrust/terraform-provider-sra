@@ -12,11 +12,13 @@ provider "bt" {
     client_secret = "wUwZTVwC0Erh3/01TcG41TbWHcntMgdRZHkhqcwNKYQK"
 }
 
-data "bt_shell_jump_item" "shell_jumps" {}
+data "bt_shell_jump_list" "shell_jumps" {
+  # name = "fun_jump"
+}
 
-# output "shell_jump_items" {
-#     value = data.bt_shell_jump_item.shell_jumps
-# }
+output "shell_jump_items" {
+    value = data.bt_shell_jump_list.shell_jumps
+}
 
 resource "bt_shell_jump" "fun_jump" {
     name = "fun_jump"

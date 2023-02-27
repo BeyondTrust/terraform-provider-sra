@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -12,20 +13,28 @@ type APIResource interface {
 	endpoint() string
 }
 
-func ListItems[I APIResource](c *APIClient) ([]I, error) {
+func ListItems[I APIResource](c *APIClient, body ...interface{}) ([]I, error) {
 	var tmp I
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, tmp.endpoint()), nil)
+	var b io.Reader
+	if len(body) > 0 {
+		rb, err := json.Marshal(body[0])
+		if err != nil {
+			return nil, err
+		}
+		b = strings.NewReader(string(rb))
+	}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, tmp.endpoint()), b)
 	if err != nil {
 		return nil, err
 	}
 
-	body, err := c.doRequest(req)
+	resp, err := c.doRequest(req)
 	if err != nil {
 		return nil, err
 	}
 
 	items := []I{}
-	err = json.Unmarshal(body, &items)
+	err = json.Unmarshal(resp, &items)
 	if err != nil {
 		return nil, err
 	}

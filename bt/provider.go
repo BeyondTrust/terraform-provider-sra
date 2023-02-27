@@ -168,9 +168,7 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 }
 
 func (p *sraProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
-		ds.NewShellJumpDataSource,
-	}
+	return ds.DatasourceList()
 }
 
 func (p *sraProvider) Resources(_ context.Context) []func() resource.Resource {
