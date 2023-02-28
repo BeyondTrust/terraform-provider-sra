@@ -22,13 +22,12 @@ resource "bt_shell_jump" "fun_jump" {
 }
 
 output "shell_jump" {
-  value = resource.bt_shell_jump.fun_jump.hostname
+  value = resource.bt_shell_jump.fun_jump
 }
 
 data "bt_shell_jump_list" "sj" {
   name = "fun_jump"
 }
-
 
 output "existing_items" {
     value = data.bt_shell_jump_list.sj

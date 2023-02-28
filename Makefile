@@ -13,10 +13,10 @@ testacc:
 	TF_ACC=1 go test -count=1 -parallel=4 -timeout 10m -v ./tests
 
 tfapply: install
-	cd ./examples/install-verification && terraform apply
+	cd ./test-tf-files && terraform apply
 
 tfplan: install
-	cd ./examples/install-verification && terraform plan
+	cd ./test-tf-files && terraform plan
 
 tfshow: install
-	cd ./examples/install-verification && terraform show
+	cd ./test-tf-files && terraform show
