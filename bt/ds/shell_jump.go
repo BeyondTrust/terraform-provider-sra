@@ -2,9 +2,6 @@ package ds
 
 import (
 	"context"
-	"fmt"
-	"reflect"
-	"strconv"
 	"terraform-provider-beyondtrust-sra/api"
 	"terraform-provider-beyondtrust-sra/bt/models"
 
@@ -44,33 +41,7 @@ func (d *shellJumpDataSource) Read(ctx context.Context, req datasource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	typ := reflect.TypeOf(state)
-	ste := reflect.ValueOf(state)
-	var filter = make(map[string]string)
-	for i := 0; i < typ.NumField(); i++ {
-		f := typ.Field(i).Tag.Get("filter")
-		if f != "" {
-			fld := ste.Field(i)
-			final := ""
-			switch fld.FieldByName("value").Kind() {
-			case reflect.String:
-				v := fld.Interface().(types.String)
-				if !v.IsNull() {
-					final = v.ValueString()
-				}
-			case reflect.Int64:
-				v := fld.Interface().(types.Int64)
-				if !v.IsNull() {
-					final = strconv.Itoa(int(v.ValueInt64()))
-				}
-			}
-			if final != "" {
-				tflog.Info(ctx, fmt.Sprintf("🚀 %s=%s", f, final))
-				filter[f] = final
-			}
-		}
-	}
+	filter := api.MakeFilterMap(ctx, state)
 
 	tflog.Info(ctx, "🙀 list with filter", map[string]interface{}{
 		"data": filter,
