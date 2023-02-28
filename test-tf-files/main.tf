@@ -30,5 +30,13 @@ data "bt_shell_jump_list" "sj" {
 }
 
 output "existing_items" {
-    value = data.bt_shell_jump_list.sj
+    value = data.bt_shell_jump_list.sj.items
+}
+
+data "bt_jump_group_list" "jg" {
+  code_name = "group_2"
+}
+
+output "jump_group" {
+  value = data.bt_jump_group_list.jg.items[0]
 }

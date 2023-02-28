@@ -23,3 +23,15 @@ type ShellJump struct {
 func (ShellJump) endpoint() string {
 	return "jump-item/shell-jump"
 }
+
+type JumpGroup struct {
+	ID         *int   `json:"id,omitempty"`
+	Name       string `json:"name"`
+	CodeName   string `json:"code_name"`
+	Comments   string `json:"comments"`
+	EcmGroupId *int   `json:"ecm_group_id,omitempty"`
+}
+
+func (JumpGroup) endpoint() string {
+	return "jump-group"
+}

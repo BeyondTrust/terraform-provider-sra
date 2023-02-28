@@ -17,6 +17,7 @@ import (
 func DatasourceList() []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		newShellJumpDataSource,
+		newJumpGroupDataSource,
 	}
 }
 
@@ -24,6 +25,9 @@ type apiDataSource[TApi api.APIResource, TTf any] struct {
 	apiClient *api.APIClient
 }
 
+// Can't compose structs for the terraform types,
+// https://github.com/hashicorp/terraform-plugin-framework/issues/309
+// If that ever gets fixed then we can have a base TF model for data sources
 // type apiDataSourceModel[T any] struct {
 // 	Items []T `tfsdk:"items"`
 // }
