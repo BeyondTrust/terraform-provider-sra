@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-
 var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
 var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 
@@ -21,7 +20,6 @@ func ToSnakeCase(str string) string {
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
 }
-
 
 /*
 These functions do the actual copying from TF -> API and API -> TF. They take a context parameter first
@@ -82,6 +80,9 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 		case reflect.Int:
 			val := tfField.Interface().(types.Int64)
 			field.SetInt(val.ValueInt64())
+		case reflect.Bool:
+			val := tfField.Interface().(types.Bool)
+			field.SetBool(val.ValueBool())
 		default:
 			panic("Unknown encoded type in struct: " + field.Kind().String())
 		}
@@ -122,13 +123,15 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value)
 			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(field.String())
 		case reflect.Int:
 			*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Value(field.Int())
+		case reflect.Bool:
+			*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolValue(field.Bool())
 		default:
 			panic("Unknown encoded type in struct: " + field.Kind().String())
 		}
 	}
 }
 
-func MakeFilterMap(ctx context.Context, source any) (map[string]string) {
+func MakeFilterMap(ctx context.Context, source any) map[string]string {
 
 	typ := reflect.TypeOf(source)
 	ste := reflect.ValueOf(source)

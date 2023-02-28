@@ -18,10 +18,11 @@ func DatasourceList() []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		newShellJumpDataSource,
 		newJumpGroupDataSource,
+		newJumpointDataSource,
 	}
 }
 
-type apiDataSource[TApi api.APIResource, TTf any] struct {
+type apiDataSource[TDataSource any, TApi api.APIResource, TTf any] struct {
 	apiClient *api.APIClient
 }
 
@@ -32,7 +33,7 @@ type apiDataSource[TApi api.APIResource, TTf any] struct {
 // 	Items []T `tfsdk:"items"`
 // }
 
-func (d *apiDataSource[TApi, TTf]) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *apiDataSource[TDataSource, TApi, TTf]) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	var tmp TApi
 	name := reflect.TypeOf(tmp).String()
 	parts := strings.Split(name, ".")
@@ -41,11 +42,41 @@ func (d *apiDataSource[TApi, TTf]) Metadata(ctx context.Context, req datasource.
 	tflog.Info(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
 }
 
-func (d *apiDataSource[TApi, TTf]) doRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) []TTf {
+func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var state TDataSource
+	diags := req.Config.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	filter := api.MakeFilterMap(ctx, state)
+
+	tflog.Info(ctx, "🙀 list with filter", map[string]interface{}{
+		"data": filter,
+	})
+
+	items := d.doFilteredRead(ctx, req, resp, filter)
+
+	if items == nil {
+		return
+	}
+
+	itemField := reflect.ValueOf(&state).Elem().FieldByName("Items")
+	listElem := reflect.ValueOf(&items).Elem()
+	itemField.Set(listElem)
+
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+}
+
+func (d *apiDataSource[TDataSource, TApi, TTf]) doRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) []TTf {
 	return d.doFilteredRead(ctx, req, resp, nil)
 }
 
-func (d *apiDataSource[TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
+func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
 	items, err := api.ListItems[TApi](d.apiClient, requestFilter)
 	rb, _ := json.Marshal(items)
 	tflog.Info(ctx, "🙀 ListItems got data", map[string]interface{}{
@@ -74,7 +105,7 @@ func (d *apiDataSource[TApi, TTf]) doFilteredRead(ctx context.Context, req datas
 	return tfItems
 }
 
-func (d *apiDataSource[TApi, TTf]) Configure(_ context.Context, req datasource.ConfigureRequest, _ *datasource.ConfigureResponse) {
+func (d *apiDataSource[TDataSource, TApi, TTf]) Configure(_ context.Context, req datasource.ConfigureRequest, _ *datasource.ConfigureResponse) {
 	if req.ProviderData == nil || d == nil {
 		return
 	}

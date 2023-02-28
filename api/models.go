@@ -35,3 +35,22 @@ type JumpGroup struct {
 func (JumpGroup) endpoint() string {
 	return "jump-group"
 }
+
+type Jumpoint struct {
+	ID                        *int    `json:"id,omitempty"`
+	Name                      string  `json:"name"`
+	CodeName                  string  `json:"code_name"`
+	Platform                  string  `json:"platform"`
+	Comments                  string  `json:"comments"`
+	Enabled                   bool    `json:"enabled"`
+	Connected                 bool    `json:"connected"`
+	Clustered                 bool    `json:"clustered"`
+	ShellJumpEnabled          bool    `json:"shell_jump_enabled"`
+	ExternalJumpItemNetworkId *string `json:"external_jump_item_network_id,omitempty"`
+	ProtocolTunnelEnabled     bool    `json:"protocol_tunnel_enabled"`
+	RdpServiceAccountId       *int    `json:"rdp_service_account_id"`
+}
+
+func (Jumpoint) endpoint() string {
+	return "jumpoint"
+}

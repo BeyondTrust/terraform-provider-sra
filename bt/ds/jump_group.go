@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var (
@@ -21,41 +20,13 @@ func newJumpGroupDataSource() datasource.DataSource {
 }
 
 type jumpGroupDataSource struct {
-	apiDataSource[api.JumpGroup, models.JumpGroupModel]
+	apiDataSource[jumpGroupDataSourceModel, api.JumpGroup, models.JumpGroupModel]
 }
 
 type jumpGroupDataSourceModel struct {
 	Items    []models.JumpGroupModel `tfsdk:"items"`
 	Name     types.String            `tfsdk:"name" filter:"name"`
 	CodeName types.String            `tfsdk:"code_name" filter:"code_name"`
-}
-
-func (d *jumpGroupDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var state jumpGroupDataSourceModel
-	diags := req.Config.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	filter := api.MakeFilterMap(ctx, state)
-
-	tflog.Info(ctx, "🙀 list with filter", map[string]interface{}{
-		"data": filter,
-	})
-
-	items := d.doFilteredRead(ctx, req, resp, filter)
-
-	if items == nil {
-		return
-	}
-
-	state.Items = items
-
-	diags = resp.State.Set(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 }
 
 func (d *jumpGroupDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
