@@ -22,7 +22,7 @@
     * api_resource.go: contains the base struct for all resources and a lot of ugly generic code that's intending to reduce boilerplate code in the other resource files. See comments in this file for more information
     * other resource go files: see shell_jump.go for more information
   provider.go: the main provider definition file. responsible for handing the top level definitions, the public name of the provider, handing initial config, etc.
-* /examples: some example tf files that can be used during development
+* /test-tf-files: some example tf files that can be used during development
 * /tests: various acceptance tests for the terraform packages (the things under /bt)
 * .gitignore: self explanatory
 * go.mod/go.sum: go module files (largely managed by go)
