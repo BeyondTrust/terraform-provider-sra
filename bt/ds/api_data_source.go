@@ -41,10 +41,10 @@ func (d *apiDataSource[TApi, TTf]) doRead(ctx context.Context, req datasource.Re
 	return d.doFilteredRead(ctx, req, resp, nil)
 }
 
-func (d *apiDataSource[TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter interface{}) []TTf {
+func (d *apiDataSource[TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
 	items, err := api.ListItems[TApi](d.apiClient, requestFilter)
 	rb, _ := json.Marshal(items)
-	tflog.Trace(ctx, "🙀 ListItems got data", map[string]interface{}{
+	tflog.Info(ctx, "🙀 ListItems got data", map[string]interface{}{
 		"data": string(rb),
 	})
 	if err != nil {

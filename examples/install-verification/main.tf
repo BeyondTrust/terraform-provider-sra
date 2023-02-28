@@ -11,15 +11,6 @@ provider "bt" {
     client_id = "114635791a8bc6e21d813d5385d100afcb883a2d"
     client_secret = "wUwZTVwC0Erh3/01TcG41TbWHcntMgdRZHkhqcwNKYQK"
 }
-
-data "bt_shell_jump_list" "shell_jumps" {
-  # name = "fun_jump"
-}
-
-output "shell_jump_items" {
-    value = data.bt_shell_jump_list.shell_jumps
-}
-
 resource "bt_shell_jump" "fun_jump" {
     name = "fun_jump"
     jumpoint_id = 1
@@ -32,4 +23,13 @@ resource "bt_shell_jump" "fun_jump" {
 
 output "shell_jump" {
   value = resource.bt_shell_jump.fun_jump.hostname
+}
+
+data "bt_shell_jump_list" "sj" {
+  name = "fun_jump"
+}
+
+
+output "existing_items" {
+    value = data.bt_shell_jump_list.sj
 }
