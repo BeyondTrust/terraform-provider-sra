@@ -24,9 +24,8 @@ type jumpItemRoleDataSource struct {
 }
 
 type jumpItemRoleDataSourceModel struct {
-	Items    []models.JumpItemRoleModel `tfsdk:"items"`
-	Name     types.String            `tfsdk:"name" filter:"name"`
-	CodeName types.String            `tfsdk:"code_name" filter:"code_name"`
+	Items []models.JumpItemRoleModel `tfsdk:"items"`
+	Name  types.String               `tfsdk:"name" filter:"name"`
 }
 
 func (d *jumpItemRoleDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
@@ -44,22 +43,46 @@ func (d *jumpItemRoleDataSource) Schema(ctx context.Context, _ datasource.Schema
 						"name": schema.StringAttribute{
 							Required: true,
 						},
-						"code_name": schema.StringAttribute{
+						"description": schema.StringAttribute{
 							Required: true,
 						},
-						"comments": schema.StringAttribute{
+						"perm_add": schema.BoolAttribute{
 							Optional: true,
 						},
-						"ecm_group_id": schema.Int64Attribute{
+						"perm_assign_jump_group": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_remove": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_start": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_edit_tag": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_edit_comments": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_edit_jump_policy": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_edit_session_policy": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_edit_identity": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_edit_behavior": schema.BoolAttribute{
+							Optional: true,
+						},
+						"perm_view_jump_item_report": schema.BoolAttribute{
 							Optional: true,
 						},
 					},
 				},
 			},
 			"name": schema.StringAttribute{
-				Optional: true,
-			},
-			"code_name": schema.StringAttribute{
 				Optional: true,
 			},
 		},
