@@ -26,3 +26,20 @@ type JumpointModel struct {
 	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled"`
 	RdpServiceAccountId       types.Int64  `tfsdk:"rdp_service_account_id"`
 }
+
+type JumpItemRoleModel struct {
+	ID                     types.String `tfsdk:"id"`
+	Name                   types.String `tfsdk:"name"`
+	Description            types.String `tfsdk:"description"`
+	PermAdd                types.Bool   `tfsdk:"perm_add"`
+	PermAssignJumpGroup    types.Bool   `tfsdk:"perm_assign_jump_group"`
+	PermRemove             types.Bool   `tfsdk:"perm_remove"`
+	PermStart              types.Bool   `tfsdk:"perm_start"`
+	PermEditTag            types.Bool   `tfsdk:"perm_edit_tag"`
+	PermEditComments       types.Bool   `tfsdk:"perm_edit_comments"`
+	PermEditJumpPolicy     types.Bool   `tfsdk:"perm_edit_jump_policy"`
+	PermEditSessionPolicy  types.Bool   `tfsdk:"perm_edit_session_policy"`
+	PermEditIdentity       types.Bool   `tfsdk:"perm_edit_identity"`
+	PermEditBehavior       types.Bool   `tfsdk:"perm_edit_behavior"`
+	PermViewJumpItemReport types.Bool   `tfsdk:"perm_view_jump_item_report"`
+}

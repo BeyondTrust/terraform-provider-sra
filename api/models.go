@@ -54,3 +54,24 @@ type Jumpoint struct {
 func (Jumpoint) endpoint() string {
 	return "jumpoint"
 }
+
+type JumpItemRole struct {
+	ID                     string `json:"id"`
+	Name                   string `json:"name"`
+	Description            string `json:"description"`
+	PermAdd                bool   `json:"perm_add"`
+	PermAssignJumpGroup    bool   `json:"perm_assign_jump_group"`
+	PermRemove             bool   `json:"perm_remove"`
+	PermStart              bool   `json:"perm_start"`
+	PermEditTag            bool   `json:"perm_edit_tag"`
+	PermEditComments       bool   `json:"perm_edit_comments"`
+	PermEditJumpPolicy     bool   `json:"perm_edit_jump_policy"`
+	PermEditSessionPolicy  bool   `json:"perm_edit_session_policy"`
+	PermEditIdentity       bool   `json:"perm_edit_identity"`
+	PermEditBehavior       bool   `json:"perm_edit_behavior"`
+	PermViewJumpItemReport bool   `json:"perm_view_jump_item_report"`
+}
+
+func (JumpItemRole) endpoint() string {
+	return "jump-item-role"
+}
