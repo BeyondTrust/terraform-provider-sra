@@ -9,6 +9,6 @@ import (
 
 func main() {
 	providerserver.Serve(context.Background(), bt.New, providerserver.ServeOpts{
-		Address: "hasicorp.com/edu/beyondtrust-sra",
+		Address: "hashicorp.com/edu/beyondtrust-sra",
 	})
 }
