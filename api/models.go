@@ -75,3 +75,14 @@ type JumpItemRole struct {
 func (JumpItemRole) endpoint() string {
 	return "jump-item-role"
 }
+
+type SessionPolicy struct {
+	ID          *int   `json:"id,omitempty"`
+	DisplayName string `json:"display_name"`
+	CodeName    string `json:"code_name"`
+	Description string `json:"description"`
+}
+
+func (SessionPolicy) endpoint() string {
+	return "session-policy"
+}

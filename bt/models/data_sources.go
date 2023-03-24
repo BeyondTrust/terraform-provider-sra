@@ -43,3 +43,10 @@ type JumpItemRoleModel struct {
 	PermEditBehavior       types.Bool   `tfsdk:"perm_edit_behavior"`
 	PermViewJumpItemReport types.Bool   `tfsdk:"perm_view_jump_item_report"`
 }
+
+type SessionPolicyModel struct {
+	ID          types.String `tfsdk:"id"`
+	DisplayName types.String `tfsdk:"display_name"`
+	CodeName    types.String `tfsdk:"code_name"`
+	Description types.String `tfsdk:"description"`
+}

@@ -1,0 +1,55 @@
+package ds
+
+import (
+	"context"
+	"terraform-provider-beyondtrust-sra/api"
+	"terraform-provider-beyondtrust-sra/bt/models"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+)
+
+var (
+	_ datasource.DataSource              = &sessionPolicyDataSource{}
+	_ datasource.DataSourceWithConfigure = &sessionPolicyDataSource{}
+)
+
+func newSessionPolicyDataSource() datasource.DataSource {
+	return &sessionPolicyDataSource{}
+}
+
+type sessionPolicyDataSource struct {
+	apiDataSource[sessionPolicyDataSourceModel, api.SessionPolicy, models.SessionPolicyModel]
+}
+
+type sessionPolicyDataSourceModel struct {
+	Items []models.SessionPolicyModel `tfsdk:"items"`
+}
+
+func (d *sessionPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"items": schema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.StringAttribute{
+							Computed: true,
+							Required: false,
+							Optional: false,
+						},
+						"display_name": schema.StringAttribute{
+							Required: true,
+						},
+						"code_name": schema.StringAttribute{
+							Required: true,
+						},
+						"description": schema.StringAttribute{
+							Optional: true,
+						},
+					},
+				},
+			},
+		},
+	}
+}
