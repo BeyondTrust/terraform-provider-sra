@@ -12,15 +12,33 @@ provider "bt" {
     client_secret = "wUwZTVwC0Erh3/01TcG41TbWHcntMgdRZHkhqcwNKYQK"
 }
 
-output "shell_jump" {
-  value = resource.bt_shell_jump.fun_jump
-}
-
 data "bt_jump_group_list" "jg" {
   code_name = "group_2"
 }
+output "existing_jg" {
+    value = data.bt_jump_group_list.jg.items
+}
+
+data "bt_jump_item_role_list" "jr" {
+  name = "Start Sessions Only"
+}
+output "existing_jir" {
+    value = data.bt_jump_item_role_list.jr.items
+}
+
 data "bt_jumpoint_list" "jp" {
   code_name = "matt_win"
+}
+output "existing_jp" {
+    value = data.bt_jumpoint_list.jp.items
+}
+
+data "bt_session_policy_list" "sp" {}
+locals {
+  sp_map = { for i, sp in data.bt_session_policy_list.sp.items : sp.code_name => sp }
+}
+output "existing_sp" {
+    value = local.sp_map["fun_policy"]
 }
 
 resource "bt_shell_jump" "fun_jump" {
@@ -30,6 +48,10 @@ resource "bt_shell_jump" "fun_jump" {
     jumpoint_id = data.bt_jumpoint_list.jp.items[0].id
     jump_group_id = data.bt_jump_group_list.jg.items[0].id
     jump_group_type = "shared"
+}
+
+output "shell_jump" {
+  value = resource.bt_shell_jump.fun_jump
 }
 
 data "bt_shell_jump_list" "sj" {

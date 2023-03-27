@@ -16,9 +16,12 @@ import (
 // Add new datasource factory functions here.
 func DatasourceList() []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		newShellJumpDataSource,
+		// Alphabetical by file name
 		newJumpGroupDataSource,
+		newJumpItemRoleDataSource,
 		newJumpointDataSource,
+		newSessionPolicyDataSource,
+		newShellJumpDataSource,
 	}
 }
 

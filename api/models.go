@@ -56,7 +56,7 @@ func (Jumpoint) endpoint() string {
 }
 
 type JumpItemRole struct {
-	ID                     string `json:"id"`
+	ID                     *int   `json:"id"`
 	Name                   string `json:"name"`
 	Description            string `json:"description"`
 	PermAdd                bool   `json:"perm_add"`
