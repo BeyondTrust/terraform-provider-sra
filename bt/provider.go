@@ -39,16 +39,20 @@ func (p *sraProvider) Metadata(_ context.Context, _ provider.MetadataRequest, re
 
 func (p *sraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Interact with the configuration API of your BeyondTrust SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Hostname of your appliance, e.g. \"example.beyondtrust.com\". May also be provided via BT_API_HOST environment variable",
 			},
 			"client_id": schema.StringAttribute{
-				Optional: true,
+				Description: "Client ID of the API account to use. May also be provided via BT_CLIENT_ID environment variable",
+				Optional:    true,
 			},
 			"client_secret": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Description: "Client secret of the API account to use. May also be provided via BT_CLIENT_SECRET environment variable",
+				Optional:    true,
+				Sensitive:   true,
 			},
 		},
 	}

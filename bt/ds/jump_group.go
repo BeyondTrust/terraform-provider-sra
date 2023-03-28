@@ -31,6 +31,7 @@ type jumpGroupDataSourceModel struct {
 
 func (d *jumpGroupDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Fetch a list of Jump Groups.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,
@@ -57,10 +58,12 @@ func (d *jumpGroupDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 				},
 			},
 			"name": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the Jump Group list for groups matching \"name\"",
+				Optional:    true,
 			},
 			"code_name": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the Jump Group list for groups with a matching \"code_name\"",
+				Optional:    true,
 			},
 		},
 	}

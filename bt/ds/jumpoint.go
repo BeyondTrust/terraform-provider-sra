@@ -34,6 +34,7 @@ type jumpointDataSourceModel struct {
 
 func (d *jumpointDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Fetch a list of Jumpoints.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,
@@ -81,19 +82,24 @@ func (d *jumpointDataSource) Schema(ctx context.Context, _ datasource.SchemaRequ
 				},
 			},
 			"name": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the list for Jumpoints matching \"name\"",
+				Optional:    true,
 			},
 			"code_name": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the list for Jumpoints with a matching \"code_name\"",
+				Optional:    true,
 			},
 			"public_ip": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the list for Jumpoints with a matching \"public_ip\"",
+				Optional:    true,
 			},
 			"private_ip": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the list for Jumpoints with a matching \"private_ip\"",
+				Optional:    true,
 			},
 			"hostname": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the list for Jumpoints with a matching \"hostname\"",
+				Optional:    true,
 			},
 		},
 	}

@@ -35,6 +35,7 @@ type shellJumpDataSourceModel struct {
 
 func (d *shellJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Fetch a list of Shell Jump Items.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,
@@ -91,21 +92,27 @@ func (d *shellJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 				},
 			},
 			"name": schema.StringAttribute{
+				Description: "Filter the list for items matching \"name\"",
 				Optional: true,
 			},
 			"jumpoint_id": schema.Int64Attribute{
+				Description: "Filter the list for items with a matching \"jumpoint_id\"",
 				Optional: true,
 			},
 			"hostname": schema.StringAttribute{
+				Description: "Filter the list for items with a matching \"hostname\"",
 				Optional: true,
 			},
 			"jump_group_id": schema.Int64Attribute{
+				Description: "Filter the list for items with a matching \"jump_group_id\"",
 				Optional: true,
 			},
 			"jump_group_type": schema.StringAttribute{
+				Description: "Filter the list for items with a matching \"jump_group_type\"",
 				Optional: true,
 			},
 			"tag": schema.StringAttribute{
+				Description: "Filter the list for items with a matching \"tag\"",
 				Optional: true,
 			},
 		},

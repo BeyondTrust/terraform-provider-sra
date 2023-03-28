@@ -30,6 +30,7 @@ type groupPolicyDataSourceModel struct {
 
 func (d *groupPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Fetch a list of Group Policies.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,
@@ -110,7 +111,8 @@ func (d *groupPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaR
 				},
 			},
 			"name": schema.StringAttribute{
-				Optional: true,
+				Description: "Filter the group policy list for group policies matching \"name\"",
+				Optional:    true,
 			},
 		},
 	}

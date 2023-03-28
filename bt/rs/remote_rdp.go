@@ -49,6 +49,7 @@ type remoteRDPResource struct {
 // needs to be marked as "Computed", even if we translate from "null" on a POST to an empty string
 func (r *remoteRDPResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Manages a Remote RDP Jump Item.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,

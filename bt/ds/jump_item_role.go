@@ -30,6 +30,7 @@ type jumpItemRoleDataSourceModel struct {
 
 func (d *jumpItemRoleDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Fetch a list of Jump Item Roles.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,
@@ -83,6 +84,7 @@ func (d *jumpItemRoleDataSource) Schema(ctx context.Context, _ datasource.Schema
 				},
 			},
 			"name": schema.StringAttribute{
+				Description: "Filter the list for roles matching \"name\"",
 				Optional: true,
 			},
 		},
