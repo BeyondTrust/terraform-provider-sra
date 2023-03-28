@@ -56,7 +56,7 @@ func (Jumpoint) endpoint() string {
 }
 
 type JumpItemRole struct {
-	ID                     *int   `json:"id"`
+	ID                     *int   `json:"id,omitempty"`
 	Name                   string `json:"name"`
 	Description            string `json:"description"`
 	PermAdd                bool   `json:"perm_add"`
@@ -85,4 +85,34 @@ type SessionPolicy struct {
 
 func (SessionPolicy) endpoint() string {
 	return "session-policy"
+}
+
+type GroupPolicy struct {
+	ID                                  *int   `json:"id,omitempty"`
+	Name                                string `json:"name"`
+	PermAccessAllowed                   bool   `json:"perm_access_allowed"`
+	AccessPermStatus                    string `json:"access_perm_status"`
+	PermShareOtherTeam                  bool   `json:"perm_share_other_team"`
+	PermInviteExternalUser              bool   `json:"perm_invite_external_user"`
+	PermSessionIdleTimeout              int    `json:"perm_session_idle_timeout"`
+	PermExtendedAvailabilityModeAllowed bool   `json:"perm_extended_availability_mode_allowed"`
+	PermEditExternalKey                 bool   `json:"perm_edit_external_key"`
+	PermCollaborate                     bool   `json:"perm_collaborate"`
+	PermCollaborateControl              bool   `json:"perm_collaborate_control"`
+	PermJumpClient                      bool   `json:"perm_jump_client"`
+	PermLocalJump                       bool   `json:"perm_local_jump"`
+	PermRemoteJump                      bool   `json:"perm_remote_jump"`
+	PermRemoteVnc                       bool   `json:"perm_remote_vnc"`
+	PermRemoteRdp                       bool   `json:"perm_remote_rdp"`
+	PermShellJump                       bool   `json:"perm_shell_jump"`
+	PermWebJump                         bool   `json:"perm_web_jump"`
+	PermProtocolTunnel                  bool   `json:"perm_protocol_tunnel"`
+	DefaultJumpItemRoleId               int    `json:"default_jump_item_role_id"`
+	PrivateJumpItemRoleId               int    `json:"private_jump_item_role_id"`
+	InferiorJumpItemRoleId              int    `json:"inferior_jump_item_role_id"`
+	UnassignedJumpItemRoleId            int    `json:"unassigned_jump_item_role_id"`
+}
+
+func (GroupPolicy) endpoint() string {
+	return "group-policy"
 }

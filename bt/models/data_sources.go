@@ -50,3 +50,29 @@ type SessionPolicyModel struct {
 	CodeName    types.String `tfsdk:"code_name"`
 	Description types.String `tfsdk:"description"`
 }
+
+type GroupPolicyModel struct {
+	ID                                  types.String `tfsdk:"id"`
+	Name                                types.String `tfsdk:"name"`
+	PermAccessAllowed                   types.Bool   `tfsdk:"perm_access_allowed"`
+	AccessPermStatus                    types.String `tfsdk:"access_perm_status"`
+	PermShareOtherTeam                  types.Bool   `tfsdk:"perm_share_other_team"`
+	PermInviteExternalUser              types.Bool   `tfsdk:"perm_invite_external_user"`
+	PermSessionIdleTimeout              types.Int64  `tfsdk:"perm_session_idle_timeout"`
+	PermExtendedAvailabilityModeAllowed types.Bool   `tfsdk:"perm_extended_availability_mode_allowed"`
+	PermEditExternalKey                 types.Bool   `tfsdk:"perm_edit_external_key"`
+	PermCollaborate                     types.Bool   `tfsdk:"perm_collaborate"`
+	PermCollaborateControl              types.Bool   `tfsdk:"perm_collaborate_control"`
+	PermJumpClient                      types.Bool   `tfsdk:"perm_jump_client"`
+	PermLocalJump                       types.Bool   `tfsdk:"perm_local_jump"`
+	PermRemoteJump                      types.Bool   `tfsdk:"perm_remote_jump"`
+	PermRemoteVnc                       types.Bool   `tfsdk:"perm_remote_vnc"`
+	PermRemoteRdp                       types.Bool   `tfsdk:"perm_remote_rdp"`
+	PermShellJump                       types.Bool   `tfsdk:"perm_shell_jump"`
+	PermWebJump                         types.Bool   `tfsdk:"perm_web_jump"`
+	PermProtocolTunnel                  types.Bool   `tfsdk:"perm_protocol_tunnel"`
+	DefaultJumpItemRoleId               types.Int64  `tfsdk:"default_jump_item_role_id"`
+	PrivateJumpItemRoleId               types.Int64  `tfsdk:"private_jump_item_role_id"`
+	InferiorJumpItemRoleId              types.Int64  `tfsdk:"inferior_jump_item_role_id"`
+	UnassignedJumpItemRoleId            types.Int64  `tfsdk:"unassigned_jump_item_role_id"`
+}

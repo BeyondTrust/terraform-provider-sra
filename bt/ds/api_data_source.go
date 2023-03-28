@@ -17,6 +17,7 @@ import (
 func DatasourceList() []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		// Alphabetical by file name
+		newGroupPolicyDataSource,
 		newJumpGroupDataSource,
 		newJumpItemRoleDataSource,
 		newJumpointDataSource,
