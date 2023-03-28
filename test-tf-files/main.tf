@@ -72,3 +72,10 @@ module "sj" {
 output "sj_items" {
   value = module.sj.items
 }
+
+resource "bt_remote_rdp" "rdp" {
+  name = "fun_rdp"
+  jumpoint_id = module.jp.jp[0].id
+  hostname = "10.10.10.10"
+  jump_group_id = module.jg.jg[0].id
+}

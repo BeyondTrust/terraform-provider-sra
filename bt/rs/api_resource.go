@@ -9,8 +9,10 @@ import (
 	"strings"
 	"terraform-provider-beyondtrust-sra/api"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -19,6 +21,7 @@ import (
 // Add new resource factory functions here.
 func ResourceList() []func() resource.Resource {
 	return []func() resource.Resource{
+		newRemoteRDPResource,
 		newShellJumpResource,
 	}
 }
@@ -223,4 +226,11 @@ func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.Delete
 // Generic ImportState implementation that just imports by ID
 func (r *apiResource[TApi, TTf]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Jump Group type validator
+func jumpGroupTypeValidator() []validator.String {
+	return []validator.String{
+		stringvalidator.OneOf([]string{"shared", "personal"}...),
+	}
 }

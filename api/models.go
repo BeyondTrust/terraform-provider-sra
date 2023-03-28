@@ -24,6 +24,37 @@ func (ShellJump) endpoint() string {
 	return "jump-item/shell-jump"
 }
 
+type RemoteRDP struct {
+	ID               *int   `json:"id,omitempty"`
+	Name             string `json:"name"`
+	JumpointId       int    `json:"jumpoint_id"`
+	Hostname         string `json:"hostname"`
+	JumpGroupId      int    `json:"jump_group_id"`
+	JumpGroupType    string `json:"jump_group_type"`
+	Quality          string `json:"quality"`
+	Console          bool   `json:"console"`
+	IgnoreUntrusted  bool   `json:"ignore_untrusted"`
+	Tag              string `json:"tag"`
+	Comments         string `json:"comments"`
+	RdpUsername      string `json:"rdp_username"`
+	Domain           string `json:"domain"`
+	SessionForensics bool   `json:"session_forensics"`
+	SecureAppType    string `json:"secure_app_type"`
+	RemoteAppName    string `json:"remote_app_name"`
+	RemoteAppParams  string `json:"remote_app_params"`
+	RemoteExePath    string `json:"remote_exe_path"`
+	RemoteExeParams  string `json:"remote_exe_params"`
+	TargetSystem     string `json:"target_system"`
+	CredentialType   string `json:"credential_type"`
+	EndpointId       *int   `json:"endpoint_id,omitempty"`
+	JumpPolicyId     *int   `json:"jump_policy_id,omitempty"`
+	SessionPolicyId  *int   `json:"session_policy_id,omitempty"`
+}
+
+func (RemoteRDP) endpoint() string {
+	return "jump-item/remote-rdp"
+}
+
 type JumpGroup struct {
 	ID         *int   `json:"id,omitempty"`
 	Name       string `json:"name"`

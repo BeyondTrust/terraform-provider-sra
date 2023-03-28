@@ -17,7 +17,7 @@ module "jg" {
 
 locals {
   name = "fun_jump"
-  hostname = "10.10.10.125"
+  hostname = "10.10.10.16"
   jumpoint_id = module.jp.jp[0].id
   jump_group_id = module.jg.jg[0].id
 }
@@ -29,8 +29,6 @@ resource "bt_shell_jump" "item" {
     hostname = local.hostname
     jumpoint_id = local.jumpoint_id
     jump_group_id = local.jump_group_id
-    jump_group_type = "shared"
-    protocol = "ssh"
 }
 
 // Output
