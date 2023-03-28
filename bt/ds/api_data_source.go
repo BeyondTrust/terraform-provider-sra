@@ -21,6 +21,8 @@ func DatasourceList() []func() datasource.DataSource {
 		newJumpGroupDataSource,
 		newJumpItemRoleDataSource,
 		newJumpointDataSource,
+		newRemoteRDPDataSource,
+		newRemoteVNCDataSource,
 		newSessionPolicyDataSource,
 		newShellJumpDataSource,
 	}
