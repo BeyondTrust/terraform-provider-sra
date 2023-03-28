@@ -7,11 +7,11 @@ terraform {
 }
 
 module "jp" {
-  source = "../../data_sources/jumpoint"
+  source = "../data_sources/jumpoint"
   code_name = "matt_win"
 }
 module "jg" {
-  source = "../../data_sources/jump_group"
+  source = "../data_sources/jump_group"
   code_name = "group_2"
 }
 
@@ -31,8 +31,18 @@ resource "bt_shell_jump" "item" {
     jump_group_id = local.jump_group_id
 }
 
+resource "bt_remote_rdp" "item" {
+  name = "fun_rdp"
+  jumpoint_id = module.jp.jp[0].id
+  hostname = "10.10.10.10"
+  jump_group_id = module.jg.jg[0].id
+}
+
 // Output
 
-output "item" {
+output "shell_jump" {
   value = resource.bt_shell_jump.item
+}
+output "remote_rdp" {
+  value = resource.bt_remote_rdp.item
 }

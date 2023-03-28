@@ -14,55 +14,23 @@ provider "bt" {
 
 // Data Sources
 
-module "gp" {
-  source = "./data_sources/goup_policy"
-
-  name = "MFA"
+module "sra_ds" {
+  source = "./data_sources"
 }
-output "gp_result" {
-  value = module.gp.gp
-}
-
-module "jg" {
-  source = "./data_sources/jump_group"
-  code_name = "group_2"
-}
-output "jg_result" {
-  value = module.jg.jg
-}
-
-module "jir" {
-  source = "./data_sources/jump_item_role"
-  name = "Start Sessions Only"
-}
-output "jir_result" {
-  value = module.jir.jir
-}
-
-module "jp" {
-  source = "./data_sources/jumpoint"
-  code_name = "matt_win"
-}
-output "jp_result" {
-  value = module.jp.jp
-}
-
-module "sp" {
-  source = "./data_sources/session_policy"
-  code_name = "fun_policy"
-}
-output "sp_result" {
-  value = module.sp.sp
+output "data_source_list" {
+  value = module.sra_ds.ds_out
 }
 
 // Resources
 
-module "shell_jump" {
-  source = "./resources/shell_jump"
+module "ji" {
+  source = "./jump_items"
 }
-
 output "shell_jump_item" {
-  value = module.shell_jump.item
+  value = {
+    ShellJump = module.ji.shell_jump
+    RemoteRDP = module.ji.remote_rdp
+  }
 }
 
 module "sj" {
@@ -73,9 +41,3 @@ output "sj_items" {
   value = module.sj.items
 }
 
-resource "bt_remote_rdp" "rdp" {
-  name = "fun_rdp"
-  jumpoint_id = module.jp.jp[0].id
-  hostname = "10.10.10.10"
-  jump_group_id = module.jg.jg[0].id
-}
