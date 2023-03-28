@@ -48,3 +48,17 @@ type RemoteRDPModel struct {
 	TargetSystem     types.String `tfsdk:"target_system"`
 	CredentialType   types.String `tfsdk:"credential_type"`
 }
+
+type RemoteVNCModel struct {
+	ID              types.String `tfsdk:"id"`
+	Name            types.String `tfsdk:"name"`
+	JumpointID      types.Int64  `tfsdk:"jumpoint_id"`
+	Hostname        types.String `tfsdk:"hostname"`
+	Port            types.Int64  `tfsdk:"port"`
+	JumpGroupID     types.Int64  `tfsdk:"jump_group_id"`
+	JumpGroupType   types.String `tfsdk:"jump_group_type"`
+	Tag             types.String `tfsdk:"tag"`
+	Comments        types.String `tfsdk:"comments"`
+	JumpPolicyID    types.Int64  `tfsdk:"jump_policy_id"`
+	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
+}

@@ -55,6 +55,24 @@ func (RemoteRDP) endpoint() string {
 	return "jump-item/remote-rdp"
 }
 
+type RemoteVNC struct {
+	ID              *int   `json:"id,omitempty"`
+	Name            string `json:"name"`
+	JumpointID      int    `json:"jumpoint_id"`
+	Hostname        string `json:"hostname"`
+	JumpGroupID     int    `json:"jump_group_id"`
+	JumpGroupType   string `json:"jump_group_type"`
+	Port            int    `json:"port"`
+	Tag             string `json:"tag"`
+	Comments        string `json:"comments"`
+	JumpPolicyID    *int   `json:"jump_policy_id,omitempty"`
+	SessionPolicyID *int   `json:"session_policy_id,omitempty"`
+}
+
+func (RemoteVNC) endpoint() string {
+	return "jump-item/remote-vnc"
+}
+
 type JumpGroup struct {
 	ID         *int   `json:"id,omitempty"`
 	Name       string `json:"name"`

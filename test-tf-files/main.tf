@@ -39,6 +39,7 @@ output "shell_jump_item" {
   value = {
     ShellJump = module.ji.shell_jump
     RemoteRDP = module.ji.remote_rdp
+    RemoteVNC = module.ji.remote_vnc
   }
 }
 

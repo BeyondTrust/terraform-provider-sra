@@ -33,9 +33,15 @@ resource "sra_shell_jump" "item" {
 
 resource "sra_remote_rdp" "item" {
   name = "fun_rdp"
-  jumpoint_id = module.jp.jp[0].id
+  jumpoint_id = local.jumpoint_id
   hostname = "10.10.10.10"
-  jump_group_id = module.jg.jg[0].id
+  jump_group_id = local.jump_group_id
+}
+resource "sra_remote_vnc" "item" {
+    name = local.name
+    hostname = local.hostname
+    jumpoint_id = local.jumpoint_id
+    jump_group_id = local.jump_group_id
 }
 
 // Output
@@ -45,4 +51,7 @@ output "shell_jump" {
 }
 output "remote_rdp" {
   value = resource.sra_remote_rdp.item
+}
+output "remote_vnc" {
+  value = resource.sra_remote_vnc.item
 }
