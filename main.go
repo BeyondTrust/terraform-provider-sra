@@ -12,6 +12,6 @@ import (
 
 func main() {
 	providerserver.Serve(context.Background(), bt.New, providerserver.ServeOpts{
-		Address: "registry.terraform.io/beyondtrust/sra",
+		Address: "registry.terraform.io/beyondtrust/beyondtrust-sra",
 	})
 }

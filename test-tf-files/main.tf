@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     sra = {
-        source = "hashicorp.com/edu/beyondtrust-sra"
+        source = "beyondtrust/beyondtrust-sra"
     }
   }
 }
