@@ -1,15 +1,24 @@
 terraform {
   required_providers {
     sra = {
-        source = "beyondtrust/beyondtrust-sra"
+      source = "beyondtrust/beyondtrust-sra"
     }
   }
 }
 
+variable "api_auth" {
+  type = object({
+    host          = string
+    client_id     = string
+    client_secret = string
+  })
+  sensitive = true
+}
+
 provider "sra" {
-    host = "mpam.dev.bomgar.com"
-    client_id = "114635791a8bc6e21d813d5385d100afcb883a2d"
-    client_secret = "wUwZTVwC0Erh3/01TcG41TbWHcntMgdRZHkhqcwNKYQK"
+  host          = var.api_auth.host
+  client_id     = var.api_auth.client_id
+  client_secret = var.api_auth.client_secret
 }
 
 // Data Sources
@@ -35,7 +44,7 @@ output "shell_jump_item" {
 
 module "sj" {
   source = "./data_sources/shell_jump"
-  name = "fun_jump"
+  name   = "fun_jump"
 }
 output "sj_items" {
   value = module.sj.items

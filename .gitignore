@@ -4,6 +4,8 @@ vendor
 
 terraform-provider-beyondtrust-sra
 bin
+dist
+terraform.tfvars*
 
 **/.terraform/*
 
