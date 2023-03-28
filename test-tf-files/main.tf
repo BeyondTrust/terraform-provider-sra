@@ -14,61 +14,61 @@ provider "bt" {
 
 // Data Sources
 
-data "bt_jump_group_list" "jg" {
-  code_name = "group_2"
-}
-output "existing_jg" {
-    value = data.bt_jump_group_list.jg.items[0]
-}
+module "gp" {
+  source = "./data_sources/goup_policy"
 
-data "bt_jump_item_role_list" "jr" {
-  name = "Start Sessions Only"
-}
-output "existing_jir" {
-    value = data.bt_jump_item_role_list.jr.items[0]
-}
-
-data "bt_jumpoint_list" "jp" {
-  code_name = "matt_win"
-}
-output "existing_jp" {
-    value = data.bt_jumpoint_list.jp.items[0]
-}
-
-data "bt_session_policy_list" "sp" {}
-locals {
-  sp_map = { for i, sp in data.bt_session_policy_list.sp.items : sp.code_name => sp }
-}
-output "existing_sp" {
-    value = local.sp_map["fun_policy"]
-}
-
-data "bt_group_policy_list" "gp" {
   name = "MFA"
 }
-output "existing_gp" {
-  value = data.bt_group_policy_list.gp.items[0]
+output "gp_result" {
+  value = module.gp.gp
+}
+
+module "jg" {
+  source = "./data_sources/jump_group"
+  code_name = "group_2"
+}
+output "jg_result" {
+  value = module.jg.jg
+}
+
+module "jir" {
+  source = "./data_sources/jump_item_role"
+  name = "Start Sessions Only"
+}
+output "jir_result" {
+  value = module.jir.jir
+}
+
+module "jp" {
+  source = "./data_sources/jumpoint"
+  code_name = "matt_win"
+}
+output "jp_result" {
+  value = module.jp.jp
+}
+
+module "sp" {
+  source = "./data_sources/session_policy"
+  code_name = "fun_policy"
+}
+output "sp_result" {
+  value = module.sp.sp
 }
 
 // Resources
 
-resource "bt_shell_jump" "fun_jump" {
-    name = "fun_jump"
-    hostname = "10.10.10.125"
-    protocol = "ssh"
-    jumpoint_id = data.bt_jumpoint_list.jp.items[0].id
-    jump_group_id = data.bt_jump_group_list.jg.items[0].id
-    jump_group_type = "shared"
+module "shell_jump" {
+  source = "./resources/shell_jump"
 }
 
-output "shell_jump" {
-  value = resource.bt_shell_jump.fun_jump
+output "shell_jump_item" {
+  value = module.shell_jump.item
 }
 
-data "bt_shell_jump_list" "sj" {
+module "sj" {
+  source = "./data_sources/shell_jump"
   name = "fun_jump"
 }
-
-output "existing_items" {
-    value = data.bt_shell_jump_list.sj.items
+output "sj_items" {
+  value = module.sj.items
 }
