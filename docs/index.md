@@ -13,7 +13,7 @@ Interact with the configuration API of your BeyondTrust SRA Appliance
 ## Example Usage
 
 ```terraform
-provider "bt" {
+provider "sra" {
   host          = "example.beyondtrust.com"
   client_id     = "api account client id"
   client_secret = "api account client secret"

@@ -34,7 +34,7 @@ type sraProviderModel struct {
 }
 
 func (p *sraProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "bt"
+	resp.TypeName = "sra"
 }
 
 func (p *sraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {

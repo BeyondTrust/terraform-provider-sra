@@ -1,6 +1,6 @@
 terraform {
   required_providers {
-    bt = {
+    sra = {
         source = "hashicorp.com/edu/beyondtrust-sra"
     }
   }
@@ -24,14 +24,14 @@ locals {
 
 // Configuration
 
-resource "bt_shell_jump" "item" {
+resource "sra_shell_jump" "item" {
     name = local.name
     hostname = local.hostname
     jumpoint_id = local.jumpoint_id
     jump_group_id = local.jump_group_id
 }
 
-resource "bt_remote_rdp" "item" {
+resource "sra_remote_rdp" "item" {
   name = "fun_rdp"
   jumpoint_id = module.jp.jp[0].id
   hostname = "10.10.10.10"
@@ -41,8 +41,8 @@ resource "bt_remote_rdp" "item" {
 // Output
 
 output "shell_jump" {
-  value = resource.bt_shell_jump.item
+  value = resource.sra_shell_jump.item
 }
 output "remote_rdp" {
-  value = resource.bt_remote_rdp.item
+  value = resource.sra_remote_rdp.item
 }

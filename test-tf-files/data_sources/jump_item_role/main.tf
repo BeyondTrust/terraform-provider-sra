@@ -1,6 +1,6 @@
 terraform {
   required_providers {
-    bt = {
+    sra = {
         source = "hashicorp.com/edu/beyondtrust-sra"
     }
   }
@@ -15,12 +15,12 @@ variable "name" {
 
 // Configuration
 
-data "bt_jump_item_role_list" "jr" {
+data "sra_jump_item_role_list" "jr" {
   name = var.name
 }
 
 // Output
 
 output "jir" {
-  value = data.bt_jump_item_role_list.jr.items
+  value = data.sra_jump_item_role_list.jr.items
 }

@@ -1,12 +1,12 @@
 terraform {
   required_providers {
-    bt = {
+    sra = {
         source = "hashicorp.com/edu/beyondtrust-sra"
     }
   }
 }
 
-provider "bt" {
+provider "sra" {
     host = "mpam.dev.bomgar.com"
     client_id = "114635791a8bc6e21d813d5385d100afcb883a2d"
     client_secret = "wUwZTVwC0Erh3/01TcG41TbWHcntMgdRZHkhqcwNKYQK"

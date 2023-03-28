@@ -1,6 +1,6 @@
 terraform {
   required_providers {
-    bt = {
+    sra = {
         source = "hashicorp.com/edu/beyondtrust-sra"
     }
   }
@@ -15,12 +15,12 @@ variable "name" {
 
 // Configuration
 
-data "bt_group_policy_list" "gp" {
+data "sra_group_policy_list" "gp" {
   name = var.name
 }
 
 // Output
 
 output "gp" {
-  value = data.bt_group_policy_list.gp.items
+  value = data.sra_group_policy_list.gp.items
 }

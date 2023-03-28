@@ -8,8 +8,8 @@ import (
 )
 
 const (
-    providerConfig = `
-provider "bt" {
+	providerConfig = `
+provider "sra" {
 	host = "mpam.dev.bomgar.com"
 	client_id = "114635791a8bc6e21d813d5385d100afcb883a2d"
 	client_secret = "wUwZTVwC0Erh3/01TcG41TbWHcntMgdRZHkhqcwNKYQK"
@@ -18,7 +18,7 @@ provider "bt" {
 )
 
 var (
-    testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-        "bt": providerserver.NewProtocol6WithError(bt.New()),
-    }
+	testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+		"sra": providerserver.NewProtocol6WithError(bt.New()),
+	}
 )

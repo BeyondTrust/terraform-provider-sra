@@ -40,7 +40,7 @@ func newShellJumpResource() resource.Resource {
 // for this resource that is used in the *.tf files. The
 // public name will be converted like:
 //
-//	ResourceName -> bt_resource_name
+//	ResourceName -> sra_resource_name
 type shellJumpResource struct {
 	// Compose with the main apiResource struct to get all the boilerplate
 	// implementations. Types are: this resource, api model, terraform model

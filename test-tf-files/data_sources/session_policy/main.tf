@@ -1,6 +1,6 @@
 terraform {
   required_providers {
-    bt = {
+    sra = {
         source = "hashicorp.com/edu/beyondtrust-sra"
     }
   }
@@ -15,16 +15,16 @@ variable "code_name" {
 
 // Configuration
 
-data "bt_session_policy_list" "sp" {}
+data "sra_session_policy_list" "sp" {}
 locals {
-  sp_map = { for i, sp in data.bt_session_policy_list.sp.items : sp.code_name => sp }
+  sp_map = { for i, sp in data.sra_session_policy_list.sp.items : sp.code_name => sp }
 }
 
 // Output
 
 output "sp" {
-    value = var.code_name != "" ? local.sp_map[var.code_name] : data.bt_session_policy_list.sp.items[0]
+    value = var.code_name != "" ? local.sp_map[var.code_name] : data.sra_session_policy_list.sp.items[0]
 }
 output "sp_list" {
-    value = data.bt_session_policy_list.sp.items
+    value = data.sra_session_policy_list.sp.items
 }

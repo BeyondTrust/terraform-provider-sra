@@ -1,5 +1,5 @@
 # Manage example Shell Jump Item
-resource "bt_remote_rdp" "example" {
+resource "sra_remote_rdp" "example" {
     name = "Example RDP Jump"
     hostname = "example.host"
     jumpoint_id = 1

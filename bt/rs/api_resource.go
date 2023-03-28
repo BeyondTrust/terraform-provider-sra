@@ -45,7 +45,7 @@ func (r *apiResource[TApi, TTf]) Configure(ctx context.Context, req resource.Con
 
 // Generic Metadata implementation. It reads the type name of the resource type provided and derives the public facing resource
 // name from that. It does this by dropping "Resource" from the type name and converting the rest to snake_case, which is
-// prefixed with "bt_". For example, shellJumpResource is publicly exposed as bt_shell_jump
+// prefixed with "sra_". For example, shellJumpResource is publicly exposed as sra_shell_jump
 func (r *apiResource[TApi, TTf]) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	var tmp TApi
 	name := reflect.TypeOf(tmp).String()
