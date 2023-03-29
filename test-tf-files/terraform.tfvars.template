@@ -1,0 +1,6 @@
+# Copy this file to terraform.tfvars and fill in the proper information to use the test files in this directory
+api_auth = {
+    "host": "<your host>"
+    "client_id": "<your client_id>"
+    "client_secret": "<your client_secret>"
+}

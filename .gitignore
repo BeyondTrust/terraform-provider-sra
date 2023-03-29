@@ -5,7 +5,8 @@ vendor
 terraform-provider-beyondtrust-sra
 bin
 dist
-terraform.tfvars*
+terraform.tfvars
+terraform.tfvars.json
 
 **/.terraform/*
 
