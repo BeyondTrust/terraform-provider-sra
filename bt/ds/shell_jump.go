@@ -13,6 +13,7 @@ import (
 var (
 	_ datasource.DataSource              = &shellJumpDataSource{}
 	_ datasource.DataSourceWithConfigure = &shellJumpDataSource{}
+	_                                    = &shellJumpDataSourceModel{}
 )
 
 func newShellJumpDataSource() datasource.DataSource {
@@ -93,27 +94,27 @@ func (d *shellJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 			},
 			"name": schema.StringAttribute{
 				Description: "Filter the list for items matching \"name\"",
-				Optional: true,
+				Optional:    true,
 			},
 			"jumpoint_id": schema.Int64Attribute{
 				Description: "Filter the list for items with a matching \"jumpoint_id\"",
-				Optional: true,
+				Optional:    true,
 			},
 			"hostname": schema.StringAttribute{
 				Description: "Filter the list for items with a matching \"hostname\"",
-				Optional: true,
+				Optional:    true,
 			},
 			"jump_group_id": schema.Int64Attribute{
 				Description: "Filter the list for items with a matching \"jump_group_id\"",
-				Optional: true,
+				Optional:    true,
 			},
 			"jump_group_type": schema.StringAttribute{
 				Description: "Filter the list for items with a matching \"jump_group_type\"",
-				Optional: true,
+				Optional:    true,
 			},
 			"tag": schema.StringAttribute{
 				Description: "Filter the list for items with a matching \"tag\"",
-				Optional: true,
+				Optional:    true,
 			},
 		},
 	}

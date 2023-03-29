@@ -11,32 +11,32 @@ import (
 )
 
 var (
-	_ datasource.DataSource              = &remoteVNCDataSource{}
-	_ datasource.DataSourceWithConfigure = &remoteVNCDataSource{}
-	_                                    = &remoteVNCDataSourceModel{}
+	_ datasource.DataSource              = &protocolTunnelDataSource{}
+	_ datasource.DataSourceWithConfigure = &protocolTunnelDataSource{}
+	_                                    = &protocolTunnelDataSourceModel{}
 )
 
-func newRemoteVNCDataSource() datasource.DataSource {
-	return &remoteVNCDataSource{}
+func newProtocolTunnelDataSource() datasource.DataSource {
+	return &protocolTunnelDataSource{}
 }
 
-type remoteVNCDataSource struct {
-	apiDataSource[remoteVNCDataSourceModel, api.RemoteVNC, models.RemoteVNCModel]
+type protocolTunnelDataSource struct {
+	apiDataSource[protocolTunnelDataSourceModel, api.ProtocolTunnel, models.ProtocolTunnelModel]
 }
 
-type remoteVNCDataSourceModel struct {
-	Items         []models.RemoteVNCModel `tfsdk:"items"`
-	Name          types.String            `tfsdk:"name" filter:"name"`
-	JumpointID    types.Int64             `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
-	Hostname      types.String            `tfsdk:"hostname" filter:"hostname"`
-	JumpGroupID   types.Int64             `tfsdk:"jump_group_id" filter:"jump_group_id"`
-	JumpGroupType types.String            `tfsdk:"jump_group_type" filter:"jump_group_type"`
-	Tag           types.String            `tfsdk:"tag" filter:"tag"`
+type protocolTunnelDataSourceModel struct {
+	Items         []models.ProtocolTunnelModel `tfsdk:"items"`
+	Name          types.String                 `tfsdk:"name" filter:"name"`
+	JumpointID    types.Int64                  `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
+	Hostname      types.String                 `tfsdk:"hostname" filter:"hostname"`
+	JumpGroupID   types.Int64                  `tfsdk:"jump_group_id" filter:"jump_group_id"`
+	JumpGroupType types.String                 `tfsdk:"jump_group_type" filter:"jump_group_type"`
+	Tag           types.String                 `tfsdk:"tag" filter:"tag"`
 }
 
-func (d *remoteVNCDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *protocolTunnelDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Fetch a list of Remote VNC Jump Items.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
+		Description: "Fetch a list of Protocol Tunnel Jump Items.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,
@@ -58,24 +58,48 @@ func (d *remoteVNCDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 						},
 						"port": schema.Int64Attribute{
 							Optional: true,
+							Computed: true,
 						},
 						"jump_group_id": schema.Int64Attribute{
 							Required: true,
 						},
 						"jump_group_type": schema.StringAttribute{
-							Required: true,
+							Optional: true,
+							Computed: true,
 						},
 						"tag": schema.StringAttribute{
 							Optional: true,
+							Computed: true,
 						},
 						"comments": schema.StringAttribute{
 							Optional: true,
+							Computed: true,
 						},
 						"jump_policy_id": schema.Int64Attribute{
 							Optional: true,
 						},
 						"session_policy_id": schema.Int64Attribute{
 							Optional: true,
+						},
+						"tunnel_listen_address": schema.StringAttribute{
+							Optional: true,
+							Computed: true,
+						},
+						"tunnel_definitions": schema.StringAttribute{
+							Optional: true,
+							Computed: true,
+						},
+						"tunnel_type": schema.StringAttribute{
+							Optional: true,
+							Computed: true,
+						},
+						"username": schema.StringAttribute{
+							Optional: true,
+							Computed: true,
+						},
+						"database": schema.StringAttribute{
+							Optional: true,
+							Computed: true,
 						},
 					},
 				},

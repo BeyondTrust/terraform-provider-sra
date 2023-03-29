@@ -13,6 +13,7 @@ import (
 var (
 	_ datasource.DataSource              = &groupPolicyDataSource{}
 	_ datasource.DataSourceWithConfigure = &groupPolicyDataSource{}
+	_                                    = &groupPolicyDataSourceModel{}
 )
 
 func newGroupPolicyDataSource() datasource.DataSource {

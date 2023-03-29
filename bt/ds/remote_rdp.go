@@ -13,6 +13,7 @@ import (
 var (
 	_ datasource.DataSource              = &remoteRDPDataSource{}
 	_ datasource.DataSourceWithConfigure = &remoteRDPDataSource{}
+	_                                    = &remoteRDPDataSourceModel{}
 )
 
 func newRemoteRDPDataSource() datasource.DataSource {

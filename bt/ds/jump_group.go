@@ -13,6 +13,7 @@ import (
 var (
 	_ datasource.DataSource              = &jumpGroupDataSource{}
 	_ datasource.DataSourceWithConfigure = &jumpGroupDataSource{}
+	_                                    = &jumpGroupDataSourceModel{}
 )
 
 func newJumpGroupDataSource() datasource.DataSource {

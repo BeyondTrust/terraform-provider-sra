@@ -21,6 +21,7 @@ func DatasourceList() []func() datasource.DataSource {
 		newJumpGroupDataSource,
 		newJumpItemRoleDataSource,
 		newJumpointDataSource,
+		newProtocolTunnelDataSource,
 		newRemoteRDPDataSource,
 		newRemoteVNCDataSource,
 		newSessionPolicyDataSource,
@@ -79,9 +80,9 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 	}
 }
 
-func (d *apiDataSource[TDataSource, TApi, TTf]) doRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) []TTf {
-	return d.doFilteredRead(ctx, req, resp, nil)
-}
+// func (d *apiDataSource[TDataSource, TApi, TTf]) doRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) []TTf {
+// 	return d.doFilteredRead(ctx, req, resp, nil)
+// }
 
 func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
 	items, err := api.ListItems[TApi](d.apiClient, requestFilter)

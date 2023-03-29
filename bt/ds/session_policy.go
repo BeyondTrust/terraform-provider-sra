@@ -12,6 +12,7 @@ import (
 var (
 	_ datasource.DataSource              = &sessionPolicyDataSource{}
 	_ datasource.DataSourceWithConfigure = &sessionPolicyDataSource{}
+	_                                    = &sessionPolicyDataSourceModel{}
 )
 
 func newSessionPolicyDataSource() datasource.DataSource {

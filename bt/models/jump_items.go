@@ -63,11 +63,29 @@ type RemoteVNCModel struct {
 	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
 }
 
+type ProtocolTunnelModel struct {
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	JumpointID          types.Int64  `tfsdk:"jumpoint_id"`
+	Hostname            types.String `tfsdk:"hostname"`
+	JumpGroupID         types.Int64  `tfsdk:"jump_group_id"`
+	JumpGroupType       types.String `tfsdk:"jump_group_type"`
+	Tag                 types.String `tfsdk:"tag"`
+	Comments            types.String `tfsdk:"comments"`
+	JumpPolicyID        types.Int64  `tfsdk:"jump_policy_id"`
+	SessionPolicyID     types.Int64  `tfsdk:"session_policy_id"`
+	TunnelListenAddress types.String `tfsdk:"tunnel_listen_address"`
+	TunnelDefinitions   types.String `tfsdk:"tunnel_definitions"`
+	TunnelType          types.String `tfsdk:"tunnel_type"`
+	Username            types.String `tfsdk:"username"`
+	Database            types.String `tfsdk:"database"`
+}
+
 type WebJumpModel struct {
 	ID                    types.String `tfsdk:"id"`
 	Name                  types.String `tfsdk:"name"`
 	JumpointID            types.Int64  `tfsdk:"jumpoint_id"`
-	Url                   types.String `tfsdk:"url"`
+	URL                   types.String `tfsdk:"url"`
 	UsernameFormat        types.String `tfsdk:"username_format"`
 	VerifyCertificate     types.Bool   `tfsdk:"verify_certificate"`
 	JumpGroupID           types.Int64  `tfsdk:"jump_group_id"`

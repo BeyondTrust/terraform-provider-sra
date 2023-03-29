@@ -13,6 +13,7 @@ import (
 var (
 	_ datasource.DataSource              = &jumpointDataSource{}
 	_ datasource.DataSourceWithConfigure = &jumpointDataSource{}
+	_                                    = &jumpointDataSourceModel{}
 )
 
 func newJumpointDataSource() datasource.DataSource {

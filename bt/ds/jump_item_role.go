@@ -13,6 +13,7 @@ import (
 var (
 	_ datasource.DataSource              = &jumpItemRoleDataSource{}
 	_ datasource.DataSourceWithConfigure = &jumpItemRoleDataSource{}
+	_                                    = &jumpItemRoleDataSourceModel{}
 )
 
 func newJumpItemRoleDataSource() datasource.DataSource {
@@ -85,7 +86,7 @@ func (d *jumpItemRoleDataSource) Schema(ctx context.Context, _ datasource.Schema
 			},
 			"name": schema.StringAttribute{
 				Description: "Filter the list for roles matching \"name\"",
-				Optional: true,
+				Optional:    true,
 			},
 		},
 	}

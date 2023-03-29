@@ -13,6 +13,7 @@ import (
 var (
 	_ datasource.DataSource              = &webJumpDataSource{}
 	_ datasource.DataSourceWithConfigure = &webJumpDataSource{}
+	_                                    = &webJumpDataSourceModel{}
 )
 
 func newWebJumpDataSource() datasource.DataSource {
@@ -27,7 +28,7 @@ type webJumpDataSourceModel struct {
 	Items         []models.WebJumpModel `tfsdk:"items"`
 	Name          types.String          `tfsdk:"name" filter:"name"`
 	JumpointID    types.Int64           `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
-	Hostname      types.String          `tfsdk:"hostname" filter:"hostname"`
+	URL           types.String          `tfsdk:"url" filter:"url"`
 	JumpGroupID   types.Int64           `tfsdk:"jump_group_id" filter:"jump_group_id"`
 	JumpGroupType types.String          `tfsdk:"jump_group_type" filter:"jump_group_type"`
 	Tag           types.String          `tfsdk:"tag" filter:"tag"`

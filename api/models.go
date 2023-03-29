@@ -73,11 +73,33 @@ func (RemoteVNC) endpoint() string {
 	return "jump-item/remote-vnc"
 }
 
+type ProtocolTunnel struct {
+	ID                  *int   `json:"id,omitempty"`
+	Name                string `json:"name"`
+	JumpointID          int    `json:"jumpoint_id"`
+	Hostname            string `json:"hostname"`
+	JumpGroupID         int    `json:"jump_group_id"`
+	JumpGroupType       string `json:"jump_group_type"`
+	Tag                 string `json:"tag"`
+	Comments            string `json:"comments"`
+	JumpPolicyID        *int   `json:"jump_policy_id,omitempty"`
+	SessionPolicyID     *int   `json:"session_policy_id,omitempty"`
+	TunnelListenAddress string `json:"tunnel_listen_address"`
+	TunnelDefinitions   string `json:"tunnel_definitions"`
+	TunnelType          string `json:"tunnel_type"`
+	Username            string `json:"username"`
+	Database            string `json:"database"`
+}
+
+func (ProtocolTunnel) endpoint() string {
+	return "jump-item/protocol-tunnel-jump"
+}
+
 type WebJump struct {
-	ID                    *int   `json:"id"`
+	ID                    *int   `json:"id,omitempty"`
 	Name                  string `json:"name"`
 	JumpointID            int64  `json:"jumpoint_id"`
-	Url                   string `json:"url"`
+	URL                   string `json:"url"`
 	UsernameFormat        string `json:"username_format"`
 	VerifyCertificate     bool   `json:"verify_certificate"`
 	JumpGroupID           int64  `json:"jump_group_id"`
@@ -88,8 +110,8 @@ type WebJump struct {
 	UsernameField         string `json:"username_field"`
 	PasswordField         string `json:"password_field"`
 	SubmitField           string `json:"submit_field"`
-	JumpPolicyID          *int   `json:"jump_policy_id"`
-	SessionPolicyID       *int   `json:"session_policy_id"`
+	JumpPolicyID          *int   `json:"jump_policy_id,omitempty"`
+	SessionPolicyID       *int   `json:"session_policy_id,omitempty"`
 }
 
 func (WebJump) endpoint() string {
