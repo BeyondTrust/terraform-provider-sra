@@ -25,4 +25,4 @@ tfshow: install
 	cd ./test-tf-files && terraform show
 
 strelease:
-	goreleaser build --single-target
+	goreleaser build --single-target --snapshot --clean
