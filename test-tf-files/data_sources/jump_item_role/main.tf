@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     sra = {
-        source = "beyondtrust/beyondtrust-sra"
+      source = "beyondtrust/beyondtrust-sra"
     }
   }
 }
@@ -9,7 +9,7 @@ terraform {
 // Variables
 
 variable "name" {
-  type = string
+  type    = string
   default = ""
 }
 

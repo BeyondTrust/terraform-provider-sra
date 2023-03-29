@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     sra = {
-        source = "beyondtrust/beyondtrust-sra"
+      source = "beyondtrust/beyondtrust-sra"
     }
   }
 }
@@ -9,7 +9,7 @@ terraform {
 // Variables
 
 variable "code_name" {
-  type = string
+  type    = string
   default = ""
 }
 
@@ -22,6 +22,6 @@ data "sra_jump_group_list" "jg" {
 // Output
 
 output "jg" {
-    value = data.sra_jump_group_list.jg.items
+  value = data.sra_jump_group_list.jg.items
 }
 

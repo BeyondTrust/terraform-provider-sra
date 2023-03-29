@@ -35,19 +35,21 @@ output "data_source_list" {
 module "ji" {
   source = "./jump_items"
 }
-output "shell_jump_item" {
-  value = {
-    ShellJump = module.ji.shell_jump
-    RemoteRDP = module.ji.remote_rdp
-    RemoteVNC = module.ji.remote_vnc
-  }
+output "jump_items" {
+  value = module.ji.items
 }
 
-module "sj" {
-  source = "./data_sources/shell_jump"
-  name   = "fun_jump"
+module "other" {
+  source = "./other_resources"
+}
+output "resources" {
+  value = module.other.resources
+}
+
+data "sra_shell_jump_list" "sj" {
+  name = "fun_jump"
 }
 output "sj_items" {
-  value = module.sj.items
+  value = data.sra_shell_jump_list.sj.items
 }
 

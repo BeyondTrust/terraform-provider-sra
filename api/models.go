@@ -98,13 +98,13 @@ func (ProtocolTunnelJump) endpoint() string {
 type WebJump struct {
 	ID                    *int   `json:"id,omitempty"`
 	Name                  string `json:"name"`
-	JumpointID            int64  `json:"jumpoint_id"`
+	JumpointID            int    `json:"jumpoint_id"`
 	URL                   string `json:"url"`
 	UsernameFormat        string `json:"username_format"`
 	VerifyCertificate     bool   `json:"verify_certificate"`
-	JumpGroupID           int64  `json:"jump_group_id"`
+	JumpGroupID           int    `json:"jump_group_id"`
 	JumpGroupType         string `json:"jump_group_type"`
-	AuthenticationTimeout int64  `json:"authentication_timeout"`
+	AuthenticationTimeout int    `json:"authentication_timeout"`
 	Tag                   string `json:"tag"`
 	Comments              string `json:"comments"`
 	UsernameField         string `json:"username_field"`

@@ -7,5 +7,5 @@ locals {
 }
 
 output "specific_session_policy" {
-    value = local.sp_map["example_code_name"]
+  value = local.sp_map["example_code_name"]
 }

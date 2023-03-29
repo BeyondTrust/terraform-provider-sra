@@ -8,7 +8,6 @@ terraform {
 
 module "gp" {
   source = "./goup_policy"
-
   name = "MFA"
 }
 module "jg" {
@@ -28,6 +27,10 @@ module "sp" {
   code_name = "fun_policy"
 }
 
+module "ji" {
+  source = "./jump_items"
+}
+
 output "ds_out" {
     value = {
         GpResult = module.gp.gp
@@ -35,5 +38,6 @@ output "ds_out" {
         JirResult = module.jir.jir
         JpResult = module.jp.jp
         SpResult = module.sp.sp
+        JumpItems = module.ji.all
     }
 }
