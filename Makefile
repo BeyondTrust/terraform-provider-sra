@@ -23,3 +23,6 @@ tfplan: install
 
 tfshow: install
 	cd ./test-tf-files && terraform show
+
+strelease:
+	goreleaser build --single-target
