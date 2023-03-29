@@ -24,6 +24,7 @@ func ResourceList() []func() resource.Resource {
 		newRemoteRDPResource,
 		newRemoteVNCResource,
 		newShellJumpResource,
+		newWebJumpResource,
 	}
 }
 

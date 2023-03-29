@@ -27,9 +27,9 @@ func (ShellJump) endpoint() string {
 type RemoteRDP struct {
 	ID               *int   `json:"id,omitempty"`
 	Name             string `json:"name"`
-	JumpointId       int    `json:"jumpoint_id"`
+	JumpointID       int    `json:"jumpoint_id"`
 	Hostname         string `json:"hostname"`
-	JumpGroupId      int    `json:"jump_group_id"`
+	JumpGroupID      int    `json:"jump_group_id"`
 	JumpGroupType    string `json:"jump_group_type"`
 	Quality          string `json:"quality"`
 	Console          bool   `json:"console"`
@@ -46,9 +46,9 @@ type RemoteRDP struct {
 	RemoteExeParams  string `json:"remote_exe_params"`
 	TargetSystem     string `json:"target_system"`
 	CredentialType   string `json:"credential_type"`
-	EndpointId       *int   `json:"endpoint_id,omitempty"`
-	JumpPolicyId     *int   `json:"jump_policy_id,omitempty"`
-	SessionPolicyId  *int   `json:"session_policy_id,omitempty"`
+	EndpointID       *int   `json:"endpoint_id,omitempty"`
+	JumpPolicyID     *int   `json:"jump_policy_id,omitempty"`
+	SessionPolicyID  *int   `json:"session_policy_id,omitempty"`
 }
 
 func (RemoteRDP) endpoint() string {
@@ -73,12 +73,35 @@ func (RemoteVNC) endpoint() string {
 	return "jump-item/remote-vnc"
 }
 
+type WebJump struct {
+	ID                    *int   `json:"id"`
+	Name                  string `json:"name"`
+	JumpointID            int64  `json:"jumpoint_id"`
+	Url                   string `json:"url"`
+	UsernameFormat        string `json:"username_format"`
+	VerifyCertificate     bool   `json:"verify_certificate"`
+	JumpGroupID           int64  `json:"jump_group_id"`
+	JumpGroupType         string `json:"jump_group_type"`
+	AuthenticationTimeout int64  `json:"authentication_timeout"`
+	Tag                   string `json:"tag"`
+	Comments              string `json:"comments"`
+	UsernameField         string `json:"username_field"`
+	PasswordField         string `json:"password_field"`
+	SubmitField           string `json:"submit_field"`
+	JumpPolicyID          *int   `json:"jump_policy_id"`
+	SessionPolicyID       *int   `json:"session_policy_id"`
+}
+
+func (WebJump) endpoint() string {
+	return "jump-item/web-jump"
+}
+
 type JumpGroup struct {
 	ID         *int   `json:"id,omitempty"`
 	Name       string `json:"name"`
 	CodeName   string `json:"code_name"`
 	Comments   string `json:"comments"`
-	EcmGroupId *int   `json:"ecm_group_id,omitempty"`
+	EcmGroupID *int   `json:"ecm_group_id,omitempty"`
 }
 
 func (JumpGroup) endpoint() string {
@@ -95,9 +118,9 @@ type Jumpoint struct {
 	Connected                 bool    `json:"connected"`
 	Clustered                 bool    `json:"clustered"`
 	ShellJumpEnabled          bool    `json:"shell_jump_enabled"`
-	ExternalJumpItemNetworkId *string `json:"external_jump_item_network_id,omitempty"`
+	ExternalJumpItemNetworkID *string `json:"external_jump_item_network_id,omitempty"`
 	ProtocolTunnelEnabled     bool    `json:"protocol_tunnel_enabled"`
-	RdpServiceAccountId       *int    `json:"rdp_service_account_id"`
+	RdpServiceAccountID       *int    `json:"rdp_service_account_id"`
 }
 
 func (Jumpoint) endpoint() string {
@@ -156,10 +179,10 @@ type GroupPolicy struct {
 	PermShellJump                       bool   `json:"perm_shell_jump"`
 	PermWebJump                         bool   `json:"perm_web_jump"`
 	PermProtocolTunnel                  bool   `json:"perm_protocol_tunnel"`
-	DefaultJumpItemRoleId               int    `json:"default_jump_item_role_id"`
-	PrivateJumpItemRoleId               int    `json:"private_jump_item_role_id"`
-	InferiorJumpItemRoleId              int    `json:"inferior_jump_item_role_id"`
-	UnassignedJumpItemRoleId            int    `json:"unassigned_jump_item_role_id"`
+	DefaultJumpItemRoleID               int    `json:"default_jump_item_role_id"`
+	PrivateJumpItemRoleID               int    `json:"private_jump_item_role_id"`
+	InferiorJumpItemRoleID              int    `json:"inferior_jump_item_role_id"`
+	UnassignedJumpItemRoleID            int    `json:"unassigned_jump_item_role_id"`
 }
 
 func (GroupPolicy) endpoint() string {

@@ -1,10 +1,13 @@
-default: install
+default: install generate
 
 generate:
 	go generate ./...
 
-install:
+install: tidy
 	go install .
+
+tidy:
+	go mod tidy
 
 test:
 	go test -count=1 -parallel=4 ./tests

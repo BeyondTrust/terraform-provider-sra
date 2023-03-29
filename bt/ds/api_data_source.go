@@ -25,6 +25,7 @@ func DatasourceList() []func() datasource.DataSource {
 		newRemoteVNCDataSource,
 		newSessionPolicyDataSource,
 		newShellJumpDataSource,
+		newWebJumpDataSource,
 	}
 }
 

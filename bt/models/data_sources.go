@@ -9,7 +9,7 @@ type JumpGroupModel struct {
 	Name       types.String `tfsdk:"name"`
 	CodeName   types.String `tfsdk:"code_name"`
 	Comments   types.String `tfsdk:"comments"`
-	EcmGroupId types.Int64  `tfsdk:"ecm_group_id"`
+	EcmGroupID types.Int64  `tfsdk:"ecm_group_id"`
 }
 
 type JumpointModel struct {
@@ -22,9 +22,9 @@ type JumpointModel struct {
 	Connected                 types.Bool   `tfsdk:"connected"`
 	Clustered                 types.Bool   `tfsdk:"clustered"`
 	ShellJumpEnabled          types.Bool   `tfsdk:"shell_jump_enabled"`
-	ExternalJumpItemNetworkId types.String `tfsdk:"external_jump_item_network_id"`
+	ExternalJumpItemNetworkID types.String `tfsdk:"external_jump_item_network_id"`
 	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled"`
-	RdpServiceAccountId       types.Int64  `tfsdk:"rdp_service_account_id"`
+	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id"`
 }
 
 type JumpItemRoleModel struct {
@@ -71,8 +71,8 @@ type GroupPolicyModel struct {
 	PermShellJump                       types.Bool   `tfsdk:"perm_shell_jump"`
 	PermWebJump                         types.Bool   `tfsdk:"perm_web_jump"`
 	PermProtocolTunnel                  types.Bool   `tfsdk:"perm_protocol_tunnel"`
-	DefaultJumpItemRoleId               types.Int64  `tfsdk:"default_jump_item_role_id"`
-	PrivateJumpItemRoleId               types.Int64  `tfsdk:"private_jump_item_role_id"`
-	InferiorJumpItemRoleId              types.Int64  `tfsdk:"inferior_jump_item_role_id"`
-	UnassignedJumpItemRoleId            types.Int64  `tfsdk:"unassigned_jump_item_role_id"`
+	DefaultJumpItemRoleID               types.Int64  `tfsdk:"default_jump_item_role_id"`
+	PrivateJumpItemRoleID               types.Int64  `tfsdk:"private_jump_item_role_id"`
+	InferiorJumpItemRoleID              types.Int64  `tfsdk:"inferior_jump_item_role_id"`
+	UnassignedJumpItemRoleID            types.Int64  `tfsdk:"unassigned_jump_item_role_id"`
 }
