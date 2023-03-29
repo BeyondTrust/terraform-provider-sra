@@ -73,7 +73,7 @@ func (RemoteVNC) endpoint() string {
 	return "jump-item/remote-vnc"
 }
 
-type ProtocolTunnel struct {
+type ProtocolTunnelJump struct {
 	ID                  *int   `json:"id,omitempty"`
 	Name                string `json:"name"`
 	JumpointID          int    `json:"jumpoint_id"`
@@ -91,7 +91,7 @@ type ProtocolTunnel struct {
 	Database            string `json:"database"`
 }
 
-func (ProtocolTunnel) endpoint() string {
+func (ProtocolTunnelJump) endpoint() string {
 	return "jump-item/protocol-tunnel-jump"
 }
 

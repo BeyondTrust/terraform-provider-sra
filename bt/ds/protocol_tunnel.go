@@ -11,30 +11,30 @@ import (
 )
 
 var (
-	_ datasource.DataSource              = &protocolTunnelDataSource{}
-	_ datasource.DataSourceWithConfigure = &protocolTunnelDataSource{}
-	_                                    = &protocolTunnelDataSourceModel{}
+	_ datasource.DataSource              = &protocolTunnelJumpDataSource{}
+	_ datasource.DataSourceWithConfigure = &protocolTunnelJumpDataSource{}
+	_                                    = &protocolTunnelJumpDataSourceModel{}
 )
 
-func newProtocolTunnelDataSource() datasource.DataSource {
-	return &protocolTunnelDataSource{}
+func newProtocolTunnelJumpDataSource() datasource.DataSource {
+	return &protocolTunnelJumpDataSource{}
 }
 
-type protocolTunnelDataSource struct {
-	apiDataSource[protocolTunnelDataSourceModel, api.ProtocolTunnel, models.ProtocolTunnelModel]
+type protocolTunnelJumpDataSource struct {
+	apiDataSource[protocolTunnelJumpDataSourceModel, api.ProtocolTunnelJump, models.ProtocolTunnelJumpModel]
 }
 
-type protocolTunnelDataSourceModel struct {
-	Items         []models.ProtocolTunnelModel `tfsdk:"items"`
-	Name          types.String                 `tfsdk:"name" filter:"name"`
-	JumpointID    types.Int64                  `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
-	Hostname      types.String                 `tfsdk:"hostname" filter:"hostname"`
-	JumpGroupID   types.Int64                  `tfsdk:"jump_group_id" filter:"jump_group_id"`
-	JumpGroupType types.String                 `tfsdk:"jump_group_type" filter:"jump_group_type"`
-	Tag           types.String                 `tfsdk:"tag" filter:"tag"`
+type protocolTunnelJumpDataSourceModel struct {
+	Items         []models.ProtocolTunnelJumpModel `tfsdk:"items"`
+	Name          types.String                     `tfsdk:"name" filter:"name"`
+	JumpointID    types.Int64                      `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
+	Hostname      types.String                     `tfsdk:"hostname" filter:"hostname"`
+	JumpGroupID   types.Int64                      `tfsdk:"jump_group_id" filter:"jump_group_id"`
+	JumpGroupType types.String                     `tfsdk:"jump_group_type" filter:"jump_group_type"`
+	Tag           types.String                     `tfsdk:"tag" filter:"tag"`
 }
 
-func (d *protocolTunnelDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *protocolTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Fetch a list of Protocol Tunnel Jump Items.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
@@ -55,10 +55,6 @@ func (d *protocolTunnelDataSource) Schema(ctx context.Context, _ datasource.Sche
 						},
 						"hostname": schema.StringAttribute{
 							Required: true,
-						},
-						"port": schema.Int64Attribute{
-							Optional: true,
-							Computed: true,
 						},
 						"jump_group_id": schema.Int64Attribute{
 							Required: true,

@@ -63,7 +63,7 @@ type RemoteVNCModel struct {
 	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
 }
 
-type ProtocolTunnelModel struct {
+type ProtocolTunnelJumpModel struct {
 	ID                  types.String `tfsdk:"id"`
 	Name                types.String `tfsdk:"name"`
 	JumpointID          types.Int64  `tfsdk:"jumpoint_id"`

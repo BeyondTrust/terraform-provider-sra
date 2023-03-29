@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -20,21 +19,21 @@ import (
 // These throw away variable declarations are to allow the compiler to
 // enforce compliance to these interfaces
 var (
-	_ resource.Resource                = &protocolTunnelResource{}
-	_ resource.ResourceWithConfigure   = &protocolTunnelResource{}
-	_ resource.ResourceWithImportState = &protocolTunnelResource{}
-	_ resource.ResourceWithModifyPlan  = &protocolTunnelResource{}
+	_ resource.Resource                = &protocolTunnelJumpResource{}
+	_ resource.ResourceWithConfigure   = &protocolTunnelJumpResource{}
+	_ resource.ResourceWithImportState = &protocolTunnelJumpResource{}
+	_ resource.ResourceWithModifyPlan  = &protocolTunnelJumpResource{}
 )
 
-func newProtocolTunnelResource() resource.Resource {
-	return &protocolTunnelResource{}
+func newProtocolTunnelJumpResource() resource.Resource {
+	return &protocolTunnelJumpResource{}
 }
 
-type protocolTunnelResource struct {
-	apiResource[api.ProtocolTunnel, models.ProtocolTunnelModel]
+type protocolTunnelJumpResource struct {
+	apiResource[api.ProtocolTunnelJump, models.ProtocolTunnelJumpModel]
 }
 
-func (r *protocolTunnelResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *protocolTunnelJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages a Protocol Tunnel Jump Item.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
@@ -52,11 +51,6 @@ func (r *protocolTunnelResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"hostname": schema.StringAttribute{
 				Required: true,
-			},
-			"port": schema.Int64Attribute{
-				Optional: true,
-				Computed: true,
-				Default:  int64default.StaticInt64(5900),
 			},
 			"jump_group_id": schema.Int64Attribute{
 				Required: true,
@@ -115,13 +109,13 @@ func (r *protocolTunnelResource) Schema(_ context.Context, _ resource.SchemaRequ
 	}
 }
 
-func (r *protocolTunnelResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	tflog.Info(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
 		tflog.Info(ctx, "No plan to modify")
 		return
 	}
-	var plan models.ProtocolTunnelModel
+	var plan models.ProtocolTunnelJumpModel
 	diags := req.Plan.Get(ctx, &plan)
 	tflog.Info(ctx, "Read plan")
 	resp.Diagnostics.Append(diags...)

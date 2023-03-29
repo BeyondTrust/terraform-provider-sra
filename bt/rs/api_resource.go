@@ -21,7 +21,7 @@ import (
 // Add new resource factory functions here.
 func ResourceList() []func() resource.Resource {
 	return []func() resource.Resource{
-		newProtocolTunnelResource,
+		newProtocolTunnelJumpResource,
 		newRemoteRDPResource,
 		newRemoteVNCResource,
 		newShellJumpResource,
