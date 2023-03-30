@@ -16,12 +16,12 @@ For descriptions of individual fields, please see the Configuration API document
 ## Example Usage
 
 ```terraform
-# Manage example Shell Jump Item
+# Manage example Web Jump Item
 resource "sra_web_jump" "example" {
-    name = "Example Web Jump"
-    url = "https://example.host/login"
-    jumpoint_id = 1
-    jump_group_id = 1
+  name          = "Example Web Jump"
+  url           = "https://example.host/login"
+  jumpoint_id   = 1
+  jump_group_id = 1
 }
 ```
 

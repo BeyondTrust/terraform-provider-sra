@@ -16,10 +16,10 @@ For descriptions of individual fields, please see the Configuration API document
 ## Example Usage
 
 ```terraform
-# Manage example Remote VNC Jump Item
+# Manage example Jump Group
 resource "sra_jump_group" "example" {
-    name = "Example Jump Group"
-    code_name = "example_group"
+  name      = "Example Jump Group"
+  code_name = "example_group"
 }
 ```
 

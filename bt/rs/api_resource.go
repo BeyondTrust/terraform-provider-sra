@@ -22,6 +22,7 @@ import (
 func ResourceList() []func() resource.Resource {
 	return []func() resource.Resource{
 		newJumpGroupResource,
+		newJumpointResource,
 
 		newProtocolTunnelJumpResource,
 		newRemoteRDPResource,

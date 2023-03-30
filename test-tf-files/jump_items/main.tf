@@ -37,7 +37,7 @@ resource "sra_protocol_tunnel_jump" "mssql" {
   jumpoint_id   = local.jumpoint_id
   jump_group_id = local.jump_group_id
   tunnel_type   = "mssql"
-  useranme      = "db_user"
+  username      = "db_user"
 }
 resource "sra_remote_rdp" "item" {
   name          = "fun_rdp"
@@ -57,7 +57,7 @@ resource "sra_shell_jump" "item" {
   jumpoint_id   = local.jumpoint_id
   jump_group_id = local.jump_group_id
 }
-resource "sra_web_jump" "example" {
+resource "sra_web_jump" "item" {
   name          = "Example Web Jump"
   url           = "https://example.host/login"
   jumpoint_id   = local.jumpoint_id
@@ -73,6 +73,6 @@ output "items" {
     RemoteRDP      = resource.sra_remote_rdp.item
     RemoteVNC      = resource.sra_remote_vnc.item
     ShellJump      = resource.sra_shell_jump.item
-    RemoteVNC      = resource.sra_web_jump.item
+    WebJump        = resource.sra_web_jump.item
   }
 }
