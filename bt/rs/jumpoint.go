@@ -29,7 +29,7 @@ func newJumpointResource() resource.Resource {
 }
 
 type jumpointResource struct {
-	apiResource[api.Jumpoint, models.JumpointModel]
+	apiResource[api.Jumpoint, models.Jumpoint]
 }
 
 func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

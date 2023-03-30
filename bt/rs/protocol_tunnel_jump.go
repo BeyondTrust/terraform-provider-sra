@@ -30,7 +30,7 @@ func newProtocolTunnelJumpResource() resource.Resource {
 }
 
 type protocolTunnelJumpResource struct {
-	apiResource[api.ProtocolTunnelJump, models.ProtocolTunnelJumpModel]
+	apiResource[api.ProtocolTunnelJump, models.ProtocolTunnelJump]
 }
 
 func (r *protocolTunnelJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -115,7 +115,7 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 		tflog.Info(ctx, "No plan to modify")
 		return
 	}
-	var plan models.ProtocolTunnelJumpModel
+	var plan models.ProtocolTunnelJump
 	diags := req.Plan.Get(ctx, &plan)
 	tflog.Info(ctx, "Read plan")
 	resp.Diagnostics.Append(diags...)

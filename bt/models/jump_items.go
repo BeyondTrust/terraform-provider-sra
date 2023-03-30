@@ -4,7 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type ShellJumpModel struct {
+type ShellJump struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
 	JumpointID      types.Int64  `tfsdk:"jumpoint_id"`
@@ -22,7 +22,7 @@ type ShellJumpModel struct {
 	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
 }
 
-type RemoteRDPModel struct {
+type RemoteRDP struct {
 	ID               types.String `tfsdk:"id"`
 	Name             types.String `tfsdk:"name"`
 	JumpointID       types.Int64  `tfsdk:"jumpoint_id"`
@@ -49,7 +49,7 @@ type RemoteRDPModel struct {
 	CredentialType   types.String `tfsdk:"credential_type"`
 }
 
-type RemoteVNCModel struct {
+type RemoteVNC struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
 	JumpointID      types.Int64  `tfsdk:"jumpoint_id"`
@@ -63,7 +63,7 @@ type RemoteVNCModel struct {
 	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
 }
 
-type ProtocolTunnelJumpModel struct {
+type ProtocolTunnelJump struct {
 	ID                  types.String `tfsdk:"id"`
 	Name                types.String `tfsdk:"name"`
 	JumpointID          types.Int64  `tfsdk:"jumpoint_id"`
@@ -81,7 +81,7 @@ type ProtocolTunnelJumpModel struct {
 	Database            types.String `tfsdk:"database"`
 }
 
-type WebJumpModel struct {
+type WebJump struct {
 	ID                    types.String `tfsdk:"id"`
 	Name                  types.String `tfsdk:"name"`
 	JumpointID            types.Int64  `tfsdk:"jumpoint_id"`

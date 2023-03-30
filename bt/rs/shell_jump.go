@@ -44,7 +44,7 @@ func newShellJumpResource() resource.Resource {
 type shellJumpResource struct {
 	// Compose with the main apiResource struct to get all the boilerplate
 	// implementations. Types are: this resource, api model, terraform model
-	apiResource[api.ShellJump, models.ShellJumpModel]
+	apiResource[api.ShellJump, models.ShellJump]
 }
 
 // We must define the schema for each resource individually. Anything that can be supplied by the API response
@@ -137,7 +137,7 @@ func (r *shellJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		tflog.Info(ctx, "No plan to modify")
 		return
 	}
-	var plan models.ShellJumpModel
+	var plan models.ShellJump
 	diags := req.Plan.Get(ctx, &plan)
 	tflog.Info(ctx, "Read plan")
 	resp.Diagnostics.Append(diags...)

@@ -21,17 +21,17 @@ func newShellJumpDataSource() datasource.DataSource {
 }
 
 type shellJumpDataSource struct {
-	apiDataSource[shellJumpDataSourceModel, api.ShellJump, models.ShellJumpModel]
+	apiDataSource[shellJumpDataSourceModel, api.ShellJump, models.ShellJump]
 }
 
 type shellJumpDataSourceModel struct {
-	Items         []models.ShellJumpModel `tfsdk:"items"`
-	Name          types.String            `tfsdk:"name" filter:"name"`
-	JumpointID    types.Int64             `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
-	Hostname      types.String            `tfsdk:"hostname" filter:"hostname"`
-	JumpGroupID   types.Int64             `tfsdk:"jump_group_id" filter:"jump_group_id"`
-	JumpGroupType types.String            `tfsdk:"jump_group_type" filter:"jump_group_type"`
-	Tag           types.String            `tfsdk:"tag" filter:"tag"`
+	Items         []models.ShellJump `tfsdk:"items"`
+	Name          types.String       `tfsdk:"name" filter:"name"`
+	JumpointID    types.Int64        `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
+	Hostname      types.String       `tfsdk:"hostname" filter:"hostname"`
+	JumpGroupID   types.Int64        `tfsdk:"jump_group_id" filter:"jump_group_id"`
+	JumpGroupType types.String       `tfsdk:"jump_group_type" filter:"jump_group_type"`
+	Tag           types.String       `tfsdk:"tag" filter:"tag"`
 }
 
 func (d *shellJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

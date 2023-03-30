@@ -21,12 +21,12 @@ func newJumpItemRoleDataSource() datasource.DataSource {
 }
 
 type jumpItemRoleDataSource struct {
-	apiDataSource[jumpItemRoleDataSourceModel, api.JumpItemRole, models.JumpItemRoleModel]
+	apiDataSource[jumpItemRoleDataSourceModel, api.JumpItemRole, models.JumpItemRole]
 }
 
 type jumpItemRoleDataSourceModel struct {
-	Items []models.JumpItemRoleModel `tfsdk:"items"`
-	Name  types.String               `tfsdk:"name" filter:"name"`
+	Items []models.JumpItemRole `tfsdk:"items"`
+	Name  types.String          `tfsdk:"name" filter:"name"`
 }
 
 func (d *jumpItemRoleDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

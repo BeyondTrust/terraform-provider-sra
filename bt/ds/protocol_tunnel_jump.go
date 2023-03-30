@@ -21,17 +21,17 @@ func newProtocolTunnelJumpDataSource() datasource.DataSource {
 }
 
 type protocolTunnelJumpDataSource struct {
-	apiDataSource[protocolTunnelJumpDataSourceModel, api.ProtocolTunnelJump, models.ProtocolTunnelJumpModel]
+	apiDataSource[protocolTunnelJumpDataSourceModel, api.ProtocolTunnelJump, models.ProtocolTunnelJump]
 }
 
 type protocolTunnelJumpDataSourceModel struct {
-	Items         []models.ProtocolTunnelJumpModel `tfsdk:"items"`
-	Name          types.String                     `tfsdk:"name" filter:"name"`
-	JumpointID    types.Int64                      `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
-	Hostname      types.String                     `tfsdk:"hostname" filter:"hostname"`
-	JumpGroupID   types.Int64                      `tfsdk:"jump_group_id" filter:"jump_group_id"`
-	JumpGroupType types.String                     `tfsdk:"jump_group_type" filter:"jump_group_type"`
-	Tag           types.String                     `tfsdk:"tag" filter:"tag"`
+	Items         []models.ProtocolTunnelJump `tfsdk:"items"`
+	Name          types.String                `tfsdk:"name" filter:"name"`
+	JumpointID    types.Int64                 `tfsdk:"jumpoint_id" filter:"jumpoint_id"`
+	Hostname      types.String                `tfsdk:"hostname" filter:"hostname"`
+	JumpGroupID   types.Int64                 `tfsdk:"jump_group_id" filter:"jump_group_id"`
+	JumpGroupType types.String                `tfsdk:"jump_group_type" filter:"jump_group_type"`
+	Tag           types.String                `tfsdk:"tag" filter:"tag"`
 }
 
 func (d *protocolTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

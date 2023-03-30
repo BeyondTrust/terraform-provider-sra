@@ -21,13 +21,13 @@ func newJumpGroupDataSource() datasource.DataSource {
 }
 
 type jumpGroupDataSource struct {
-	apiDataSource[jumpGroupDataSourceModel, api.JumpGroup, models.JumpGroupModel]
+	apiDataSource[jumpGroupDataSourceModel, api.JumpGroup, models.JumpGroup]
 }
 
 type jumpGroupDataSourceModel struct {
-	Items    []models.JumpGroupModel `tfsdk:"items"`
-	Name     types.String            `tfsdk:"name" filter:"name"`
-	CodeName types.String            `tfsdk:"code_name" filter:"code_name"`
+	Items    []models.JumpGroup `tfsdk:"items"`
+	Name     types.String       `tfsdk:"name" filter:"name"`
+	CodeName types.String       `tfsdk:"code_name" filter:"code_name"`
 }
 
 func (d *jumpGroupDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

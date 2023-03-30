@@ -4,7 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type JumpGroupModel struct {
+type JumpGroup struct {
 	ID         types.String `tfsdk:"id"`
 	Name       types.String `tfsdk:"name"`
 	CodeName   types.String `tfsdk:"code_name"`
@@ -12,7 +12,7 @@ type JumpGroupModel struct {
 	EcmGroupID types.Int64  `tfsdk:"ecm_group_id"`
 }
 
-type JumpointModel struct {
+type Jumpoint struct {
 	ID                        types.String `tfsdk:"id"`
 	Name                      types.String `tfsdk:"name"`
 	CodeName                  types.String `tfsdk:"code_name"`
@@ -27,7 +27,7 @@ type JumpointModel struct {
 	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id"`
 }
 
-type JumpItemRoleModel struct {
+type JumpItemRole struct {
 	ID                     types.String `tfsdk:"id"`
 	Name                   types.String `tfsdk:"name"`
 	Description            types.String `tfsdk:"description"`
@@ -44,14 +44,14 @@ type JumpItemRoleModel struct {
 	PermViewJumpItemReport types.Bool   `tfsdk:"perm_view_jump_item_report"`
 }
 
-type SessionPolicyModel struct {
+type SessionPolicy struct {
 	ID          types.String `tfsdk:"id"`
 	DisplayName types.String `tfsdk:"display_name"`
 	CodeName    types.String `tfsdk:"code_name"`
 	Description types.String `tfsdk:"description"`
 }
 
-type GroupPolicyModel struct {
+type GroupPolicy struct {
 	ID                                  types.String `tfsdk:"id"`
 	Name                                types.String `tfsdk:"name"`
 	PermAccessAllowed                   types.Bool   `tfsdk:"perm_access_allowed"`

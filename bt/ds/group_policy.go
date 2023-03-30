@@ -21,12 +21,12 @@ func newGroupPolicyDataSource() datasource.DataSource {
 }
 
 type groupPolicyDataSource struct {
-	apiDataSource[groupPolicyDataSourceModel, api.GroupPolicy, models.GroupPolicyModel]
+	apiDataSource[groupPolicyDataSourceModel, api.GroupPolicy, models.GroupPolicy]
 }
 
 type groupPolicyDataSourceModel struct {
-	Items []models.GroupPolicyModel `tfsdk:"items"`
-	Name  types.String              `tfsdk:"name" filter:"name"`
+	Items []models.GroupPolicy `tfsdk:"items"`
+	Name  types.String         `tfsdk:"name" filter:"name"`
 }
 
 func (d *groupPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

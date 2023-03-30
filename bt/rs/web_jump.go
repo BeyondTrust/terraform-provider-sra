@@ -30,7 +30,7 @@ func newWebJumpResource() resource.Resource {
 }
 
 type webJumpResource struct {
-	apiResource[api.WebJump, models.WebJumpModel]
+	apiResource[api.WebJump, models.WebJump]
 }
 
 func (r *webJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

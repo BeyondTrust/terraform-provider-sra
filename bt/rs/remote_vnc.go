@@ -27,7 +27,7 @@ func newRemoteVNCResource() resource.Resource {
 }
 
 type remoteVNCResource struct {
-	apiResource[api.RemoteVNC, models.RemoteVNCModel]
+	apiResource[api.RemoteVNC, models.RemoteVNC]
 }
 
 func (r *remoteVNCResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

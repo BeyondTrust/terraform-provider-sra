@@ -26,7 +26,7 @@ func newJumpGroupResource() resource.Resource {
 }
 
 type jumpGroupResource struct {
-	apiResource[api.JumpGroup, models.JumpGroupModel]
+	apiResource[api.JumpGroup, models.JumpGroup]
 }
 
 func (r *jumpGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

@@ -29,7 +29,7 @@ func newRemoteRDPResource() resource.Resource {
 }
 
 type remoteRDPResource struct {
-	apiResource[api.RemoteRDP, models.RemoteRDPModel]
+	apiResource[api.RemoteRDP, models.RemoteRDP]
 }
 
 // We must define the schema for each resource individually. Anything that can be supplied by the API response

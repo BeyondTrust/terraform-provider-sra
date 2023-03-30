@@ -20,11 +20,11 @@ func newSessionPolicyDataSource() datasource.DataSource {
 }
 
 type sessionPolicyDataSource struct {
-	apiDataSource[sessionPolicyDataSourceModel, api.SessionPolicy, models.SessionPolicyModel]
+	apiDataSource[sessionPolicyDataSourceModel, api.SessionPolicy, models.SessionPolicy]
 }
 
 type sessionPolicyDataSourceModel struct {
-	Items []models.SessionPolicyModel `tfsdk:"items"`
+	Items []models.SessionPolicy `tfsdk:"items"`
 }
 
 func (d *sessionPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
