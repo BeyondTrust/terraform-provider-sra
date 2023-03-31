@@ -277,3 +277,18 @@ type VaultAccountGroup struct {
 func (VaultAccountGroup) endpoint() string {
 	return "vault/account-group"
 }
+
+type VaultAccountPolicy struct {
+	ID                        *int   `json:"id,omitempty"`
+	Name                      string `json:"name"`
+	CodeName                  string `json:"code_name"`
+	Description               string `json:"description"`
+	AutoRotateCredentials     bool   `json:"auto_rotate_credentials"`
+	AllowSimultaneousCheckout bool   `json:"allow_simultaneous_checkout"`
+	ScheduledPasswordRotation bool   `json:"scheduled_password_rotation"`
+	MaximumPasswordAge        *int   `json:"maximum_password_age"`
+}
+
+func (VaultAccountPolicy) endpoint() string {
+	return "vault/account-policy"
+}

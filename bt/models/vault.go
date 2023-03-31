@@ -54,3 +54,14 @@ type VaultAccountGroup struct {
 	Description   types.String `tfsdk:"description"`
 	AccountPolicy types.String `tfsdk:"account_policy"`
 }
+
+type VaultAccountPolicy struct {
+	ID                        types.String `tfsdk:"id"`
+	Name                      types.String `tfsdk:"name"`
+	CodeName                  types.String `tfsdk:"code_name"`
+	Description               types.String `tfsdk:"description"`
+	AutoRotateCredentials     types.Bool   `tfsdk:"auto_rotate_credentials"`
+	AllowSimultaneousCheckout types.Bool   `tfsdk:"allow_simultaneous_checkout"`
+	ScheduledPasswordRotation types.Bool   `tfsdk:"scheduled_password_rotation"`
+	MaximumPasswordAge        types.Int64  `tfsdk:"maximum_password_age"`
+}

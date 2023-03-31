@@ -30,6 +30,7 @@ func DatasourceList() []func() datasource.DataSource {
 
 		newVaultAccountDataSource,
 		newVaultAccountGroupDataSource,
+		newVaultAccountPolicyDataSource,
 	}
 }
 

@@ -31,6 +31,7 @@ func ResourceList() []func() resource.Resource {
 		newWebJumpResource,
 
 		newVaultAccountGroupResource,
+		newVaultAccountPolicyResource,
 		newVaultSSHAccountResource,
 		newVaultUsernamePasswordAccountResource,
 	}
