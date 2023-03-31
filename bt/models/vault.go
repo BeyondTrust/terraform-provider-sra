@@ -47,3 +47,10 @@ type VaultSSHAccount struct {
 	PrivateKeyPublicCert  types.String `tfsdk:"private_key_public_cert"`
 	LastCheckoutTimestamp types.String `tfsdk:"last_checkout_timestamp"`
 }
+
+type VaultAccountGroup struct {
+	ID            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Description   types.String `tfsdk:"description"`
+	AccountPolicy types.String `tfsdk:"account_policy"`
+}

@@ -1,0 +1,55 @@
+package rs
+
+import (
+	"context"
+	"terraform-provider-beyondtrust-sra/api"
+	"terraform-provider-beyondtrust-sra/bt/models"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+)
+
+// These throw away variable declarations are to allow the compiler to
+// enforce compliance to these interfaces
+var (
+	_ resource.Resource                = &vaultAccountGroupResource{}
+	_ resource.ResourceWithConfigure   = &vaultAccountGroupResource{}
+	_ resource.ResourceWithImportState = &vaultAccountGroupResource{}
+	// _ resource.ResourceWithModifyPlan  = &vaultAccountGroupResource{}
+)
+
+func newVaultAccountGroupResource() resource.Resource {
+	return &vaultAccountGroupResource{}
+}
+
+type vaultAccountGroupResource struct {
+	apiResource[api.VaultAccountGroup, models.VaultAccountGroup]
+}
+
+func (r *vaultAccountGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "Manages a Vault Account Group.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"name": schema.StringAttribute{
+				Required: true,
+			},
+			"description": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString(""),
+			},
+			"account_policy": schema.StringAttribute{
+				Optional: true,
+			},
+		},
+	}
+}

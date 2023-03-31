@@ -266,3 +266,14 @@ type VaultSSHAccount struct {
 func (VaultSSHAccount) endpoint() string {
 	return "vault/account"
 }
+
+type VaultAccountGroup struct {
+	ID            *int   `json:"id,omitempty"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	AccountPolicy string `json:"account_policy"`
+}
+
+func (VaultAccountGroup) endpoint() string {
+	return "vault/account-group"
+}

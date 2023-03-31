@@ -29,6 +29,7 @@ func DatasourceList() []func() datasource.DataSource {
 		newWebJumpDataSource,
 
 		newVaultAccountDataSource,
+		newVaultAccountGroupDataSource,
 	}
 }
 

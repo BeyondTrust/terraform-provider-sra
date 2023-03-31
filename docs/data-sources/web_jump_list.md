@@ -17,11 +17,11 @@ For descriptions of individual fields, please see the Configuration API document
 
 ```terraform
 # List all Web Jump Items
-data "sra_vault_account_list" "all" {}
+data "sra_web_jump_list" "all" {}
 
-# Filter by tag
-data "sra_vault_account_list" "filtered" {
-  account_group_id = 5
+# Filter by URL
+data "sra_web_jump_list" "filtered" {
+  url = "https://exciting.site"
 }
 ```
 
