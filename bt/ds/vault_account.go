@@ -28,10 +28,10 @@ type vaultAccountDataSource struct {
 
 type vaultAccountDataSourceModel struct {
 	Items           []models.VaultAccount `tfsdk:"items"`
-	Name            types.String          `tfsdk:"name"`
-	Type            types.String          `tfsdk:"type"`
-	IncludePersonal types.Bool            `tfsdk:"include_personal"`
-	AccountGroupID  types.Int64           `tfsdk:"account_group_id"`
+	Name            types.String          `tfsdk:"name" filter:"name"`
+	Type            types.String          `tfsdk:"type" filter:"type"`
+	IncludePersonal types.Bool            `tfsdk:"include_personal" filter:"include_personal"`
+	AccountGroupID  types.Int64           `tfsdk:"account_group_id" filter:"account_group_id"`
 }
 
 func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
