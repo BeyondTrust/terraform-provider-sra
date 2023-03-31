@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"golang.org/x/exp/slices"
 )
 
 var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
@@ -65,6 +66,12 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			if mCallable() {
 				continue
 			}
+			m = tfField.MethodByName("IsUnknown")
+			mCallable = m.Interface().(func() bool)
+			if mCallable() {
+				continue
+			}
+
 			if field.IsNil() {
 				typeField, _ := apiObj.Type().FieldByName(fieldName)
 				nestedKind := typeField.Type.Elem()
@@ -89,8 +96,8 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 	}
 }
 
-func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value) {
-	tflog.Info(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%s] ", apiObj))
+func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type) {
+	tflog.Info(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] ", apiObj))
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
 		field := apiObj.FieldByName(fieldName)
@@ -111,20 +118,42 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value)
 			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(strconv.Itoa(int(val)))
 			continue
 		}
-		if field.Kind() == reflect.Pointer {
+
+		sraTag := tfObj.Type().Field(i).Tag.Get("sra")
+		if sraTag != "" && slices.Contains(strings.Split(sraTag, ","), "persist_state") {
+			continue
+		}
+		setToNil := false
+		fieldKind := field.Kind()
+		if fieldKind == reflect.Pointer {
 			if field.IsNil() {
-				continue
+				setToNil = true
+				fieldKind = apiType.Field(i).Type.Elem().Kind()
+			} else {
+				field = field.Elem()
+				fieldKind = field.Kind()
 			}
-			field = field.Elem()
 		}
 
-		switch field.Kind() {
+		switch fieldKind {
 		case reflect.String:
-			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(field.String())
+			if setToNil {
+				*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
+			} else {
+				*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(field.String())
+			}
 		case reflect.Int:
-			*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Value(field.Int())
+			if setToNil {
+				*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Null()
+			} else {
+				*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Value(field.Int())
+			}
 		case reflect.Bool:
-			*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolValue(field.Bool())
+			if setToNil {
+				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolNull()
+			} else {
+				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolValue(field.Bool())
+			}
 		default:
 			panic("Unknown encoded type in struct: " + field.Kind().String())
 		}

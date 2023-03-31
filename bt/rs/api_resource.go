@@ -29,6 +29,9 @@ func ResourceList() []func() resource.Resource {
 		newRemoteVNCResource,
 		newShellJumpResource,
 		newWebJumpResource,
+
+		newVaultSSHAccountResource,
+		newVaultUsernamePasswordAccountResource,
 	}
 }
 
@@ -107,20 +110,21 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	api.CopyTFtoAPI(ctx, tfObj, apiObj)
 
 	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 executing jump item post", map[string]interface{}{
+	tflog.Info(ctx, "🙀 executing item post", map[string]interface{}{
 		"data": string(rb),
 	})
 	newItem, err := api.CreateItem(r.apiClient, item)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating jump item item",
+			"Error creating item",
 			"Unexpected error: "+err.Error(),
 		)
 		return
 	}
 
 	newApiObj := reflect.ValueOf(newItem).Elem()
-	api.CopyAPItoTF(ctx, newApiObj, tfObj)
+	apiType := reflect.TypeOf(newItem).Elem()
+	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -150,14 +154,16 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating jump item item",
-			"Unexpected reading jump item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			"Error creating item",
+			"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
 		)
 		return
 	}
 
 	apiObj := reflect.ValueOf(item).Elem()
-	api.CopyAPItoTF(ctx, apiObj, tfObj)
+	apiType := reflect.TypeOf(item).Elem()
+	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType)
+
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -180,7 +186,7 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	api.CopyTFtoAPI(ctx, tfObj, apiObj)
 
 	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 executing jump item update", map[string]interface{}{
+	tflog.Info(ctx, "🙀 executing item update", map[string]interface{}{
 		"data": string(rb),
 	})
 	newItem, err := api.UpdateItem(r.apiClient, item)
@@ -188,14 +194,15 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 		tfId := tfObj.FieldByName("ID").Interface().(types.String)
 		id, _ := strconv.Atoi(tfId.ValueString())
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error updating jump item item with id [%d]", id),
+			fmt.Sprintf("Error updating item with id [%d]", id),
 			"Unexpected error: "+err.Error(),
 		)
 		return
 	}
 
 	newApiObj := reflect.ValueOf(newItem).Elem()
-	api.CopyAPItoTF(ctx, newApiObj, tfObj)
+	apiType := reflect.TypeOf(newItem).Elem()
+	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -222,7 +229,7 @@ func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.Delete
 	err := api.DeleteItem[TApi](r.apiClient, id)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error deleting jump item with ID [%d]", id),
+			fmt.Sprintf("Error deleting item with ID [%d]", id),
 			"Could not delete item, unexpected error: "+err.Error(),
 		)
 		return

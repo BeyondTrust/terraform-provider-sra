@@ -210,3 +210,59 @@ type GroupPolicy struct {
 func (GroupPolicy) endpoint() string {
 	return "group-policy"
 }
+
+type VaultAccount struct {
+	ID             *int    `json:"id,omitempty"`
+	Type           string  `json:"type"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Personal       bool    `json:"personal"`
+	OwnerUserID    *int    `json:"owner_user_id,omitempty"`
+	AccountGroupID int     `json:"account_group_id"`
+	AccountPolicy  *string `json:"account_policy"`
+}
+
+func (VaultAccount) endpoint() string {
+	return "vault/account"
+}
+
+type VaultUsernamePasswordAccount struct {
+	ID             *int    `json:"id,omitempty"`
+	Type           string  `json:"type"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Personal       *bool   `json:"personal,omitempty"`
+	OwnerUserID    *int    `json:"owner_user_id,omitempty"`
+	AccountGroupID int     `json:"account_group_id"`
+	AccountPolicy  *string `json:"account_policy"`
+
+	Username              string  `json:"username"`
+	Password              string  `json:"password,omitempty"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+}
+
+func (VaultUsernamePasswordAccount) endpoint() string {
+	return "vault/account"
+}
+
+type VaultSSHAccount struct {
+	ID             *int    `json:"id,omitempty"`
+	Type           string  `json:"type"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Personal       *bool   `json:"personal,omitempty"`
+	OwnerUserID    *int    `json:"owner_user_id,omitempty"`
+	AccountGroupID int     `json:"account_group_id"`
+	AccountPolicy  *string `json:"account_policy"`
+
+	Username              string  `json:"username"`
+	PublicKey             *string `json:"public_key,omitempty"`
+	PrivateKey            string  `json:"private_key"`
+	PrivateKeyPassphrase  string  `json:"private_key_passphrase"`
+	PrivateKeyPublicCert  string  `json:"private_key_public_cert"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+}
+
+func (VaultSSHAccount) endpoint() string {
+	return "vault/account"
+}

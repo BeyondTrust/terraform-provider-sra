@@ -79,6 +79,9 @@ func (r *shellJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"port": schema.Int64Attribute{
 				Optional: true,
 				Computed: true,
+				PlanModifiers: []planmodifier.Int64{
+					
+				},
 			},
 			"jump_group_id": schema.Int64Attribute{
 				Required: true,
