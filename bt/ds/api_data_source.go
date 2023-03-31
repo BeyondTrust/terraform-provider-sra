@@ -27,6 +27,8 @@ func DatasourceList() []func() datasource.DataSource {
 		newSessionPolicyDataSource,
 		newShellJumpDataSource,
 		newWebJumpDataSource,
+
+		newVaultAccountDataSource,
 	}
 }
 
@@ -103,7 +105,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Conte
 		var itemState TTf
 
 		itemObj := reflect.ValueOf(&item).Elem()
-		apiType := reflect.TypeOf(item).Elem()
+		apiType := reflect.TypeOf(&item).Elem()
 		itemStateObj := reflect.ValueOf(&itemState).Elem()
 
 		api.CopyAPItoTF(ctx, itemObj, itemStateObj, apiType)
