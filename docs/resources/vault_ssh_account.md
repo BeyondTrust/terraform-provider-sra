@@ -28,6 +28,17 @@ resource "sra_vault_ssh_account" "new_key" {
   username               = "test"
   private_key            = tls_private_key.test_key.private_key_openssh
   private_key_passphrase = ""
+
+  jump_item_association = {
+    filter_type = "criteria"
+    criteria = {
+      shared_jump_groups = [2, 3]
+      tag                = ["tftest"]
+    }
+    jump_items = [
+      { id : 123, type : "shell_jump" }
+    ]
+  }
 }
 
 output "pub_key" {
@@ -50,6 +61,7 @@ output "pub_key" {
 - `account_group_id` (Number)
 - `account_policy` (String)
 - `description` (String)
+- `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
 - `private_key_public_cert` (String)
 
 ### Read-Only
@@ -59,6 +71,38 @@ output "pub_key" {
 - `owner_user_id` (Number)
 - `personal` (Boolean)
 - `public_key` (String)
+- `type` (String)
+
+<a id="nestedatt--jump_item_association"></a>
+### Nested Schema for `jump_item_association`
+
+Required:
+
+- `filter_type` (String)
+
+Optional:
+
+- `criteria` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association--criteria))
+- `jump_items` (Attributes Set) (see [below for nested schema](#nestedatt--jump_item_association--jump_items))
+
+<a id="nestedatt--jump_item_association--criteria"></a>
+### Nested Schema for `jump_item_association.criteria`
+
+Optional:
+
+- `comment` (Set of String)
+- `host` (Set of String)
+- `name` (Set of String)
+- `shared_jump_groups` (Set of Number)
+- `tag` (Set of String)
+
+
+<a id="nestedatt--jump_item_association--jump_items"></a>
+### Nested Schema for `jump_item_association.jump_items`
+
+Required:
+
+- `id` (Number)
 - `type` (String)
 
 ## Import

@@ -45,6 +45,11 @@ for logging purposes. The general idea for these is:
 func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value) {
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
+		apiTypeField, found := apiObj.Type().FieldByName(fieldName)
+		if !found || apiTypeField.Tag.Get("sraapi") != "" {
+			// This attribute must be manually mapped to a different API object
+			continue
+		}
 		field := apiObj.FieldByName(fieldName)
 		tfField := tfObj.Field(i)
 		tflog.Trace(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s [%s]", fieldName, field.Kind()))
@@ -73,8 +78,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			}
 
 			if field.IsNil() {
-				typeField, _ := apiObj.Type().FieldByName(fieldName)
-				nestedKind := typeField.Type.Elem()
+				nestedKind := apiTypeField.Type.Elem()
 				field.Set(reflect.New(nestedKind))
 			}
 			field = field.Elem()
@@ -100,6 +104,11 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 	tflog.Info(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] ", apiObj))
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
+		apiTypeField, found := apiType.FieldByName(fieldName)
+		if !found || apiTypeField.Tag.Get("sraapi") != "" {
+			// This attribute must be manually mapped to a different API object
+			continue
+		}
 		field := apiObj.FieldByName(fieldName)
 		tflog.Trace(ctx, "🍺 copyAPItoTF field "+fieldName)
 
@@ -114,7 +123,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		// *(*types.String)(tfObj.Field(i).Addr().UnsafePointer())
 		if fieldName == "ID" {
 			val := field.Elem().Int()
-			tflog.Info(ctx, fmt.Sprintf("🥃 ID [%d]", val))
+			tflog.Trace(ctx, fmt.Sprintf("🥃 ID [%d]", val))
 			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(strconv.Itoa(int(val)))
 			continue
 		}
@@ -128,7 +137,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		if fieldKind == reflect.Pointer {
 			if field.IsNil() {
 				setToNil = true
-				fieldKind = apiType.Field(i).Type.Elem().Kind()
+				fieldKind = apiTypeField.Type.Elem().Kind()
 			} else {
 				field = field.Elem()
 				fieldKind = field.Kind()

@@ -41,9 +41,19 @@ func ListItems[I APIResource](c *APIClient, query ...map[string]string) ([]I, er
 	return items, nil
 }
 
-func GetItem[I APIResource](c *APIClient, id int) (*I, error) {
+func GetItem[I APIResource](c *APIClient, id *int) (*I, error) {
 	var item I
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s/%d", c.BaseURL, item.endpoint(), id), nil)
+	endpoint := item.endpoint()
+	if id != nil {
+		endpoint = fmt.Sprintf("%s/%d", endpoint, *id)
+	}
+
+	return GetItemEndpoint[I](c, endpoint)
+}
+
+func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
+	var item I
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +78,7 @@ func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	}
 
 	var newItem I
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", c.BaseURL, newItem.endpoint()), strings.NewReader(string(rb)))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", c.BaseURL, item.endpoint()), strings.NewReader(string(rb)))
 	if err != nil {
 		return nil, err
 	}
@@ -87,15 +97,19 @@ func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 }
 
 func UpdateItem[I APIResource](c *APIClient, item I) (*I, error) {
+	itemObj := reflect.ValueOf(item)
+	id := itemObj.FieldByName("ID").Elem().Int()
+	endpoint := fmt.Sprintf("%s/%d", item.endpoint(), id)
+
+	return UpdateItemEndpoint(c, item, endpoint)
+}
+func UpdateItemEndpoint[I APIResource](c *APIClient, item I, endpoint string) (*I, error) {
 	rb, err := json.Marshal(item)
 	if err != nil {
 		return nil, err
 	}
 
-	itemObj := reflect.ValueOf(item)
-	id := itemObj.FieldByName("ID").Elem().Int()
-
-	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/%s/%d", c.BaseURL, item.endpoint(), id), strings.NewReader(string(rb)))
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/%s", c.BaseURL, endpoint), strings.NewReader(string(rb)))
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +128,17 @@ func UpdateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	return &newItem, nil
 }
 
-func DeleteItem[I APIResource](c *APIClient, id int) error {
+func DeleteItem[I APIResource](c *APIClient, id *int) error {
 	var tmp I
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/%s/%d", c.BaseURL, tmp.endpoint(), id), nil)
+	endpoint := tmp.endpoint()
+	if id != nil {
+		endpoint = fmt.Sprintf("%s/%d", endpoint, *id)
+	}
+
+	return DeleteItemEndpoint[I](c, endpoint)
+}
+func DeleteItemEndpoint[I APIResource](c *APIClient, endpoint string) error {
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return err
 	}

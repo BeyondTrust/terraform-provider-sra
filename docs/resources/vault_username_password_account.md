@@ -22,6 +22,17 @@ resource "sra_vault_username_password_account" "new_account" {
   name     = "Test User/Pass Account"
   username = "test"
   password = "this-is-a-test-password-that-should-be-generated-somehow"
+
+  jump_item_association = {
+    filter_type = "criteria"
+    criteria = {
+      shared_jump_groups = [2, 3]
+      tag                = ["tftest"]
+    }
+    jump_items = [
+      { id : 123, type : "remote_rdp" }
+    ]
+  }
 }
 ```
 
@@ -39,6 +50,7 @@ resource "sra_vault_username_password_account" "new_account" {
 - `account_group_id` (Number)
 - `account_policy` (String)
 - `description` (String)
+- `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
 
 ### Read-Only
 
@@ -46,6 +58,38 @@ resource "sra_vault_username_password_account" "new_account" {
 - `last_checkout_timestamp` (String)
 - `owner_user_id` (Number)
 - `personal` (Boolean)
+- `type` (String)
+
+<a id="nestedatt--jump_item_association"></a>
+### Nested Schema for `jump_item_association`
+
+Required:
+
+- `filter_type` (String)
+
+Optional:
+
+- `criteria` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association--criteria))
+- `jump_items` (Attributes Set) (see [below for nested schema](#nestedatt--jump_item_association--jump_items))
+
+<a id="nestedatt--jump_item_association--criteria"></a>
+### Nested Schema for `jump_item_association.criteria`
+
+Optional:
+
+- `comment` (Set of String)
+- `host` (Set of String)
+- `name` (Set of String)
+- `shared_jump_groups` (Set of Number)
+- `tag` (Set of String)
+
+
+<a id="nestedatt--jump_item_association--jump_items"></a>
+### Nested Schema for `jump_item_association.jump_items`
+
+Required:
+
+- `id` (Number)
 - `type` (String)
 
 ## Import

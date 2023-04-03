@@ -10,6 +10,17 @@ resource "sra_vault_ssh_account" "new_key" {
   username               = "test"
   private_key            = tls_private_key.test_key.private_key_openssh
   private_key_passphrase = ""
+
+  jump_item_association = {
+    filter_type = "criteria"
+    criteria = {
+      shared_jump_groups = [2, 3]
+      tag                = ["tftest"]
+    }
+    jump_items = [
+      { id : 123, type : "shell_jump" }
+    ]
+  }
 }
 
 output "pub_key" {

@@ -1,5 +1,9 @@
 package api
 
+import (
+	"fmt"
+)
+
 // Models should be named like ResourceName. This name is mapped to snake_case for the
 // name users will use in the terraform definitions for these resources
 type ShellJump struct {
@@ -239,6 +243,8 @@ type VaultUsernamePasswordAccount struct {
 	Username              string  `json:"username"`
 	Password              string  `json:"password,omitempty"`
 	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+
+	JumpItemAssociation AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 }
 
 func (VaultUsernamePasswordAccount) endpoint() string {
@@ -261,6 +267,8 @@ type VaultSSHAccount struct {
 	PrivateKeyPassphrase  string  `json:"private_key_passphrase"`
 	PrivateKeyPublicCert  string  `json:"private_key_public_cert"`
 	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+
+	JumpItemAssociation AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 }
 
 func (VaultSSHAccount) endpoint() string {
@@ -291,4 +299,35 @@ type VaultAccountPolicy struct {
 
 func (VaultAccountPolicy) endpoint() string {
 	return "vault/account-policy"
+}
+
+// These models have to follow some stricter rules about type conversion, though
+// that's largely defined in the schema of the resource. These are tagged to
+// read/write from TF Schema/Plans directly, meaning unknown or null values
+// could panic, depending on the type of the field.
+type AccountJumpItemAssociation struct {
+	ID         *int                        `tfsdk:"-" json:"-"`
+	FilterType string                      `json:"filter_type" tfsdk:"filter_type"`
+	Criteria   JumpItemAssociationCriteria `json:"criteria" tfsdk:"criteria"`
+	JumpItems  []InjectableJumpItem        `json:"jump_items" tfsdk:"jump_items"`
+}
+
+func (a AccountJumpItemAssociation) endpoint() string {
+	return a.Endpoint()
+}
+func (a *AccountJumpItemAssociation) Endpoint() string {
+	return fmt.Sprintf("vault/account/%d/jump-item-association", *a.ID)
+}
+
+type JumpItemAssociationCriteria struct {
+	SharedJumpGroups []int    `json:"shared_jump_groups" tfsdk:"shared_jump_groups"`
+	Host             []string `json:"host" tfsdk:"host"`
+	Name             []string `json:"name" tfsdk:"name"`
+	Tag              []string `json:"tag" tfsdk:"tag"`
+	Comment          []string `json:"comment" tfsdk:"comment"`
+}
+
+type InjectableJumpItem struct {
+	ID   int    `json:"id" tfsdk:"id"`
+	Type string `json:"type" tfsdk:"type"`
 }

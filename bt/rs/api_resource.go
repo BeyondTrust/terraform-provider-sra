@@ -10,8 +10,11 @@ import (
 	"terraform-provider-beyondtrust-sra/api"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -42,7 +45,7 @@ func ResourceList() []func() resource.Resource {
 // file. This has 2 generic types defined tha must be supplied. The first is the type of the
 // API model, the second is the type of the Terraform model
 type apiResource[TApi api.APIResource, TTf any] struct {
-	apiClient *api.APIClient
+	ApiClient *api.APIClient
 }
 
 // Generic Configure function for resource providers. It simply maps the ProviderData as the API client on the resource
@@ -51,7 +54,7 @@ func (r *apiResource[TApi, TTf]) Configure(ctx context.Context, req resource.Con
 		return
 	}
 
-	r.apiClient = req.ProviderData.(*api.APIClient)
+	r.ApiClient = req.ProviderData.(*api.APIClient)
 }
 
 // Generic Metadata implementation. It reads the type name of the resource type provided and derives the public facing resource
@@ -105,6 +108,8 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("🤬 create plan [%v]", plan))
+
 	var item TApi
 
 	tfObj := reflect.ValueOf(&plan).Elem()
@@ -115,7 +120,7 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	tflog.Info(ctx, "🙀 executing item post", map[string]interface{}{
 		"data": string(rb),
 	})
-	newItem, err := api.CreateItem(r.apiClient, item)
+	newItem, err := api.CreateItem(r.ApiClient, item)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating item",
@@ -123,9 +128,8 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 		)
 		return
 	}
-
-	newApiObj := reflect.ValueOf(newItem).Elem()
 	apiType := reflect.TypeOf(newItem).Elem()
+	newApiObj := reflect.ValueOf(newItem).Elem()
 	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType)
 
 	diags = resp.State.Set(ctx, plan)
@@ -144,26 +148,26 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("🤬 read state [%v]", state))
 	tfObj := reflect.ValueOf(&state).Elem()
 	tfId := tfObj.FieldByName("ID").Interface().(types.String)
 	id, _ := strconv.Atoi(tfId.ValueString())
-	item, err := api.GetItem[TApi](r.apiClient, id)
+	item, err := api.GetItem[TApi](r.ApiClient, &id)
 
 	rb, _ := json.Marshal(item)
-	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
+	tflog.Info(ctx, "🙀 got item", map[string]interface{}{
 		"data": string(rb),
 	})
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating item",
+			"Error reading item",
 			"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
 		)
 		return
 	}
-
-	apiObj := reflect.ValueOf(item).Elem()
 	apiType := reflect.TypeOf(item).Elem()
+	apiObj := reflect.ValueOf(item).Elem()
 	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType)
 
 	diags = resp.State.Set(ctx, &state)
@@ -180,6 +184,7 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	tflog.Info(ctx, fmt.Sprintf("🤬 update plan [%v]", plan))
 
 	var item TApi
 
@@ -191,7 +196,7 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	tflog.Info(ctx, "🙀 executing item update", map[string]interface{}{
 		"data": string(rb),
 	})
-	newItem, err := api.UpdateItem(r.apiClient, item)
+	newItem, err := api.UpdateItem(r.ApiClient, item)
 	if err != nil {
 		tfId := tfObj.FieldByName("ID").Interface().(types.String)
 		id, _ := strconv.Atoi(tfId.ValueString())
@@ -223,12 +228,13 @@ func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.Delete
 		tflog.Info(ctx, "error getting state")
 		return
 	}
+	tflog.Info(ctx, fmt.Sprintf("🤬 delete state [%v]", state))
 	tflog.Info(ctx, "deleting")
 
 	tfObj := reflect.ValueOf(&state).Elem()
 	tfId := tfObj.FieldByName("ID").Interface().(types.String)
 	id, _ := strconv.Atoi(tfId.ValueString())
-	err := api.DeleteItem[TApi](r.apiClient, id)
+	err := api.DeleteItem[TApi](r.ApiClient, &id)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("Error deleting item with ID [%d]", id),
@@ -247,5 +253,70 @@ func (r *apiResource[TApi, TTf]) ImportState(ctx context.Context, req resource.I
 func jumpGroupTypeValidator() []validator.String {
 	return []validator.String{
 		stringvalidator.OneOf([]string{"shared", "personal"}...),
+	}
+}
+
+func accountJumpItemAssociationSchema() schema.Attribute {
+	return schema.SingleNestedAttribute{
+		Optional: true,
+		Computed: true,
+		Attributes: map[string]schema.Attribute{
+			"filter_type": schema.StringAttribute{
+				Required: true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("any_jump_items", "no_jump_items", "criteria"),
+				},
+			},
+			"criteria": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"shared_jump_groups": schema.SetAttribute{
+						ElementType: types.Int64Type,
+						Optional:    true,
+						Computed:    true,
+						Default:     setdefault.StaticValue(types.SetValueMust(types.Int64Type, []attr.Value{})),
+					},
+					"host": schema.SetAttribute{
+						ElementType: types.StringType,
+						Optional:    true,
+						Computed:    true,
+						Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+					},
+					"name": schema.SetAttribute{
+						ElementType: types.StringType,
+						Optional:    true,
+						Computed:    true,
+						Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+					},
+					"tag": schema.SetAttribute{
+						ElementType: types.StringType,
+						Optional:    true,
+						Computed:    true,
+						Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+					},
+					"comment": schema.SetAttribute{
+						ElementType: types.StringType,
+						Optional:    true,
+						Computed:    true,
+						Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+					},
+				},
+			},
+			"jump_items": schema.SetNestedAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  setdefault.StaticValue(types.SetValueMust(types.ObjectType{}, []attr.Value{})),
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Required: true,
+						},
+						"type": schema.StringAttribute{
+							Required: true,
+						},
+					},
+				},
+			},
+		},
 	}
 }
