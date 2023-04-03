@@ -276,10 +276,12 @@ func (VaultSSHAccount) endpoint() string {
 }
 
 type VaultAccountGroup struct {
-	ID            *int   `json:"id,omitempty"`
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	AccountPolicy string `json:"account_policy"`
+	ID            *int    `json:"id,omitempty"`
+	Name          string  `json:"name"`
+	Description   string  `json:"description"`
+	AccountPolicy *string `json:"account_policy,omitempty"`
+
+	JumpItemAssociation AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 }
 
 func (VaultAccountGroup) endpoint() string {
@@ -306,10 +308,10 @@ func (VaultAccountPolicy) endpoint() string {
 // read/write from TF Schema/Plans directly, meaning unknown or null values
 // could panic, depending on the type of the field.
 type AccountJumpItemAssociation struct {
-	ID         *int                        `tfsdk:"-" json:"-"`
-	FilterType string                      `json:"filter_type" tfsdk:"filter_type"`
-	Criteria   JumpItemAssociationCriteria `json:"criteria" tfsdk:"criteria"`
-	JumpItems  []InjectableJumpItem        `json:"jump_items" tfsdk:"jump_items"`
+	ID         *int                         `tfsdk:"-" json:"-"`
+	FilterType string                       `json:"filter_type" tfsdk:"filter_type"`
+	Criteria   *JumpItemAssociationCriteria `json:"criteria" tfsdk:"criteria"`
+	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
 }
 
 func (a AccountJumpItemAssociation) endpoint() string {
@@ -317,6 +319,20 @@ func (a AccountJumpItemAssociation) endpoint() string {
 }
 func (a *AccountJumpItemAssociation) Endpoint() string {
 	return fmt.Sprintf("vault/account/%d/jump-item-association", *a.ID)
+}
+
+type AccountGroupJumpItemAssociation struct {
+	ID         *int                         `tfsdk:"-" json:"-"`
+	FilterType string                       `json:"filter_type" tfsdk:"filter_type"`
+	Criteria   *JumpItemAssociationCriteria `json:"criteria" tfsdk:"criteria"`
+	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
+}
+
+func (a AccountGroupJumpItemAssociation) endpoint() string {
+	return a.Endpoint()
+}
+func (a *AccountGroupJumpItemAssociation) Endpoint() string {
+	return fmt.Sprintf("vault/account-group/%d/jump-item-association", *a.ID)
 }
 
 type JumpItemAssociationCriteria struct {

@@ -256,7 +256,7 @@ func jumpGroupTypeValidator() []validator.String {
 	}
 }
 
-func accountJumpItemAssociationSchema() schema.Attribute {
+func accountJumpItemAssociationSchema() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		Optional: true,
 		Computed: true,
