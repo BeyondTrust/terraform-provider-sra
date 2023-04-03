@@ -23,6 +23,7 @@ resource "sra_vault_username_password_account" "new_account" {
   username = "test"
   password = "this-is-a-test-password-that-should-be-generated-somehow"
 
+  # Omit to use account group settings
   jump_item_association = {
     filter_type = "criteria"
     criteria = {
