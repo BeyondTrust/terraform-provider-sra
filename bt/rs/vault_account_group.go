@@ -183,19 +183,23 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 			tflog.Info(ctx, "🌈 Reading item", map[string]interface{}{
 				"read": m,
 			})
+			gpId := *m.GroupPolicyID
 
 			endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), id)
 			item, err := api.GetItemEndpoint[api.GroupPolicyVaultAccountGroup](r.ApiClient, endpoint)
-			item.GroupPolicyID = m.GroupPolicyID
 
 			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error reading item's group policy memberships",
-					fmt.Sprintf("Unexpected reading membership of item ID [%d][%s]\n%s", id, endpoint, err.Error()),
-				)
-				return
+				tflog.Info(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
+					"read":  m,
+					"error": err,
+				})
+			} else if item != nil {
+				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
+					"read": *item,
+				})
+				(*item).GroupPolicyID = &gpId
+				gpList[i] = *item
 			}
-			gpList[i] = *item
 		}
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), gpList)
@@ -332,7 +336,8 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 				"gp":      m.GroupPolicyID,
 				"account": m.AccountGroupID,
 			})
-			err := api.DeleteItemEndpoint[api.GroupPolicyVaultAccountGroup](r.ApiClient, m.Endpoint())
+			endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), *m.AccountGroupID)
+			err := api.DeleteItemEndpoint[api.GroupPolicyVaultAccountGroup](r.ApiClient, endpoint)
 
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -346,20 +351,8 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		results := []api.GroupPolicyVaultAccountGroup{}
 		for m := range toAdd.Iterator().C {
 			m.AccountGroupID = &id
-			tflog.Info(ctx, "🌈 Adding item", map[string]interface{}{
-				"add":     m,
-				"gp":      m.GroupPolicyID,
-				"account": m.AccountGroupID,
-			})
-			_, err := api.CreateItem(r.ApiClient, m)
-			// item := api.GroupPolicyVaultAccountGroup{
-			// 	GroupPolicyID:  m.GroupPolicyID,
-			// 	AccountGroupID: res.AccountGroupID,
-			// 	Role:           res.Role,
-			// }
-			tflog.Info(ctx, "🌈 Added item", map[string]interface{}{
-				"add": m,
-			})
+			item, err := api.CreateItem(r.ApiClient, m)
+			item.GroupPolicyID = m.GroupPolicyID
 
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -368,7 +361,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 				)
 				return
 			}
-			results = append(results, m)
+			results = append(results, *item)
 		}
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
