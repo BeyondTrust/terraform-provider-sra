@@ -281,7 +281,8 @@ type VaultAccountGroup struct {
 	Description   string  `json:"description"`
 	AccountPolicy *string `json:"account_policy,omitempty"`
 
-	JumpItemAssociation AccountJumpItemAssociation `json:"-" sraapi:"skip"`
+	JumpItemAssociation    AccountJumpItemAssociation     `json:"-" sraapi:"skip"`
+	GroupPolicyMemberships []GroupPolicyVaultAccountGroup `json:"-" sraapi:"skip"`
 }
 
 func (VaultAccountGroup) endpoint() string {
@@ -346,4 +347,17 @@ type JumpItemAssociationCriteria struct {
 type InjectableJumpItem struct {
 	ID   int    `json:"id" tfsdk:"id"`
 	Type string `json:"type" tfsdk:"type"`
+}
+
+type GroupPolicyVaultAccountGroup struct {
+	GroupPolicyID  *string `tfsdk:"group_policy_id" json:"-"`
+	AccountGroupID *int    `tfsdk:"-" json:"account_group_id"`
+	Role           string  `tfsdk:"role" json:"role"`
+}
+
+func (a GroupPolicyVaultAccountGroup) endpoint() string {
+	return a.Endpoint()
+}
+func (a *GroupPolicyVaultAccountGroup) Endpoint() string {
+	return fmt.Sprintf("group-policy/%s/vault-account-group", *a.GroupPolicyID)
 }

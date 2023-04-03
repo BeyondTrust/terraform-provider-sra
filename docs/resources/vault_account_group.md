@@ -46,11 +46,21 @@ resource "sra_vault_account_group" "new_account_group" {
 
 - `account_policy` (String)
 - `description` (String)
+- `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--group_policy_memberships"></a>
+### Nested Schema for `group_policy_memberships`
+
+Required:
+
+- `group_policy_id` (String) The ID of the Group Policy this Account Group is a member of
+- `role` (String)
+
 
 <a id="nestedatt--jump_item_association"></a>
 ### Nested Schema for `jump_item_association`

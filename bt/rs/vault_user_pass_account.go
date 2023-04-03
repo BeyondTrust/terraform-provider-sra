@@ -96,51 +96,54 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 	}
 	tflog.Info(ctx, "🤬 SSH creating plan")
 
-	var apiSub api.AccountJumpItemAssociation
-	var tfObj types.Object
-	diags := req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if tfObj.IsNull() {
-		return
-	}
-
-	diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	var tfId types.String
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	apiSub.ID = &id
-	tflog.Info(ctx, fmt.Sprintf("🙀 Creating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-		"data": apiSub,
-	})
+	{
+		// Jump Item Association
+		var apiSub api.AccountJumpItemAssociation
+		var tfObj types.Object
+		diags := req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 
-	item, err := api.CreateItem(r.ApiClient, apiSub)
+		if tfObj.IsNull() {
+			return
+		}
 
-	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+		diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading item",
-			"Unexpected creating item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-		)
-		return
-	}
-	diags = req.Plan.SetAttribute(ctx, path.Root("jump_item_association"), item)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+		apiSub.ID = &id
+		tflog.Info(ctx, fmt.Sprintf("🙀 Creating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+			"data": apiSub,
+		})
+
+		item, err := api.CreateItem(r.ApiClient, apiSub)
+
+		rb, _ := json.Marshal(item)
+		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+			"data": string(rb),
+		})
+
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading item",
+				"Unexpected creating item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			)
+			return
+		}
+		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 }
 
@@ -151,55 +154,67 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 	}
 	tflog.Info(ctx, "🤬 SSH reading state")
 
-	var apiSub api.AccountJumpItemAssociation
-	var tfObj types.Object
-	diags := req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if !tfObj.IsNull() {
-		diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	}
-
 	var tfId types.String
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	apiSub.ID = &id
-	tflog.Info(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-		"data":   apiSub,
-		"tfNULL": tfObj.IsNull(),
-		"tfUNK":  tfObj.IsUnknown(),
-	})
+	{
+		// Jump Item Association
 
-	item, err := api.GetItemEndpoint[api.AccountJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
+		var apiSub api.AccountJumpItemAssociation
+		var tfObj types.Object
+		diags := req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 
-	if item == nil && tfObj.IsNull() {
-		return
-	}
+		planIsGone := tfObj.IsNull() || tfObj.IsUnknown()
 
-	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+		if !planIsGone {
+			diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
 
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading item",
-			"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-		)
-		return
-	}
-	diags = req.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+		apiSub.ID = &id
+		tflog.Info(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+			"data":          apiSub,
+			"planIsNull":    tfObj.IsNull(),
+			"planIsUnknown": tfObj.IsUnknown(),
+		})
+
+		item, err := api.GetItemEndpoint[api.AccountJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
+
+		if item == nil && (planIsGone || apiSub.FilterType == "") {
+			var empty api.AccountJumpItemAssociation
+			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			return
+		}
+
+		rb, _ := json.Marshal(item)
+		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+			"data": string(rb),
+		})
+
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading item",
+				"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			)
+			return
+		}
+		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 }
 
@@ -209,65 +224,83 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		return
 	}
 	tflog.Info(ctx, "🤬 SSH updating plan")
-
-	var apiSub api.AccountJumpItemAssociation
-	var tfObj types.Object
-	diags := req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if !tfObj.IsNull() {
-		diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	}
-
 	var tfId types.String
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	apiSub.ID = &id
-	tflog.Info(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-		"data": apiSub,
-	})
+	{
+		// Jump Item Association
 
-	var tfStateObj types.Object
-	diags = req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	tflog.Info(ctx, "🙀 got state object", map[string]interface{}{
-		"data": tfStateObj,
-	})
+		var apiSub api.AccountJumpItemAssociation
+		var tfObj types.Object
+		diags := req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		planIsGone := tfObj.IsNull() || tfObj.IsUnknown()
 
-	var item *api.AccountJumpItemAssociation
-	var err error
-	if tfStateObj.IsNull() {
-		item, err = api.CreateItem(r.ApiClient, apiSub)
-	} else {
-		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
-	}
+		if !planIsGone {
+			diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
 
-	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+		var tfStateObj types.Object
+		diags = req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		stateIsGone := tfStateObj.IsNull() || tfStateObj.IsUnknown()
 
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading item",
-			"Unexpected creating item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-		)
-		return
-	}
-	diags = req.Plan.SetAttribute(ctx, path.Root("jump_item_association"), item)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+		apiSub.ID = &id
+		tflog.Info(ctx, fmt.Sprintf("🤷🏻‍♂️ Updating User/Pass Jump Associations with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+			"data":           apiSub,
+			"planIsNull":     tfObj.IsNull(),
+			"planIsUnknown":  tfObj.IsUnknown(),
+			"stateIsNull":    tfStateObj.IsNull(),
+			"stateIsUnknown": tfStateObj.IsUnknown(),
+		})
+
+		var item *api.AccountJumpItemAssociation
+		var err error
+		if !stateIsGone && planIsGone {
+			tflog.Info(ctx, fmt.Sprintf("🦠 Deleting item %v", apiSub))
+			err = api.DeleteItemEndpoint[api.AccountJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
+		} else if stateIsGone {
+			tflog.Info(ctx, fmt.Sprintf("🦠 Creating item %v", apiSub))
+			item, err = api.CreateItem(r.ApiClient, apiSub)
+		} else {
+			tflog.Info(ctx, fmt.Sprintf("🦠 Updating item %v", apiSub))
+			item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
+		}
+
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading item",
+				"Unexpected creating item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			)
+			return
+		}
+
+		if item != nil {
+			tflog.Info(ctx, fmt.Sprintf("🦠 Setting item in plan %v", item))
+			rb, _ := json.Marshal(item)
+			tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+				"data": string(rb),
+			})
+			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
+		} else {
+			var empty api.AccountJumpItemAssociation
+			tflog.Info(ctx, fmt.Sprintf("🦠 Setting empty item in plan %v", empty))
+			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+		}
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 }

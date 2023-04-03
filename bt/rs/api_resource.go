@@ -264,7 +264,7 @@ func accountJumpItemAssociationSchema() schema.SingleNestedAttribute {
 			"filter_type": schema.StringAttribute{
 				Required: true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("any_jump_items", "no_jump_items", "criteria"),
+					stringvalidator.OneOf([]string{"any_jump_items", "no_jump_items", "criteria"}...),
 				},
 			},
 			"criteria": schema.SingleNestedAttribute{

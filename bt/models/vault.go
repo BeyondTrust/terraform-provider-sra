@@ -58,7 +58,8 @@ type VaultAccountGroup struct {
 	Description   types.String `tfsdk:"description"`
 	AccountPolicy types.String `tfsdk:"account_policy"`
 
-	JumpItemAssociation types.Object `tfsdk:"jump_item_association"`
+	JumpItemAssociation    types.Object `tfsdk:"jump_item_association"`
+	GroupPolicyMemberships types.Set    `tfsdk:"group_policy_memberships"`
 }
 
 type VaultAccountPolicy struct {
