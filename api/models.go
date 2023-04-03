@@ -24,7 +24,7 @@ type ShellJump struct {
 	SessionPolicyID *int   `json:"session_policy_id,omitempty"`
 }
 
-func (ShellJump) endpoint() string {
+func (ShellJump) Endpoint() string {
 	return "jump-item/shell-jump"
 }
 
@@ -55,7 +55,7 @@ type RemoteRDP struct {
 	SessionPolicyID  *int   `json:"session_policy_id,omitempty"`
 }
 
-func (RemoteRDP) endpoint() string {
+func (RemoteRDP) Endpoint() string {
 	return "jump-item/remote-rdp"
 }
 
@@ -73,7 +73,7 @@ type RemoteVNC struct {
 	SessionPolicyID *int   `json:"session_policy_id,omitempty"`
 }
 
-func (RemoteVNC) endpoint() string {
+func (RemoteVNC) Endpoint() string {
 	return "jump-item/remote-vnc"
 }
 
@@ -95,7 +95,7 @@ type ProtocolTunnelJump struct {
 	Database            string `json:"database"`
 }
 
-func (ProtocolTunnelJump) endpoint() string {
+func (ProtocolTunnelJump) Endpoint() string {
 	return "jump-item/protocol-tunnel-jump"
 }
 
@@ -118,7 +118,7 @@ type WebJump struct {
 	SessionPolicyID       *int   `json:"session_policy_id,omitempty"`
 }
 
-func (WebJump) endpoint() string {
+func (WebJump) Endpoint() string {
 	return "jump-item/web-jump"
 }
 
@@ -130,7 +130,7 @@ type JumpGroup struct {
 	EcmGroupID *int   `json:"ecm_group_id,omitempty"`
 }
 
-func (JumpGroup) endpoint() string {
+func (JumpGroup) Endpoint() string {
 	return "jump-group"
 }
 
@@ -149,7 +149,7 @@ type Jumpoint struct {
 	RdpServiceAccountID       *int    `json:"rdp_service_account_id"`
 }
 
-func (Jumpoint) endpoint() string {
+func (Jumpoint) Endpoint() string {
 	return "jumpoint"
 }
 
@@ -170,7 +170,7 @@ type JumpItemRole struct {
 	PermViewJumpItemReport bool   `json:"perm_view_jump_item_report"`
 }
 
-func (JumpItemRole) endpoint() string {
+func (JumpItemRole) Endpoint() string {
 	return "jump-item-role"
 }
 
@@ -181,7 +181,7 @@ type SessionPolicy struct {
 	Description string `json:"description"`
 }
 
-func (SessionPolicy) endpoint() string {
+func (SessionPolicy) Endpoint() string {
 	return "session-policy"
 }
 
@@ -211,7 +211,7 @@ type GroupPolicy struct {
 	UnassignedJumpItemRoleID            int    `json:"unassigned_jump_item_role_id"`
 }
 
-func (GroupPolicy) endpoint() string {
+func (GroupPolicy) Endpoint() string {
 	return "group-policy"
 }
 
@@ -226,7 +226,7 @@ type VaultAccount struct {
 	AccountPolicy  *string `json:"account_policy"`
 }
 
-func (VaultAccount) endpoint() string {
+func (VaultAccount) Endpoint() string {
 	return "vault/account"
 }
 
@@ -244,10 +244,11 @@ type VaultUsernamePasswordAccount struct {
 	Password              string  `json:"password,omitempty"`
 	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
 
-	JumpItemAssociation AccountJumpItemAssociation `json:"-" sraapi:"skip"`
+	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
+	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
 }
 
-func (VaultUsernamePasswordAccount) endpoint() string {
+func (VaultUsernamePasswordAccount) Endpoint() string {
 	return "vault/account"
 }
 
@@ -268,10 +269,11 @@ type VaultSSHAccount struct {
 	PrivateKeyPublicCert  string  `json:"private_key_public_cert"`
 	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
 
-	JumpItemAssociation AccountJumpItemAssociation `json:"-" sraapi:"skip"`
+	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
+	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
 }
 
-func (VaultSSHAccount) endpoint() string {
+func (VaultSSHAccount) Endpoint() string {
 	return "vault/account"
 }
 
@@ -285,7 +287,7 @@ type VaultAccountGroup struct {
 	GroupPolicyMemberships []GroupPolicyVaultAccountGroup `json:"-" sraapi:"skip"`
 }
 
-func (VaultAccountGroup) endpoint() string {
+func (VaultAccountGroup) Endpoint() string {
 	return "vault/account-group"
 }
 
@@ -300,7 +302,7 @@ type VaultAccountPolicy struct {
 	MaximumPasswordAge        *int   `json:"maximum_password_age"`
 }
 
-func (VaultAccountPolicy) endpoint() string {
+func (VaultAccountPolicy) Endpoint() string {
 	return "vault/account-policy"
 }
 
@@ -315,10 +317,7 @@ type AccountJumpItemAssociation struct {
 	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
 }
 
-func (a AccountJumpItemAssociation) endpoint() string {
-	return a.Endpoint()
-}
-func (a *AccountJumpItemAssociation) Endpoint() string {
+func (a AccountJumpItemAssociation) Endpoint() string {
 	return fmt.Sprintf("vault/account/%d/jump-item-association", *a.ID)
 }
 
@@ -329,10 +328,7 @@ type AccountGroupJumpItemAssociation struct {
 	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
 }
 
-func (a AccountGroupJumpItemAssociation) endpoint() string {
-	return a.Endpoint()
-}
-func (a *AccountGroupJumpItemAssociation) Endpoint() string {
+func (a AccountGroupJumpItemAssociation) Endpoint() string {
 	return fmt.Sprintf("vault/account-group/%d/jump-item-association", *a.ID)
 }
 
@@ -355,9 +351,16 @@ type GroupPolicyVaultAccountGroup struct {
 	Role           string  `tfsdk:"role" json:"role"`
 }
 
-func (a GroupPolicyVaultAccountGroup) endpoint() string {
-	return a.Endpoint()
-}
-func (a *GroupPolicyVaultAccountGroup) Endpoint() string {
+func (a GroupPolicyVaultAccountGroup) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account-group", *a.GroupPolicyID)
+}
+
+type GroupPolicyVaultAccount struct {
+	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
+	AccountID     *int    `tfsdk:"-" json:"account_id"`
+	Role          string  `tfsdk:"role" json:"role"`
+}
+
+func (a GroupPolicyVaultAccount) Endpoint() string {
+	return fmt.Sprintf("group-policy/%s/vault-account", *a.GroupPolicyID)
 }

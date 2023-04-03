@@ -9,12 +9,12 @@ import (
 )
 
 type APIResource interface {
-	endpoint() string
+	Endpoint() string
 }
 
 func ListItems[I APIResource](c *APIClient, query ...map[string]string) ([]I, error) {
 	var tmp I
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, tmp.endpoint()), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, tmp.Endpoint()), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func ListItems[I APIResource](c *APIClient, query ...map[string]string) ([]I, er
 
 func GetItem[I APIResource](c *APIClient, id *int) (*I, error) {
 	var item I
-	endpoint := item.endpoint()
+	endpoint := item.Endpoint()
 	if id != nil {
 		endpoint = fmt.Sprintf("%s/%d", endpoint, *id)
 	}
@@ -78,7 +78,7 @@ func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	}
 
 	var newItem I
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", c.BaseURL, item.endpoint()), strings.NewReader(string(rb)))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", c.BaseURL, item.Endpoint()), strings.NewReader(string(rb)))
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 func UpdateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	itemObj := reflect.ValueOf(item)
 	id := itemObj.FieldByName("ID").Elem().Int()
-	endpoint := fmt.Sprintf("%s/%d", item.endpoint(), id)
+	endpoint := fmt.Sprintf("%s/%d", item.Endpoint(), id)
 
 	return UpdateItemEndpoint(c, item, endpoint)
 }
@@ -130,7 +130,7 @@ func UpdateItemEndpoint[I APIResource](c *APIClient, item I, endpoint string) (*
 
 func DeleteItem[I APIResource](c *APIClient, id *int) error {
 	var tmp I
-	endpoint := tmp.endpoint()
+	endpoint := tmp.Endpoint()
 	if id != nil {
 		endpoint = fmt.Sprintf("%s/%d", endpoint, *id)
 	}
