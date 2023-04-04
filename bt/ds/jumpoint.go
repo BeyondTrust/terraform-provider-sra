@@ -21,16 +21,16 @@ func newJumpointDataSource() datasource.DataSource {
 }
 
 type jumpointDataSource struct {
-	apiDataSource[jumpointDataSourceModel, api.Jumpoint, models.Jumpoint]
+	apiDataSource[jumpointDataSourceModel, api.Jumpoint, models.JumpointDS]
 }
 
 type jumpointDataSourceModel struct {
-	Items     []models.Jumpoint `tfsdk:"items"`
-	Name      types.String      `tfsdk:"name" filter:"name"`
-	CodeName  types.String      `tfsdk:"code_name" filter:"code_name"`
-	PublicIp  types.String      `tfsdk:"public_ip" filter:"public_ip"`
-	PrivateIp types.String      `tfsdk:"private_ip" filter:"private_ip"`
-	Hostname  types.String      `tfsdk:"hostname" filter:"hostname"`
+	Items     []models.JumpointDS `tfsdk:"items"`
+	Name      types.String        `tfsdk:"name" filter:"name"`
+	CodeName  types.String        `tfsdk:"code_name" filter:"code_name"`
+	PublicIp  types.String        `tfsdk:"public_ip" filter:"public_ip"`
+	PrivateIp types.String        `tfsdk:"private_ip" filter:"private_ip"`
+	Hostname  types.String        `tfsdk:"hostname" filter:"hostname"`
 }
 
 func (d *jumpointDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

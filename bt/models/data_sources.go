@@ -32,6 +32,23 @@ type Jumpoint struct {
 	ExternalJumpItemNetworkID types.String `tfsdk:"external_jump_item_network_id"`
 	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled"`
 	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id"`
+
+	GroupPolicyMemberships types.Set `tfsdk:"group_policy_memberships"`
+}
+
+type JumpointDS struct {
+	ID                        types.String `tfsdk:"id"`
+	Name                      types.String `tfsdk:"name"`
+	CodeName                  types.String `tfsdk:"code_name"`
+	Platform                  types.String `tfsdk:"platform"`
+	Comments                  types.String `tfsdk:"comments"`
+	Enabled                   types.Bool   `tfsdk:"enabled"`
+	Connected                 types.Bool   `tfsdk:"connected"`
+	Clustered                 types.Bool   `tfsdk:"clustered"`
+	ShellJumpEnabled          types.Bool   `tfsdk:"shell_jump_enabled"`
+	ExternalJumpItemNetworkID types.String `tfsdk:"external_jump_item_network_id"`
+	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled"`
+	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id"`
 }
 
 type JumpItemRole struct {

@@ -148,6 +148,8 @@ type Jumpoint struct {
 	ExternalJumpItemNetworkID *string `json:"external_jump_item_network_id,omitempty"`
 	ProtocolTunnelEnabled     bool    `json:"protocol_tunnel_enabled"`
 	RdpServiceAccountID       *int    `json:"rdp_service_account_id"`
+
+	GroupPolicyMemberships []GroupPolicyJumpoint `json:"-" sraapi:"skip"`
 }
 
 func (Jumpoint) Endpoint() string {
@@ -375,4 +377,13 @@ type GroupPolicyJumpGroup struct {
 
 func (a GroupPolicyJumpGroup) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jump-group", *a.GroupPolicyID)
+}
+
+type GroupPolicyJumpoint struct {
+	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
+	JumpointID    *int    `tfsdk:"-" json:"jumpoint_id"`
+}
+
+func (a GroupPolicyJumpoint) Endpoint() string {
+	return fmt.Sprintf("group-policy/%s/jumpoint", *a.GroupPolicyID)
 }
