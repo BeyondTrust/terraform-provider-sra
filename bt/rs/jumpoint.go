@@ -66,7 +66,6 @@ func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 			"connected": schema.BoolAttribute{
 				Computed: true,
-				Default:  booldefault.StaticBool(true),
 			},
 			"clustered": schema.BoolAttribute{
 				Optional: true,

@@ -35,6 +35,7 @@ func NewClient(host string, client_id, client_secret *string) (*APIClient, error
 }
 
 func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
+	req.Header.Set("User-Agent", "SRA-Terraform-Plugin")
 	res, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err

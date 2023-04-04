@@ -89,10 +89,10 @@ type ProtocolTunnelJump struct {
 	JumpPolicyID        *int   `json:"jump_policy_id,omitempty"`
 	SessionPolicyID     *int   `json:"session_policy_id,omitempty"`
 	TunnelListenAddress string `json:"tunnel_listen_address"`
-	TunnelDefinitions   string `json:"tunnel_definitions"`
+	TunnelDefinitions   string `json:"tunnel_definitions,omitempty"`
 	TunnelType          string `json:"tunnel_type"`
-	Username            string `json:"username"`
-	Database            string `json:"database"`
+	Username            string `json:"username,omitempty"`
+	Database            string `json:"database,omitempty"`
 }
 
 func (ProtocolTunnelJump) Endpoint() string {
@@ -123,11 +123,12 @@ func (WebJump) Endpoint() string {
 }
 
 type JumpGroup struct {
-	ID         *int   `json:"id,omitempty"`
-	Name       string `json:"name"`
-	CodeName   string `json:"code_name"`
-	Comments   string `json:"comments"`
-	EcmGroupID *int   `json:"ecm_group_id,omitempty"`
+	ID       *int   `json:"id,omitempty"`
+	Name     string `json:"name"`
+	CodeName string `json:"code_name"`
+	Comments string `json:"comments"`
+
+	GroupPolicyMemberships []GroupPolicyJumpGroup `json:"-" sraapi:"skip"`
 }
 
 func (JumpGroup) Endpoint() string {
@@ -363,4 +364,15 @@ type GroupPolicyVaultAccount struct {
 
 func (a GroupPolicyVaultAccount) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account", *a.GroupPolicyID)
+}
+
+type GroupPolicyJumpGroup struct {
+	GroupPolicyID  *string `tfsdk:"group_policy_id" json:"-"`
+	JumpGroupID    *int    `tfsdk:"-" json:"jump_group_id"`
+	JumpItemRoleID int     `tfsdk:"jump_item_role_id" json:"jump_item_role_id"`
+	JumpPolicyID   int     `tfsdk:"jump_policy_id" json:"jump_policy_id"`
+}
+
+func (a GroupPolicyJumpGroup) Endpoint() string {
+	return fmt.Sprintf("group-policy/%s/jump-group", *a.GroupPolicyID)
 }

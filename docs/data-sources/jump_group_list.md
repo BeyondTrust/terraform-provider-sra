@@ -48,7 +48,6 @@ Required:
 Optional:
 
 - `comments` (String)
-- `ecm_group_id` (Number)
 
 Read-Only:
 

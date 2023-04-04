@@ -288,7 +288,7 @@ func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadReq
 				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
 					"read": *item,
 				})
-				(*item).GroupPolicyID = &gpId
+				item.GroupPolicyID = &gpId
 				gpList[i] = *item
 			}
 		}

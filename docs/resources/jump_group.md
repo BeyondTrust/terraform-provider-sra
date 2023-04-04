@@ -20,6 +20,10 @@ For descriptions of individual fields, please see the Configuration API document
 resource "sra_jump_group" "example" {
   name      = "Example Jump Group"
   code_name = "example_group"
+
+  group_policy_memberships = [
+    { group_policy_id : "123", jump_item_role_id : 123, jump_policy_id : 123 }
+  ]
 }
 ```
 
@@ -34,11 +38,23 @@ resource "sra_jump_group" "example" {
 ### Optional
 
 - `comments` (String)
-- `ecm_group_id` (Number)
+- `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--group_policy_memberships"></a>
+### Nested Schema for `group_policy_memberships`
+
+Required:
+
+- `group_policy_id` (String) The ID of the Group Policy this Account is a member of
+
+Optional:
+
+- `jump_item_role_id` (Number) The ID of the Jump Item Role that applies to this membership. Omitting or 0 means "User's Default"
+- `jump_policy_id` (Number) The ID of the Jump Policy that applies to this membership. Omitting or 0 means "Set on Jump Items"
 
 ## Import
 

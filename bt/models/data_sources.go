@@ -5,11 +5,18 @@ import (
 )
 
 type JumpGroup struct {
-	ID         types.String `tfsdk:"id"`
-	Name       types.String `tfsdk:"name"`
-	CodeName   types.String `tfsdk:"code_name"`
-	Comments   types.String `tfsdk:"comments"`
-	EcmGroupID types.Int64  `tfsdk:"ecm_group_id"`
+	ID       types.String `tfsdk:"id"`
+	Name     types.String `tfsdk:"name"`
+	CodeName types.String `tfsdk:"code_name"`
+	Comments types.String `tfsdk:"comments"`
+
+	GroupPolicyMemberships types.Set `tfsdk:"group_policy_memberships"`
+}
+type JumpGroupDS struct {
+	ID       types.String `tfsdk:"id"`
+	Name     types.String `tfsdk:"name"`
+	CodeName types.String `tfsdk:"code_name"`
+	Comments types.String `tfsdk:"comments"`
 }
 
 type Jumpoint struct {

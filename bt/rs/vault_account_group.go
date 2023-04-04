@@ -194,7 +194,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
 					"read": *item,
 				})
-				(*item).GroupPolicyID = &gpId
+				item.GroupPolicyID = &gpId
 				gpList[i] = *item
 			}
 		}
