@@ -29,7 +29,8 @@ type VaultUsernamePasswordAccount struct {
 	Password              types.String `tfsdk:"password" sra:"persist_state"`
 	LastCheckoutTimestamp types.String `tfsdk:"last_checkout_timestamp"`
 
-	JumpItemAssociation types.Object `tfsdk:"jump_item_association"`
+	JumpItemAssociation    types.Object `tfsdk:"jump_item_association"`
+	GroupPolicyMemberships types.Set    `tfsdk:"group_policy_memberships"`
 }
 
 type VaultSSHAccount struct {
@@ -49,7 +50,8 @@ type VaultSSHAccount struct {
 	PrivateKeyPublicCert  types.String `tfsdk:"private_key_public_cert"`
 	LastCheckoutTimestamp types.String `tfsdk:"last_checkout_timestamp"`
 
-	JumpItemAssociation types.Object `tfsdk:"jump_item_association"`
+	JumpItemAssociation    types.Object `tfsdk:"jump_item_association"`
+	GroupPolicyMemberships types.Set    `tfsdk:"group_policy_memberships"`
 }
 
 type VaultAccountGroup struct {

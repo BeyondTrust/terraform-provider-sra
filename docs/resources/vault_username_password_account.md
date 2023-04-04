@@ -23,7 +23,11 @@ resource "sra_vault_username_password_account" "new_account" {
   username = "test"
   password = "this-is-a-test-password-that-should-be-generated-somehow"
 
-  # Omit to use account group settings
+  # Omit the following configuration to use account group settings
+  group_policy_memberships = [
+    { group_policy_id : "123", role : "inject" }
+  ]
+
   jump_item_association = {
     filter_type = "criteria"
     criteria = {
@@ -31,7 +35,7 @@ resource "sra_vault_username_password_account" "new_account" {
       tag                = ["tftest"]
     }
     jump_items = [
-      { id : 123, type : "remote_rdp" }
+      { id : 123, type : "shell_jump" }
     ]
   }
 }
@@ -51,6 +55,7 @@ resource "sra_vault_username_password_account" "new_account" {
 - `account_group_id` (Number)
 - `account_policy` (String)
 - `description` (String)
+- `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
 
 ### Read-Only
@@ -60,6 +65,15 @@ resource "sra_vault_username_password_account" "new_account" {
 - `owner_user_id` (Number)
 - `personal` (Boolean)
 - `type` (String)
+
+<a id="nestedatt--group_policy_memberships"></a>
+### Nested Schema for `group_policy_memberships`
+
+Required:
+
+- `group_policy_id` (String) The ID of the Group Policy this Account is a member of
+- `role` (String)
+
 
 <a id="nestedatt--jump_item_association"></a>
 ### Nested Schema for `jump_item_association`

@@ -11,7 +11,11 @@ resource "sra_vault_ssh_account" "new_key" {
   private_key            = tls_private_key.test_key.private_key_openssh
   private_key_passphrase = ""
 
-  # Omit to use account group settings
+  # Omit the following configuration to use account group settings
+  group_policy_memberships = [
+    { group_policy_id : "123", role : "inject" }
+  ]
+
   jump_item_association = {
     filter_type = "criteria"
     criteria = {

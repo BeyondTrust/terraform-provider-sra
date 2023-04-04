@@ -5,7 +5,11 @@ resource "sra_vault_username_password_account" "new_account" {
   username = "test"
   password = "this-is-a-test-password-that-should-be-generated-somehow"
 
-  # Omit to use account group settings
+  # Omit the following configuration to use account group settings
+  group_policy_memberships = [
+    { group_policy_id : "123", role : "inject" }
+  ]
+
   jump_item_association = {
     filter_type = "criteria"
     criteria = {
@@ -13,7 +17,7 @@ resource "sra_vault_username_password_account" "new_account" {
       tag                = ["tftest"]
     }
     jump_items = [
-      { id : 123, type : "remote_rdp" }
+      { id : 123, type : "shell_jump" }
     ]
   }
 }

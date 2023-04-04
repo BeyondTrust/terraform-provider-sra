@@ -8,6 +8,8 @@ import (
 	"terraform-provider-beyondtrust-sra/api"
 	"terraform-provider-beyondtrust-sra/bt/models"
 
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -15,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -85,6 +88,23 @@ func (r *vaultUsernamePasswordAccountResource) Schema(_ context.Context, _ resou
 			},
 
 			"jump_item_association": accountJumpItemAssociationSchema(),
+			"group_policy_memberships": schema.SetNestedAttribute{
+				Optional: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"group_policy_id": schema.StringAttribute{
+							Required:    true,
+							Description: "The ID of the Group Policy this Account is a member of",
+						},
+						"role": schema.StringAttribute{
+							Required: true,
+							Validators: []validator.String{
+								stringvalidator.OneOf([]string{"inject", "inject_and_checkout"}...),
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -127,11 +147,6 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 
 		item, err := api.CreateItem(r.ApiClient, apiSub)
 
-		rb, _ := json.Marshal(item)
-		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
-
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error reading item",
@@ -139,6 +154,11 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 			)
 			return
 		}
+
+		rb, _ := json.Marshal(item)
+		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+			"data": string(rb),
+		})
 		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
@@ -198,11 +218,6 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 			return
 		}
 
-		rb, _ := json.Marshal(item)
-		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
-
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error reading item",
@@ -210,7 +225,64 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 			)
 			return
 		}
+
+		rb, _ := json.Marshal(item)
+		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+			"data": string(rb),
+		})
 		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	{
+		// Group Policy Memberships
+
+		var tfGPList types.Set
+		diags := req.State.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if tfGPList.IsNull() {
+			return
+		}
+
+		var gpList []api.GroupPolicyVaultAccount
+		diags = tfGPList.ElementsAs(ctx, &gpList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		for i, m := range gpList {
+			m.AccountID = &id
+			tflog.Info(ctx, "🌈 Reading item", map[string]interface{}{
+				"read": m,
+			})
+			gpId := *m.GroupPolicyID
+
+			endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), id)
+			item, err := api.GetItemEndpoint[api.GroupPolicyVaultAccount](r.ApiClient, endpoint)
+
+			if err != nil {
+				tflog.Info(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
+					"read":  m,
+					"error": err,
+				})
+			} else if item != nil {
+				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
+					"read": *item,
+				})
+				(*item).GroupPolicyID = &gpId
+				gpList[i] = *item
+			}
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), gpList)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -298,6 +370,98 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 			tflog.Info(ctx, fmt.Sprintf("🦠 Setting empty item in plan %v", empty))
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), empty)
 		}
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	{
+		// Group Policy Memberships
+
+		var tfGPList types.Set
+		diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var gpList []api.GroupPolicyVaultAccount
+		if !tfGPList.IsNull() {
+			diags = tfGPList.ElementsAs(ctx, &gpList, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		var tfGPStateList types.Set
+		diags = req.State.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPStateList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var stateGPList []api.GroupPolicyVaultAccount
+		if !tfGPStateList.IsNull() {
+			diags = tfGPStateList.ElementsAs(ctx, &stateGPList, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		setGPList := mapset.NewSet(gpList...)
+		setGPStateList := mapset.NewSet(stateGPList...)
+
+		toAdd := setGPList.Difference(setGPStateList)
+		toRemove := setGPStateList.Difference(setGPList)
+
+		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+			"add":    toAdd,
+			"remove": toRemove,
+
+			"tf":    tfGPList,
+			"list":  gpList,
+			"state": stateGPList,
+		})
+
+		for m := range toRemove.Iterator().C {
+			m.AccountID = &id
+			tflog.Info(ctx, "🌈 Deleting item", map[string]interface{}{
+				"add":     m,
+				"gp":      m.GroupPolicyID,
+				"account": m.AccountID,
+			})
+			endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), *m.AccountID)
+			err := api.DeleteItemEndpoint[api.GroupPolicyVaultAccount](r.ApiClient, endpoint)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error updating item's group policy memberships",
+					"Unexpected deleting membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				)
+				return
+			}
+		}
+
+		results := []api.GroupPolicyVaultAccount{}
+		for m := range toAdd.Iterator().C {
+			m.AccountID = &id
+			item, err := api.CreateItem(r.ApiClient, m)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error updating item's group policy memberships",
+					"Unexpected adding membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				)
+				return
+			}
+			item.GroupPolicyID = m.GroupPolicyID
+			results = append(results, *item)
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return

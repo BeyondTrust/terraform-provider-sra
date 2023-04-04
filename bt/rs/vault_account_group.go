@@ -82,9 +82,6 @@ func (r *vaultAccountGroupResource) Schema(_ context.Context, _ resource.SchemaR
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Account Group is a member of",
-							Validators: []validator.String{
-								stringvalidator.LengthAtLeast(1),
-							},
 						},
 						"role": schema.StringAttribute{
 							Required: true,

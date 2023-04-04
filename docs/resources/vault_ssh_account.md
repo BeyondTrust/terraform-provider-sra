@@ -29,7 +29,11 @@ resource "sra_vault_ssh_account" "new_key" {
   private_key            = tls_private_key.test_key.private_key_openssh
   private_key_passphrase = ""
 
-  # Omit to use account group settings
+  # Omit the following configuration to use account group settings
+  group_policy_memberships = [
+    { group_policy_id : "123", role : "inject" }
+  ]
+
   jump_item_association = {
     filter_type = "criteria"
     criteria = {
@@ -62,6 +66,7 @@ output "pub_key" {
 - `account_group_id` (Number)
 - `account_policy` (String)
 - `description` (String)
+- `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
 - `private_key_public_cert` (String)
 
@@ -73,6 +78,15 @@ output "pub_key" {
 - `personal` (Boolean)
 - `public_key` (String)
 - `type` (String)
+
+<a id="nestedatt--group_policy_memberships"></a>
+### Nested Schema for `group_policy_memberships`
+
+Required:
+
+- `group_policy_id` (String) The ID of the Group Policy this Account is a member of
+- `role` (String)
+
 
 <a id="nestedatt--jump_item_association"></a>
 ### Nested Schema for `jump_item_association`
