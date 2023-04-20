@@ -18,6 +18,7 @@ func DatasourceList() []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		// Alphabetical by file name
 		newGroupPolicyDataSource,
+		newJumpClientInstallerDataSource,
 		newJumpGroupDataSource,
 		newJumpItemRoleDataSource,
 		newJumpointDataSource,
