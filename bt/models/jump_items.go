@@ -99,3 +99,29 @@ type WebJump struct {
 	SubmitField           types.String `tfsdk:"submit_field"`
 	SessionPolicyID       types.Int64  `tfsdk:"session_policy_id"`
 }
+
+type JumpClientInstaller struct {
+	ID                             types.String `tfsdk:"id"`
+	JumpGroupID                    types.Int64  `tfsdk:"jump_group_id"`
+	Name                           types.String `tfsdk:"name"`
+	Tag                            types.String `tfsdk:"tag"`
+	Comments                       types.String `tfsdk:"comments"`
+	JumpPolicyID                   types.Int64  `tfsdk:"jump_policy_id"`
+	ConnectionType                 types.String `tfsdk:"connection_type"`
+	JumpGroupType                  types.String `tfsdk:"jump_group_type"`
+	SessionPolicyID                types.Int64  `tfsdk:"session_policy_id"`
+	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
+	InstallerID                    types.String `tfsdk:"installer_id"`
+	KeyInfo                        types.String `tfsdk:"key_info"`
+	ElevateInstall                 types.Bool   `tfsdk:"elevate_install"`
+	ElevatePrompt                  types.Bool   `tfsdk:"elevate_prompt"`
+	ExpirationTimestamp            types.String `tfsdk:"expiration_timestamp"`
+	AllowOverrideJumpGroup         types.Bool   `tfsdk:"allow_override_jump_group"`
+	AllowOverrideJumpPolicy        types.Bool   `tfsdk:"allow_override_jump_policy"`
+	AllowOverrideName              types.Bool   `tfsdk:"allow_override_name"`
+	AllowOverrideTag               types.Bool   `tfsdk:"allow_override_tag"`
+	AllowOverrideComments          types.Bool   `tfsdk:"allow_override_comments"`
+	AllowOverrideMaxOfflineMinutes types.Bool   `tfsdk:"allow_override_max_offline_minutes"`
+	AllowOverrideSessionPolicy     types.Bool   `tfsdk:"allow_override_session_policy"`
+	ValidDuration                  types.Int64  `tfsdk:"valid_duration" sra:"persist_state"`
+}

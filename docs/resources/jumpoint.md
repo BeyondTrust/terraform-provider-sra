@@ -21,6 +21,10 @@ resource "sra_jumpoint" "example" {
   name      = "Example Jumpoint"
   code_name = "example_jumpoint"
   platform  = "linux-x86"
+
+  group_policy_memberships = [
+    { group_policy_id : "123" }
+  ]
 }
 ```
 
@@ -39,6 +43,7 @@ resource "sra_jumpoint" "example" {
 - `comments` (String)
 - `enabled` (Boolean)
 - `external_jump_item_network_id` (String)
+- `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `protocol_tunnel_enabled` (Boolean)
 - `rdp_service_account_id` (Number)
 - `shell_jump_enabled` (Boolean)
@@ -47,6 +52,13 @@ resource "sra_jumpoint" "example" {
 
 - `connected` (Boolean)
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--group_policy_memberships"></a>
+### Nested Schema for `group_policy_memberships`
+
+Required:
+
+- `group_policy_id` (String) The ID of the Group Policy this Jumpoint is a member of
 
 ## Import
 

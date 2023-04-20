@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -20,6 +21,29 @@ func ToSnakeCase(str string) string {
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
+}
+
+type Timestamp string
+
+func (t *Timestamp) MarshalJSON() ([]byte, error) {
+	ts, err := time.Parse(time.RFC3339, string(*t))
+	if err != nil {
+		return nil, err
+	}
+	stamp := fmt.Sprint(ts.Unix())
+
+	return []byte(stamp), nil
+}
+
+func (t *Timestamp) UnmarshalJSON(b []byte) error {
+	ts, err := strconv.Atoi(string(b))
+	if err != nil {
+		return err
+	}
+
+	*t = Timestamp(time.Unix(int64(ts), 0).Format(time.RFC3339))
+
+	return nil
 }
 
 /*
@@ -52,17 +76,24 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 		}
 		field := apiObj.FieldByName(fieldName)
 		tfField := tfObj.Field(i)
-		tflog.Trace(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s [%s]", fieldName, field.Kind()))
+		tflog.Info(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s [%s]", fieldName, field.Kind()))
 
 		if fieldName == "ID" {
 			m := tfField.MethodByName("IsNull")
 			mCallable := m.Interface().(func() bool)
-			if !mCallable() {
-				val := tfField.Interface().(types.String)
-				id, _ := strconv.Atoi(val.ValueString())
-				idVal := reflect.ValueOf(&id)
-				field.Set(idVal)
+			if mCallable() {
+				continue
 			}
+			m = tfField.MethodByName("IsUnknown")
+			mCallable = m.Interface().(func() bool)
+			if mCallable() {
+				continue
+			}
+
+			val := tfField.Interface().(types.String)
+			id, _ := strconv.Atoi(val.ValueString())
+			idVal := reflect.ValueOf(&id)
+			field.Set(idVal)
 			continue
 		}
 		if field.Kind() == reflect.Pointer {
@@ -110,7 +141,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 			continue
 		}
 		field := apiObj.FieldByName(fieldName)
-		tflog.Trace(ctx, "🍺 copyAPItoTF field "+fieldName)
+		tflog.Info(ctx, "🍺 copyAPItoTF field "+fieldName)
 
 		// FIXME (maybe?) The reflect library doesn't have a nice wrapper method for setting
 		// the Terraform types, and I didn't know enough about the other reflect
@@ -123,7 +154,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		// *(*types.String)(tfObj.Field(i).Addr().UnsafePointer())
 		if fieldName == "ID" {
 			val := field.Elem().Int()
-			tflog.Trace(ctx, fmt.Sprintf("🥃 ID [%d]", val))
+			tflog.Info(ctx, fmt.Sprintf("🥃 ID [%d]", val))
 			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(strconv.Itoa(int(val)))
 			continue
 		}

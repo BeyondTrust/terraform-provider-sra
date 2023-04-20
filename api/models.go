@@ -156,6 +156,36 @@ func (Jumpoint) Endpoint() string {
 	return "jumpoint"
 }
 
+type JumpClientInstaller struct {
+	ID                             *int      `json:"id,omitempty"`
+	JumpGroupID                    int       `json:"jump_group_id"`
+	Name                           string    `json:"name"`
+	Tag                            string    `json:"tag"`
+	Comments                       string    `json:"comments"`
+	ConnectionType                 string    `json:"connection_type"`
+	JumpGroupType                  string    `json:"jump_group_type"`
+	JumpPolicyID                   *int      `json:"jump_policy_id,omitempty"`
+	SessionPolicyID                *int      `json:"session_policy_id,omitempty"`
+	MaxOfflineMinutes              int       `json:"max_offline_minutes"`
+	InstallerID                    string    `json:"installer_id,omitempty"`
+	KeyInfo                        string    `json:"key_info,omitempty"`
+	ElevateInstall                 bool      `json:"elevate_install"`
+	ElevatePrompt                  bool      `json:"elevate_prompt"`
+	ExpirationTimestamp            Timestamp `json:"expiration_timestamp,omitempty"`
+	AllowOverrideJumpGroup         bool      `json:"allow_override_jump_group"`
+	AllowOverrideJumpPolicy        bool      `json:"allow_override_jump_policy"`
+	AllowOverrideName              bool      `json:"allow_override_name"`
+	AllowOverrideTag               bool      `json:"allow_override_tag"`
+	AllowOverrideComments          bool      `json:"allow_override_comments"`
+	AllowOverrideMaxOfflineMinutes bool      `json:"allow_override_max_offline_minutes"`
+	AllowOverrideSessionPolicy     bool      `json:"allow_override_session_policy"`
+	ValidDuration                  *int      `json:"valid_duration,omitempty"`
+}
+
+func (JumpClientInstaller) Endpoint() string {
+	return "jump-client/installer"
+}
+
 type JumpItemRole struct {
 	ID                     *int   `json:"id,omitempty"`
 	Name                   string `json:"name"`
@@ -243,9 +273,9 @@ type VaultUsernamePasswordAccount struct {
 	AccountGroupID int     `json:"account_group_id"`
 	AccountPolicy  *string `json:"account_policy"`
 
-	Username              string  `json:"username"`
-	Password              string  `json:"password,omitempty"`
-	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+	Username              string     `json:"username"`
+	Password              string     `json:"password,omitempty"`
+	LastCheckoutTimestamp *Timestamp `json:"last_checkout_timestamp"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
@@ -263,14 +293,14 @@ type VaultSSHAccount struct {
 	Personal       *bool   `json:"personal,omitempty"`
 	OwnerUserID    *int    `json:"owner_user_id,omitempty"`
 	AccountGroupID int     `json:"account_group_id"`
-	AccountPolicy  *string `json:"account_policy"`
+	AccountPolicy  *string `json:"account_policy,omitempty"`
 
-	Username              string  `json:"username"`
-	PublicKey             *string `json:"public_key,omitempty"`
-	PrivateKey            string  `json:"private_key"`
-	PrivateKeyPassphrase  string  `json:"private_key_passphrase"`
-	PrivateKeyPublicCert  string  `json:"private_key_public_cert"`
-	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+	Username              string     `json:"username"`
+	PublicKey             *string    `json:"public_key,omitempty"`
+	PrivateKey            string     `json:"private_key"`
+	PrivateKeyPassphrase  string     `json:"private_key_passphrase"`
+	PrivateKeyPublicCert  string     `json:"private_key_public_cert"`
+	LastCheckoutTimestamp *Timestamp `json:"last_checkout_timestamp"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`

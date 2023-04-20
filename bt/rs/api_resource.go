@@ -32,6 +32,7 @@ func ResourceList() []func() resource.Resource {
 		newRemoteVNCResource,
 		newShellJumpResource,
 		newWebJumpResource,
+		newJumpClientInstallerResource,
 
 		newVaultAccountGroupResource,
 		newVaultAccountPolicyResource,

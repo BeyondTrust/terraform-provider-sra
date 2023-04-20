@@ -215,7 +215,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 	tflog.Info(ctx, "🤬 SSH updating plan")
 
 	var tfId types.String
-	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
+	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
 	{
@@ -264,8 +264,8 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error reading item",
-				"Unexpected creating item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				"Error Updating Account Group Jump Item Associations",
+				"Unexpected value for ID ["+strconv.Itoa(id)+"]: "+err.Error(),
 			)
 			return
 		}

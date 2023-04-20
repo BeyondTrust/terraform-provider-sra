@@ -128,7 +128,7 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 	tflog.Info(ctx, "🤬 SSH creating plan")
 
 	var tfId types.String
-	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
+	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
 	{
@@ -143,6 +143,12 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 		}
 
 		if tfObj.IsNull() {
+			return
+		}
+
+		if tfObj.IsUnknown() {
+			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), types.ObjectNull(tfObj.AttributeTypes(ctx)))
+			resp.Diagnostics.Append(diags...)
 			return
 		}
 
@@ -161,8 +167,8 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error reading item",
-				"Unexpected creating item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				"Error Creating SSH Account Jump Item Association",
+				"Unexpected value for ID ["+strconv.Itoa(id)+"]: "+err.Error(),
 			)
 			return
 		}
@@ -364,8 +370,8 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error reading item",
-				"Unexpected creating item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				"Error Updating SSH Account Jump Item Association",
+				"Unexpected value for ID ["+strconv.Itoa(id)+"]: "+err.Error(),
 			)
 			return
 		}
