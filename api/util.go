@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/exp/slices"
@@ -193,6 +194,31 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolNull()
 			} else {
 				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolValue(field.Bool())
+			}
+		case reflect.Slice:
+			if setToNil {
+				*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()) = types.SetNull(types.StringType)
+			} else if field.Len() == 0 {
+				*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()) = types.SetValueMust(types.StringType, []attr.Value{})
+			} else {
+				var goList []string
+				rgList := reflect.ValueOf(&goList).Elem()
+				rgList.Set(reflect.MakeSlice(field.Type(), field.Len(), field.Cap()))
+				for j := 0; j < field.Len(); j++ {
+					switch field.Index(j).Kind() {
+					case reflect.String:
+						rgList.Index(j).SetString(field.Index(j).Interface().(string))
+					default:
+						// FIXME… might need to handle more than just string
+						panic("Unhandled set type: " + field.Index(j).Kind().String())
+					}
+				}
+
+				v, err := types.SetValueFrom(ctx, types.StringType, goList)
+				if err != nil {
+					panic("Error converting go set to TF object: " + err.Errors()[0].Detail())
+				}
+				*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()), _ = types.SetValueFrom(ctx, types.StringType, v)
 			}
 		default:
 			panic("Unknown encoded type in struct: " + field.Kind().String())

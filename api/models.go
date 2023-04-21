@@ -207,6 +207,33 @@ func (JumpItemRole) Endpoint() string {
 	return "jump-item-role"
 }
 
+type JumpPolicy struct {
+	ID                         *int     `json:"id,omitempty"`
+	DisplayName                string   `json:"display_name"`
+	CodeName                   string   `json:"code_name"`
+	Description                string   `json:"description"`
+	ScheduleEnabled            bool     `json:"schedule_enabled"`
+	ScheduleStrict             bool     `json:"schedule_strict"`
+	SessionStartNotification   bool     `json:"session_start_notification"`
+	SessionEndNotification     bool     `json:"session_end_notification"`
+	NotificationEmailAddresses []string `json:"notification_email_addresses"`
+	NotificationDisplayName    string   `json:"notification_display_name"`
+	NotificationEmailLanguage  string   `json:"notification_email_language"`
+	TicketIdRequired           bool     `json:"ticket_id_required"`
+	ApprovalRequired           bool     `json:"approval_required"`
+	ApprovalMaxDuration        int      `json:"approval_max_duration"`
+	ApprovalScope              string   `json:"approval_scope"`
+	ApprovalEmailAddresses     []string `json:"approval_email_addresses"`
+	ApprovalUserIds            []string `json:"approval_user_ids"`
+	ApprovalDisplayName        string   `json:"approval_display_name"`
+	ApprovalEmailLanguage      string   `json:"approval_email_language"`
+	RecordingsDisabled         bool     `json:"recordings_disabled"`
+}
+
+func (JumpPolicy) Endpoint() string {
+	return "jump-policy"
+}
+
 type SessionPolicy struct {
 	ID          *int   `json:"id,omitempty"`
 	DisplayName string `json:"display_name"`

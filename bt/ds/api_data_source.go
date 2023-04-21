@@ -21,6 +21,7 @@ func DatasourceList() []func() datasource.DataSource {
 		newJumpClientInstallerDataSource,
 		newJumpGroupDataSource,
 		newJumpItemRoleDataSource,
+		newJumpPolicyDataSource,
 		newJumpointDataSource,
 		newProtocolTunnelJumpDataSource,
 		newRemoteRDPDataSource,
@@ -112,6 +113,20 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Conte
 		itemStateObj := reflect.ValueOf(&itemState).Elem()
 
 		api.CopyAPItoTF(ctx, itemObj, itemStateObj, apiType)
+
+		tflog.Info(ctx, "🐉 TF Object is now copied", map[string]interface{}{
+			"object": itemState,
+		})
+
+		for i := 0; i < itemStateObj.NumField(); i++ {
+			field := itemStateObj.Field(i)
+			fieldName := itemStateObj.Type().Field(i).Name
+			m := field.MethodByName("IsUnknown")
+			mCallable := m.Interface().(func() bool)
+			if mCallable() {
+				tflog.Info(ctx, fmt.Sprintf("👻 IsUnknown? [%s][%v]", fieldName, mCallable()))
+			}
+		}
 
 		tfItems = append(tfItems, itemState)
 	}

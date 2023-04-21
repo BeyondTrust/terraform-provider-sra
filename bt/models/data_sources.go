@@ -100,3 +100,26 @@ type GroupPolicy struct {
 	InferiorJumpItemRoleID              types.Int64  `tfsdk:"inferior_jump_item_role_id"`
 	UnassignedJumpItemRoleID            types.Int64  `tfsdk:"unassigned_jump_item_role_id"`
 }
+
+type JumpPolicy struct {
+	ID                         types.String `tfsdk:"id"`
+	DisplayName                types.String `tfsdk:"display_name"`
+	CodeName                   types.String `tfsdk:"code_name"`
+	Description                types.String `tfsdk:"description"`
+	ScheduleEnabled            types.Bool   `tfsdk:"schedule_enabled"`
+	ScheduleStrict             types.Bool   `tfsdk:"schedule_strict"`
+	SessionStartNotification   types.Bool   `tfsdk:"session_start_notification"`
+	SessionEndNotification     types.Bool   `tfsdk:"session_end_notification"`
+	NotificationEmailAddresses types.Set    `tfsdk:"notification_email_addresses"`
+	NotificationDisplayName    types.String `tfsdk:"notification_display_name"`
+	NotificationEmailLanguage  types.String `tfsdk:"notification_email_language"`
+	TicketIdRequired           types.Bool   `tfsdk:"ticket_id_required"`
+	ApprovalRequired           types.Bool   `tfsdk:"approval_required"`
+	ApprovalMaxDuration        types.Int64  `tfsdk:"approval_max_duration"`
+	ApprovalScope              types.String `tfsdk:"approval_scope"`
+	ApprovalEmailAddresses     types.Set    `tfsdk:"approval_email_addresses"`
+	ApprovalUserIds            types.Set    `tfsdk:"approval_user_ids"`
+	ApprovalDisplayName        types.String `tfsdk:"approval_display_name"`
+	ApprovalEmailLanguage      types.String `tfsdk:"approval_email_language"`
+	RecordingsDisabled         types.Bool   `tfsdk:"recordings_disabled"`
+}
