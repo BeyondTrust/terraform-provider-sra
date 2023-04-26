@@ -16,12 +16,12 @@ func TestJumpointAndJumpGroup(t *testing.T) {
 	randomBits := setEnvAndGetRandom()
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/jumpoint_and_jump_group")
 
-	defer test_structure.RunTestStage(t, "Jumpoint/Jump Group teardown", func() {
+	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "Jumpoint/Jump Group setup", func() {
+	test_structure.RunTestStage(t, "setup", func() {
 		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 
@@ -82,12 +82,12 @@ func TestShellJump(t *testing.T) {
 	randomBits := setEnvAndGetRandom()
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/shell_jump")
 
-	defer test_structure.RunTestStage(t, "Shell Jump teardown", func() {
+	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "Sell Jump setup", func() {
+	test_structure.RunTestStage(t, "setup", func() {
 		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 			Vars: map[string]interface{}{
@@ -132,12 +132,12 @@ func TestRemoteRDP(t *testing.T) {
 	randomBits := setEnvAndGetRandom()
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/remote_rdp")
 
-	defer test_structure.RunTestStage(t, "RDP teardown", func() {
+	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "RDP setup", func() {
+	test_structure.RunTestStage(t, "setup", func() {
 		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 
@@ -183,12 +183,12 @@ func TestRemoteVNC(t *testing.T) {
 	randomBits := setEnvAndGetRandom()
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/remote_vnc")
 
-	defer test_structure.RunTestStage(t, "VNC teardown", func() {
+	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "VNC setup", func() {
+	test_structure.RunTestStage(t, "setup", func() {
 		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 
@@ -234,12 +234,12 @@ func TestProtocolTunnel(t *testing.T) {
 	randomBits := setEnvAndGetRandom()
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/protocol_tunnel_jump")
 
-	defer test_structure.RunTestStage(t, "Protocol Tunnel teardown", func() {
+	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "Protocol Tunnel setup", func() {
+	test_structure.RunTestStage(t, "setup", func() {
 		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 
