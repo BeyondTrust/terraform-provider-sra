@@ -26,3 +26,7 @@ tfshow: install
 
 strelease:
 	goreleaser build --single-target --snapshot --clean
+
+testrelease:
+	mkdir -p test-reg/registry.terraform.io/beyondtrust/beyondtrust-sra/1.0.0/darwin_amd64
+	goreleaser build --single-target --snapshot --clean --output ./test-reg/registry.terraform.io/beyondtrust/beyondtrust-sra/1.0.0/darwin_amd64/terraform-provider-beyondtrust-sra_v1.0.0

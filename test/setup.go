@@ -1,9 +1,12 @@
 package test
 
 import (
+	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/random"
+	"github.com/gruntwork-io/terratest/modules/terraform"
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
 )
 
@@ -18,4 +21,11 @@ func setEnvAndGetRandom() string {
 	}
 
 	return randomBits
+}
+
+func withBaseTFOptions(t *testing.T, originalOptions *terraform.Options) *terraform.Options {
+	newOpts := terraform.WithDefaultRetryableErrors(t, originalOptions)
+	pluginPath, _ := filepath.Abs("../test-reg")
+	newOpts.PluginDir = pluginPath
+	return newOpts
 }

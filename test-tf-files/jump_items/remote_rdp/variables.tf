@@ -4,7 +4,7 @@ variable "random_bits" {
   default     = "42"
 }
 variable "name" {
-  description = "The name of the Shell Jump Item"
+  description = "The name of the RDP Jump Item"
   type        = string
   default     = "fun_jump"
 }

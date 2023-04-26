@@ -12,6 +12,7 @@ terraform.tfvars.json
 
 *.tfstate
 *.tfstate.*
+.terraform.lock*
 
 crash.log
 
@@ -24,3 +25,4 @@ override.tf.json
 terraform.rc
 terraform
 .test-data/
+test-reg/*

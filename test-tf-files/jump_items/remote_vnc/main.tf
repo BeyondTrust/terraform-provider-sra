@@ -9,22 +9,16 @@ terraform {
   }
 }
 
-resource "sra_jumpoint" "example" {
-  name      = "Test JP ${var.random_bits}"
-  code_name = "example_${var.random_bits}"
-  platform  = "linux-x86"
-}
-
-resource "sra_jump_group" "example" {
-  name      = "Test JG ${var.random_bits}"
-  code_name = "example_${var.random_bits}"
+module "jump_resources" {
+  source      = "../jumpoint_and_jump_group"
+  random_bits = var.random_bits
 }
 
 resource "sra_remote_vnc" "test" {
   name          = var.name
   hostname      = var.hostname
-  jumpoint_id   = sra_jumpoint.example.id
-  jump_group_id = sra_jump_group.example.id
+  jumpoint_id   = module.jump_resources.jumpoint.id
+  jump_group_id = module.jump_resources.jump_group.id
   tag           = var.random_bits
 }
 

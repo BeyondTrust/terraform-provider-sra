@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +9,72 @@ import (
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
 )
+
+func TestJumpointAndJumpGroup(t *testing.T) {
+	// t.Parallel()
+
+	randomBits := setEnvAndGetRandom()
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/jumpoint_and_jump_group")
+
+	defer test_structure.RunTestStage(t, "Jumpoint/Jump Group teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "Jumpoint/Jump Group setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraform.Apply(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "Test Jumpoint/Jump Group Creation", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		jpItem := terraform.OutputMap(t, terraformOptions, "jumpoint")
+		jgItem := terraform.OutputMap(t, terraformOptions, "jump_group")
+		jpList := terraform.OutputListOfObjects(t, terraformOptions, "jumpoint_list")
+		jgList := terraform.OutputListOfObjects(t, terraformOptions, "jump_group_list")
+
+		codeName := fmt.Sprintf("example_%s", randomBits)
+
+		assert.Equal(t, codeName, jpItem["code_name"])
+		assert.Equal(t, codeName, jgItem["code_name"])
+		assert.Equal(t, 0, len(jpList))
+		assert.Equal(t, 0, len(jgList))
+	})
+
+	test_structure.RunTestStage(t, "Test finding the new Jumpoint/Jump Group items with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
+		terraform.Apply(t, terraformOptions)
+
+		jpItem := terraform.OutputMap(t, terraformOptions, "jumpoint")
+		jgItem := terraform.OutputMap(t, terraformOptions, "jump_group")
+		jpList := terraform.OutputListOfObjects(t, terraformOptions, "jumpoint_list")
+		jgList := terraform.OutputListOfObjects(t, terraformOptions, "jump_group_list")
+
+		codeName := fmt.Sprintf("example_%s", randomBits)
+
+		assert.Equal(t, codeName, jpItem["code_name"])
+		assert.Equal(t, codeName, jgItem["code_name"])
+
+		assert.Equal(t, 1, len(jpList))
+		if len(jpList) > 0 {
+			assert.Equal(t, jpItem["id"], jpList[0]["id"])
+		}
+		assert.Equal(t, 1, len(jgList))
+		if len(jgList) > 0 {
+			assert.Equal(t, jgItem["id"], jgList[0]["id"])
+		}
+	})
+}
 
 func TestShellJump(t *testing.T) {
 	// t.Parallel()
@@ -21,9 +88,8 @@ func TestShellJump(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Sell Jump setup", func() {
-		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
-
 			Vars: map[string]interface{}{
 				"random_bits": randomBits,
 				"name":        "This is a Name",
@@ -32,7 +98,7 @@ func TestShellJump(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		terraform.Apply(t, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
 	})
 
 	test_structure.RunTestStage(t, "Test Shell Jump Creation", func() {
@@ -72,7 +138,7 @@ func TestRemoteRDP(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "RDP setup", func() {
-		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 
 			Vars: map[string]interface{}{
@@ -123,7 +189,7 @@ func TestRemoteVNC(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "VNC setup", func() {
-		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 
 			Vars: map[string]interface{}{
@@ -174,7 +240,7 @@ func TestProtocolTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Protocol Tunnel setup", func() {
-		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
 			TerraformDir: testFolder,
 
 			Vars: map[string]interface{}{
