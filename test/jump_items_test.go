@@ -13,16 +13,16 @@ func TestShellJump(t *testing.T) {
 	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom()
-	exampleFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/shell_jump")
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/shell_jump")
 
-	defer test_structure.RunTestStage(t, "teardown", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	defer test_structure.RunTestStage(t, "Shell Jump teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "setup", func() {
+	test_structure.RunTestStage(t, "Sell Jump setup", func() {
 		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-			TerraformDir: exampleFolder,
+			TerraformDir: testFolder,
 
 			Vars: map[string]interface{}{
 				"random_bits": randomBits,
@@ -31,24 +31,31 @@ func TestShellJump(t *testing.T) {
 			},
 		})
 
-		test_structure.SaveTerraformOptions(t, exampleFolder, terraformOptions)
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 		terraform.Apply(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "validate", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	test_structure.RunTestStage(t, "Test Shell Jump Creation", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, 0, len(list))
+	})
 
+	test_structure.RunTestStage(t, "Test finding the new Shell Jump item with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
 		terraform.Apply(t, terraformOptions)
 
-		planList := terraform.OutputListOfObjects(t, terraformOptions, "list")
-		assert.Equal(t, 1, len(planList))
-		if len(planList) > 0 {
-			assert.Equal(t, item["id"], planList[0]["id"])
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 1, len(list))
+		if len(list) > 0 {
+			assert.Equal(t, item["id"], list[0]["id"])
 		}
 	})
 }
@@ -57,16 +64,16 @@ func TestRemoteRDP(t *testing.T) {
 	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom()
-	exampleFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/remote_rdp")
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/remote_rdp")
 
-	defer test_structure.RunTestStage(t, "teardown", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	defer test_structure.RunTestStage(t, "RDP teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "setup", func() {
+	test_structure.RunTestStage(t, "RDP setup", func() {
 		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-			TerraformDir: exampleFolder,
+			TerraformDir: testFolder,
 
 			Vars: map[string]interface{}{
 				"random_bits": randomBits,
@@ -75,24 +82,31 @@ func TestRemoteRDP(t *testing.T) {
 			},
 		})
 
-		test_structure.SaveTerraformOptions(t, exampleFolder, terraformOptions)
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 		terraform.Apply(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "validate", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	test_structure.RunTestStage(t, "Create a new RDP item", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, 0, len(list))
+	})
 
+	test_structure.RunTestStage(t, "Find the new RDP item with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
 		terraform.Apply(t, terraformOptions)
 
-		planList := terraform.OutputListOfObjects(t, terraformOptions, "list")
-		assert.Equal(t, 1, len(planList))
-		if len(planList) > 0 {
-			assert.Equal(t, item["id"], planList[0]["id"])
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 1, len(list))
+		if len(list) > 0 {
+			assert.Equal(t, item["id"], list[0]["id"])
 		}
 	})
 }
@@ -101,16 +115,16 @@ func TestRemoteVNC(t *testing.T) {
 	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom()
-	exampleFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/remote_vnc")
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/remote_vnc")
 
-	defer test_structure.RunTestStage(t, "teardown", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	defer test_structure.RunTestStage(t, "VNC teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "setup", func() {
+	test_structure.RunTestStage(t, "VNC setup", func() {
 		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-			TerraformDir: exampleFolder,
+			TerraformDir: testFolder,
 
 			Vars: map[string]interface{}{
 				"random_bits": randomBits,
@@ -119,24 +133,31 @@ func TestRemoteVNC(t *testing.T) {
 			},
 		})
 
-		test_structure.SaveTerraformOptions(t, exampleFolder, terraformOptions)
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 		terraform.Apply(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "validate", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	test_structure.RunTestStage(t, "Create a new VNC item", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, 0, len(list))
+	})
 
+	test_structure.RunTestStage(t, "Find the new VNC item with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
 		terraform.Apply(t, terraformOptions)
 
-		planList := terraform.OutputListOfObjects(t, terraformOptions, "list")
-		assert.Equal(t, 1, len(planList))
-		if len(planList) > 0 {
-			assert.Equal(t, item["id"], planList[0]["id"])
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 1, len(list))
+		if len(list) > 0 {
+			assert.Equal(t, item["id"], list[0]["id"])
 		}
 	})
 }
@@ -145,16 +166,16 @@ func TestProtocolTunnel(t *testing.T) {
 	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom()
-	exampleFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/protocol_tunnel_jump")
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/jump_items/protocol_tunnel_jump")
 
-	defer test_structure.RunTestStage(t, "teardown", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	defer test_structure.RunTestStage(t, "Protocol Tunnel teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		terraform.Destroy(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "setup", func() {
+	test_structure.RunTestStage(t, "Protocol Tunnel setup", func() {
 		terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-			TerraformDir: exampleFolder,
+			TerraformDir: testFolder,
 
 			Vars: map[string]interface{}{
 				"random_bits": randomBits,
@@ -163,12 +184,12 @@ func TestProtocolTunnel(t *testing.T) {
 			},
 		})
 
-		test_structure.SaveTerraformOptions(t, exampleFolder, terraformOptions)
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 		terraform.Apply(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "validate", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, exampleFolder)
+	test_structure.RunTestStage(t, "Create new Protocol Tunnel items", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		sqlItem := terraform.OutputMap(t, terraformOptions, "sql_item")
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
@@ -176,19 +197,27 @@ func TestProtocolTunnel(t *testing.T) {
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, randomBits, sqlItem["tag"])
 		assert.Equal(t, 0, len(list))
+	})
 
+	test_structure.RunTestStage(t, "Find the new Protocol Tunnel item with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
 		terraform.Apply(t, terraformOptions)
 
-		planList := terraform.OutputListOfObjects(t, terraformOptions, "list")
-		assert.Equal(t, 2, len(planList))
-		if len(planList) > 0 {
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		sqlItem := terraform.OutputMap(t, terraformOptions, "sql_item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 2, len(list))
+		if len(list) > 0 {
 			idMap := map[string]string{
 				"tcp":   item["id"],
 				"mssql": sqlItem["id"],
 			}
 
-			assert.Equal(t, idMap[planList[0]["tunnel_type"].(string)], planList[0]["id"])
-			assert.Equal(t, idMap[planList[1]["tunnel_type"].(string)], planList[1]["id"])
+			assert.Equal(t, idMap[list[0]["tunnel_type"].(string)], list[0]["id"])
+			assert.Equal(t, idMap[list[1]["tunnel_type"].(string)], list[1]["id"])
 		}
 	})
 }
