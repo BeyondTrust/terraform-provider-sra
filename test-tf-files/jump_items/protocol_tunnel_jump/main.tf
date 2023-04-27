@@ -26,8 +26,8 @@ resource "sra_protocol_tunnel_jump" "test" {
 resource "sra_protocol_tunnel_jump" "test_sql" {
   name          = var.name
   hostname      = var.hostname
-  jumpoint_id   = sra_jumpoint.example.id
-  jump_group_id = sra_jump_group.example.id
+  jumpoint_id   = module.jump_resources.jumpoint.id
+  jump_group_id = module.jump_resources.jump_group.id
   tag           = var.random_bits
   tunnel_type   = "mssql"
   username      = var.random_bits

@@ -149,7 +149,7 @@ func TestRemoteRDP(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		terraform.Apply(t, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
 	})
 
 	test_structure.RunTestStage(t, "Create a new RDP item", func() {
@@ -200,7 +200,7 @@ func TestRemoteVNC(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		terraform.Apply(t, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
 	})
 
 	test_structure.RunTestStage(t, "Create a new VNC item", func() {
@@ -251,7 +251,7 @@ func TestProtocolTunnel(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		terraform.Apply(t, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
 	})
 
 	test_structure.RunTestStage(t, "Create new Protocol Tunnel items", func() {
