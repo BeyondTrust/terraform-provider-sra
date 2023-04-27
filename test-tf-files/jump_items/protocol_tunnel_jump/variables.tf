@@ -3,6 +3,7 @@ variable "random_bits" {
   type        = string
   default     = "42"
 }
+
 variable "name" {
   description = "The name of the Protocol Tunnel Jump Items"
   type        = string

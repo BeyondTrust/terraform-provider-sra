@@ -23,9 +23,3 @@ locals {
 }
 
 // Configuration
-resource "sra_web_jump" "item" {
-  name          = "Example Web Jump"
-  url           = "https://example.host/login"
-  jumpoint_id   = local.jumpoint_id
-  jump_group_id = local.jump_group_id
-}

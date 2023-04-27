@@ -5,13 +5,13 @@ variable "random_bits" {
 }
 
 variable "name" {
-  description = "The name of the Shell Jump Item"
+  description = "The name of the Web Jump Item"
   type        = string
   default     = "fun_jump"
 }
 
-variable "hostname" {
-  description = "The hostname to use."
+variable "url" {
+  description = "The url to use."
   type        = string
-  default     = "fun.jump.host"
+  default     = "https://fun.jump.host"
 }
