@@ -300,9 +300,9 @@ type VaultUsernamePasswordAccount struct {
 	AccountGroupID int     `json:"account_group_id"`
 	AccountPolicy  *string `json:"account_policy"`
 
-	Username              string     `json:"username"`
-	Password              string     `json:"password,omitempty"`
-	LastCheckoutTimestamp *Timestamp `json:"last_checkout_timestamp"`
+	Username              string  `json:"username"`
+	Password              string  `json:"password,omitempty"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
@@ -322,12 +322,12 @@ type VaultSSHAccount struct {
 	AccountGroupID int     `json:"account_group_id"`
 	AccountPolicy  *string `json:"account_policy,omitempty"`
 
-	Username              string     `json:"username"`
-	PublicKey             *string    `json:"public_key,omitempty"`
-	PrivateKey            string     `json:"private_key"`
-	PrivateKeyPassphrase  string     `json:"private_key_passphrase"`
-	PrivateKeyPublicCert  string     `json:"private_key_public_cert"`
-	LastCheckoutTimestamp *Timestamp `json:"last_checkout_timestamp"`
+	Username              string  `json:"username"`
+	PublicKey             *string `json:"public_key,omitempty"`
+	PrivateKey            string  `json:"private_key"`
+	PrivateKeyPassphrase  string  `json:"private_key_passphrase"`
+	PrivateKeyPublicCert  string  `json:"private_key_public_cert"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
