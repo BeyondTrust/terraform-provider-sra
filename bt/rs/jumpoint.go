@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"terraform-provider-beyondtrust-sra/api"
-	"terraform-provider-beyondtrust-sra/bt/models"
+	"terraform-provider-sra/api"
+	"terraform-provider-sra/bt/models"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"

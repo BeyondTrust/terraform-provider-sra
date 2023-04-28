@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"terraform-provider-beyondtrust-sra/api"
+	"terraform-provider-sra/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"

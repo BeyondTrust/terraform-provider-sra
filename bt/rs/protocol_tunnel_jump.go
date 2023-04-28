@@ -2,8 +2,8 @@ package rs
 
 import (
 	"context"
-	"terraform-provider-beyondtrust-sra/api"
-	"terraform-provider-beyondtrust-sra/bt/models"
+	"terraform-provider-sra/api"
+	"terraform-provider-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"

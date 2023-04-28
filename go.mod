@@ -1,4 +1,4 @@
-module terraform-provider-beyondtrust-sra
+module terraform-provider-sra
 
 go 1.19
 

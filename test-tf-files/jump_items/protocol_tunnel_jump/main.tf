@@ -4,7 +4,7 @@ terraform {
 
   required_providers {
     sra = {
-      source = "beyondtrust/beyondtrust-sra"
+      source = "beyondtrust/sra"
     }
   }
 }

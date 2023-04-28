@@ -2,8 +2,8 @@ package rs
 
 import (
 	"context"
-	"terraform-provider-beyondtrust-sra/api"
-	"terraform-provider-beyondtrust-sra/bt/models"
+	"terraform-provider-sra/api"
+	"terraform-provider-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -77,11 +77,9 @@ func (r *shellJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				},
 			},
 			"port": schema.Int64Attribute{
-				Optional: true,
-				Computed: true,
-				PlanModifiers: []planmodifier.Int64{
-					
-				},
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Int64{},
 			},
 			"jump_group_id": schema.Int64Attribute{
 				Required: true,

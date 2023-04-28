@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"terraform-provider-beyondtrust-sra/bt"
+	"terraform-provider-sra/bt"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
@@ -12,6 +12,6 @@ import (
 
 func main() {
 	providerserver.Serve(context.Background(), bt.New, providerserver.ServeOpts{
-		Address: "registry.terraform.io/beyondtrust/beyondtrust-sra",
+		Address: "registry.terraform.io/beyondtrust/sra",
 	})
 }

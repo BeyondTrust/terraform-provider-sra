@@ -4,9 +4,9 @@ import (
 	"context"
 	"os"
 
-	"terraform-provider-beyondtrust-sra/api"
-	"terraform-provider-beyondtrust-sra/bt/ds"
-	"terraform-provider-beyondtrust-sra/bt/rs"
+	"terraform-provider-sra/api"
+	"terraform-provider-sra/bt/ds"
+	"terraform-provider-sra/bt/rs"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"terraform-provider-beyondtrust-sra/api"
+	"terraform-provider-sra/api"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
