@@ -120,7 +120,7 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	updateJIA := func() {
 		// Jump Item Association
 		var apiSub api.AccountJumpItemAssociation
 		var tfObj types.Object
@@ -172,7 +172,9 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 		}
 	}
 
-	{
+	updateJIA()
+
+	updateGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -222,6 +224,8 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 			return
 		}
 	}
+
+	updateGP()
 }
 
 func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -235,7 +239,7 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	readJIA := func() {
 		// Jump Item Association
 
 		var apiSub api.AccountJumpItemAssociation
@@ -294,7 +298,9 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 		}
 	}
 
-	{
+	readJIA()
+
+	readGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -345,6 +351,8 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 			return
 		}
 	}
+
+	readGP()
 }
 
 func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -357,7 +365,7 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	updateJIA := func() {
 		// Jump Item Association
 
 		var apiSub api.AccountJumpItemAssociation
@@ -433,7 +441,9 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		}
 	}
 
-	{
+	updateJIA()
+
+	updateGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -524,4 +534,6 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 			return
 		}
 	}
+
+	updateGP()
 }

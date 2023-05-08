@@ -131,7 +131,7 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	updateJIA := func() {
 		// Jump Item Association
 
 		var apiSub api.AccountJumpItemAssociation
@@ -184,7 +184,9 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 		}
 	}
 
-	{
+	updateJIA()
+
+	updateGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -234,6 +236,8 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 			return
 		}
 	}
+
+	updateGP()
 }
 
 func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -247,7 +251,7 @@ func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadReq
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	readJIA := func() {
 		// Jump Item Association
 		var apiSub api.AccountJumpItemAssociation
 		var tfObj types.Object
@@ -305,7 +309,9 @@ func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadReq
 		}
 	}
 
-	{
+	readJIA()
+
+	readGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -356,6 +362,8 @@ func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadReq
 			return
 		}
 	}
+
+	readGP()
 }
 
 func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -369,7 +377,7 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	updateJIA := func() {
 		// Jump Item Association
 
 		var apiSub api.AccountJumpItemAssociation
@@ -445,7 +453,9 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 		}
 	}
 
-	{
+	updateJIA()
+
+	updateGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -536,4 +546,6 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			return
 		}
 	}
+
+	updateGP()
 }

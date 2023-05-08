@@ -38,6 +38,7 @@ resource "sra_vault_ssh_account" "new_key" {
   username               = var.random_bits
   private_key            = var.private_key
   private_key_passphrase = ""
+  account_group_id       = resource.sra_vault_account_group.new_account_group.id
 
   group_policy_memberships = [
     { group_policy_id : data.sra_group_policy_list.gp.items[0].id, role : "inject" }

@@ -46,18 +46,25 @@ func TestVaultSSHKey(t *testing.T) {
 		assert.Equal(t, 0, len(gList))
 	})
 
-	// test_structure.RunTestStage(t, "Test finding the new SSH account with the datasource", func() {
-	// 	terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+	test_structure.RunTestStage(t, "Test finding the new SSH account with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 
-	// 	// Need to re-run apply so that the datasource output finds the new item
-	// 	terraform.Apply(t, terraformOptions)
+		// Need to re-run apply so that the datasource output finds the new item
+		terraform.Apply(t, terraformOptions)
 
-	// 	item := terraform.OutputMap(t, terraformOptions, "item")
-	// 	list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "item_list")
+		group := terraform.OutputMap(t, terraformOptions, "group")
+		gList := terraform.OutputListOfObjects(t, terraformOptions, "group_list")
 
-	// 	assert.Equal(t, 1, len(list))
-	// 	if len(list) > 0 {
-	// 		assert.Equal(t, item["id"], list[0]["id"])
-	// 	}
-	// })
+		assert.Equal(t, 1, len(list))
+		if len(list) > 0 {
+			assert.Equal(t, item["id"], list[0]["id"])
+		}
+
+		assert.Equal(t, 1, len(gList))
+		if len(list) > 0 {
+			assert.Equal(t, group["id"], gList[0]["id"])
+		}
+	})
 }
