@@ -21,12 +21,12 @@ func newVaultAccountGroupDataSource() datasource.DataSource {
 }
 
 type vaultAccountGroupDataSource struct {
-	apiDataSource[vaultAccountGroupDataSourceModel, api.VaultAccountGroup, models.VaultAccountGroup]
+	apiDataSource[vaultAccountGroupDataSourceModel, api.VaultAccountGroup, models.VaultAccountGroupDS]
 }
 
 type vaultAccountGroupDataSourceModel struct {
-	Items []models.VaultAccountGroup `tfsdk:"items"`
-	Name  types.String               `tfsdk:"name" filter:"name"`
+	Items []models.VaultAccountGroupDS `tfsdk:"items"`
+	Name  types.String                 `tfsdk:"name" filter:"name"`
 }
 
 func (d *vaultAccountGroupDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

@@ -64,6 +64,13 @@ type VaultAccountGroup struct {
 	GroupPolicyMemberships types.Set    `tfsdk:"group_policy_memberships"`
 }
 
+type VaultAccountGroupDS struct {
+	ID            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Description   types.String `tfsdk:"description"`
+	AccountPolicy types.String `tfsdk:"account_policy"`
+}
+
 type VaultAccountPolicy struct {
 	ID                        types.String `tfsdk:"id"`
 	Name                      types.String `tfsdk:"name"`

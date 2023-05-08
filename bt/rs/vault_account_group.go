@@ -96,12 +96,129 @@ func (r *vaultAccountGroupResource) Schema(_ context.Context, _ resource.SchemaR
 	}
 }
 
+func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	r.apiResource.Create(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "🤬 Account Group updating plan")
+
+	var tfId types.String
+	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
+	id, _ := strconv.Atoi(tfId.ValueString())
+
+	{
+		// Jump Item Association
+
+		var apiSub api.AccountGroupJumpItemAssociation
+		var tfObj types.Object
+		diags := req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if !tfObj.IsNull() {
+			diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		apiSub.ID = &id
+		tflog.Info(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+			"data": apiSub,
+		})
+
+		var tfStateObj types.Object
+		diags = req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var item *api.AccountGroupJumpItemAssociation
+		var err error
+		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
+
+		rb, _ := json.Marshal(item)
+		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+			"data": string(rb),
+		})
+
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Updating Account Group Jump Item Associations",
+				"Unexpected value for ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			)
+			return
+		}
+		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	{
+		// Group Policy Memberships
+
+		var tfGPList types.Set
+		diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var gpList []api.GroupPolicyVaultAccountGroup
+		if !tfGPList.IsNull() {
+			diags = tfGPList.ElementsAs(ctx, &gpList, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		setGPList := mapset.NewSet(gpList...)
+
+		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+			"add": setGPList,
+
+			"tf":   tfGPList,
+			"list": gpList,
+		})
+
+		results := []api.GroupPolicyVaultAccountGroup{}
+		for m := range setGPList.Iterator().C {
+			m.AccountGroupID = &id
+			item, err := api.CreateItem(r.ApiClient, m)
+			item.GroupPolicyID = m.GroupPolicyID
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error updating item's group policy memberships",
+					"Unexpected adding membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				)
+				return
+			}
+			results = append(results, *item)
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+}
+
 func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	r.apiResource.Read(ctx, req, resp)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 SSH reading state")
+	tflog.Info(ctx, "🤬 Account Group reading state")
 
 	var tfId types.String
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -212,7 +329,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 SSH updating plan")
+	tflog.Info(ctx, "🤬 Account group updating plan")
 
 	var tfId types.String
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)

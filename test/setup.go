@@ -1,6 +1,7 @@
 package test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,7 +13,7 @@ import (
 
 func setEnvAndGetRandom() string {
 	// os.Setenv("SKIP_setup", "true")
-	// os.Setenv("SKIP_teardown", "true")
+	os.Setenv("SKIP_teardown", "true")
 
 	randomBits := strings.ToLower(random.UniqueId())
 

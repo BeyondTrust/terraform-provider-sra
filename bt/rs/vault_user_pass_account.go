@@ -114,7 +114,7 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 SSH creating plan")
+	tflog.Info(ctx, "🤬 User/Pass creating plan")
 
 	var tfId types.String
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -171,6 +171,57 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 			return
 		}
 	}
+
+	{
+		// Group Policy Memberships
+
+		var tfGPList types.Set
+		diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var gpList []api.GroupPolicyVaultAccount
+		if !tfGPList.IsNull() {
+			diags = tfGPList.ElementsAs(ctx, &gpList, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		setGPList := mapset.NewSet(gpList...)
+
+		tflog.Info(ctx, "🌈 Adding group policy memberships", map[string]interface{}{
+			"add": setGPList,
+
+			"tf":   tfGPList,
+			"list": gpList,
+		})
+
+		results := []api.GroupPolicyVaultAccount{}
+		for m := range setGPList.Iterator().C {
+			m.AccountID = &id
+			item, err := api.CreateItem(r.ApiClient, m)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error updating item's group policy memberships",
+					"Unexpected adding membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				)
+				return
+			}
+			item.GroupPolicyID = m.GroupPolicyID
+			results = append(results, *item)
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 }
 
 func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -178,7 +229,7 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 SSH reading state")
+	tflog.Info(ctx, "🤬 User/Pass reading state")
 
 	var tfId types.String
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -301,7 +352,7 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 SSH updating plan")
+	tflog.Info(ctx, "🤬 User/Pass updating plan")
 	var tfId types.String
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
