@@ -3,6 +3,7 @@ module terraform-provider-sra
 go 1.19
 
 require (
+	github.com/Jeffail/gabs v1.4.0
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/hashicorp/terraform-plugin-framework v1.2.0
 	github.com/stretchr/testify v1.8.1

@@ -14,26 +14,27 @@ module "shell_jump" {
   random_bits = var.random_bits
 }
 
-module "account_group" {
-  source      = "../account_group"
-  random_bits = var.random_bits
-  name        = var.name
-}
-
 data "sra_group_policy_list" "gp" {}
 
-resource "sra_vault_ssh_account" "new_key" {
-  name                   = "TF Test SSH Key ${var.name} ${var.random_bits}"
-  username               = var.random_bits
-  private_key            = var.private_key
-  private_key_passphrase = ""
-  account_group_id       = module.account_group.group.id
+resource "sra_vault_account_group" "new_account_group" {
+  name        = "${var.name} ${var.random_bits}"
+  description = var.random_bits
 
   group_policy_memberships = [
     { group_policy_id : data.sra_group_policy_list.gp.items[0].id, role : "inject" }
   ]
+
+  jump_item_association = {
+    filter_type = "criteria"
+    criteria = {
+      tag = [var.random_bits]
+    }
+    jump_items = [
+      { id : module.shell_jump.item.id, type : "shell_jump" }
+    ]
+  }
 }
 
-data "sra_vault_account_list" "acc" {
-  account_group_id = resource.sra_vault_account_group.new_account_group.id
+data "sra_vault_account_group_list" "ag" {
+  name = "${var.name} ${var.random_bits}"
 }
