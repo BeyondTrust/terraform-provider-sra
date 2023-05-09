@@ -23,17 +23,69 @@ module "account_group" {
 data "sra_group_policy_list" "gp" {}
 
 resource "sra_vault_ssh_account" "new_key" {
-  name                   = "TF Test SSH Key ${var.name} ${var.random_bits}"
+  name                   = "Group Key ${var.name} ${var.random_bits}"
   username               = var.random_bits
   private_key            = var.private_key
   private_key_passphrase = ""
   account_group_id       = module.account_group.group.id
+}
+
+resource "sra_vault_ssh_account" "stand_alone" {
+  name                   = "Standalone Key ${var.name} ${var.random_bits}"
+  username               = var.random_bits
+  private_key            = var.private_key
+  private_key_passphrase = ""
+}
+
+resource "sra_vault_ssh_account" "stand_alone_gp" {
+  name                   = "Standalone Key GP ${var.name} ${var.random_bits}"
+  username               = var.random_bits
+  private_key            = var.private_key
+  private_key_passphrase = ""
 
   group_policy_memberships = [
     { group_policy_id : data.sra_group_policy_list.gp.items[0].id, role : "inject" }
   ]
 }
 
+resource "sra_vault_ssh_account" "stand_alone_ji" {
+  name                   = "Standalone Key JIA ${var.name} ${var.random_bits}"
+  username               = var.random_bits
+  private_key            = var.private_key
+  private_key_passphrase = ""
+
+  jump_item_association = {
+    filter_type = "criteria"
+    criteria = {
+      tag = [var.random_bits]
+    }
+    jump_items = [
+      { id : module.shell_jump.item.id, type : "shell_jump" }
+    ]
+  }
+}
+
+resource "sra_vault_ssh_account" "stand_alone_both" {
+  name                   = "Standalone Key Both ${var.name} ${var.random_bits}"
+  username               = var.random_bits
+  private_key            = var.private_key
+  private_key_passphrase = ""
+
+  group_policy_memberships = [
+    { group_policy_id : data.sra_group_policy_list.gp.items[0].id, role : "inject" }
+  ]
+
+  jump_item_association = {
+    filter_type = "criteria"
+    criteria = {
+      tag = [var.random_bits]
+    }
+    jump_items = [
+      { id : module.shell_jump.item.id, type : "shell_jump" }
+    ]
+  }
+}
+
 data "sra_vault_account_list" "acc" {
-  account_group_id = resource.sra_vault_account_group.new_account_group.id
+  account_group_id = module.account_group.group.id
 }
