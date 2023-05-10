@@ -257,12 +257,6 @@ func assertGPMembership(t *testing.T, parsed *gabs.Container) {
 	assert.Equal(t, "inject", membership["role"])
 }
 
-func assertNoGPMembership(t *testing.T, parsed *gabs.Container) {
-	membership, err := parsed.JSONPointer("/group_policy_memberships")
-	assert.Nil(t, err)
-	assert.Nil(t, membership.Data())
-}
-
 func assertJumpItemAssociations(t *testing.T, parsed *gabs.Container, randomBits string, shellID string) {
 	filterType, ok := parsed.Path("jump_item_association.filter_type").Data().(string)
 	assert.True(t, ok)

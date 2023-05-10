@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Jeffail/gabs"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -38,13 +39,24 @@ func TestJumpointAndJumpGroup(t *testing.T) {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		jpItem := terraform.OutputMap(t, terraformOptions, "jumpoint")
 		jgItem := terraform.OutputMap(t, terraformOptions, "jump_group")
-		jpList := terraform.OutputListOfObjects(t, terraformOptions, "jumpoint_list")
-		jgList := terraform.OutputListOfObjects(t, terraformOptions, "jump_group_list")
 
 		codeName := fmt.Sprintf("example_%s", randomBits)
 
 		assert.Equal(t, codeName, jpItem["code_name"])
 		assert.Equal(t, codeName, jgItem["code_name"])
+
+		assertNoGPMembership(t, extractJson(t, terraformOptions, "jumpoint"))
+		assertNoGPMembership(t, extractJson(t, terraformOptions, "jump_group"))
+
+		gp := terraform.OutputMap(t, terraformOptions, "gp")
+		jp := terraform.OutputMap(t, terraformOptions, "jp")
+		jir := terraform.OutputMap(t, terraformOptions, "jir")
+
+		assertJPGPMembership(t, extractJson(t, terraformOptions, "jumpoint_gp"), gp["id"])
+		assertJGGPMembership(t, extractJson(t, terraformOptions, "jump_group_gp"), gp["id"], jp["id"], jir["id"])
+
+		jpList := terraform.OutputListOfObjects(t, terraformOptions, "jumpoint_list")
+		jgList := terraform.OutputListOfObjects(t, terraformOptions, "jump_group_list")
 		assert.Equal(t, 0, len(jpList))
 		assert.Equal(t, 0, len(jgList))
 	})
@@ -337,4 +349,25 @@ func TestWebJump(t *testing.T) {
 			assert.Equal(t, item["id"], list[0]["id"])
 		}
 	})
+}
+
+func assertJPGPMembership(t *testing.T, parsed *gabs.Container, gpID string) {
+	membershipsData, err := parsed.JSONPointer("/group_policy_memberships")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(membershipsData.Data().([]any)))
+	membershipsData, err = parsed.JSONPointer("/group_policy_memberships/0")
+	assert.Nil(t, err)
+	membership := membershipsData.Data().(map[string]any)
+	assert.Equal(t, gpID, membership["group_policy_id"])
+}
+func assertJGGPMembership(t *testing.T, parsed *gabs.Container, gpID string, jpID string, jirID string) {
+	membershipsData, err := parsed.JSONPointer("/group_policy_memberships")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(membershipsData.Data().([]any)))
+	membershipsData, err = parsed.JSONPointer("/group_policy_memberships/0")
+	assert.Nil(t, err)
+	membership := membershipsData.Data().(map[string]any)
+	assert.Equal(t, gpID, membership["group_policy_id"])
+	assert.Equal(t, jpID, fmt.Sprintf("%v", membership["jump_policy_id"]))
+	assert.Equal(t, jirID, fmt.Sprintf("%v", membership["jump_item_role_id"]))
 }
