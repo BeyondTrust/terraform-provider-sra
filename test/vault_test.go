@@ -37,19 +37,19 @@ func TestAccountGroupKey(t *testing.T) {
 
 	test_structure.RunTestStage(t, "Test Vault Account Group Creation", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
-		group := terraform.OutputMap(t, terraformOptions, "group")
 		shell := terraform.OutputMap(t, terraformOptions, "shell")
+
+		data := testData{
+			randomBits: randomBits,
+			shellID:    shell["id"],
+		}
+
+		assertAccountGroup(t, terraformOptions, "group", data, true, true)
+		assertAccountGroup(t, terraformOptions, "group_nothing", data, false, false)
+		assertAccountGroup(t, terraformOptions, "group_gp", data, true, false)
+		assertAccountGroup(t, terraformOptions, "group_jia", data, false, true)
+
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
-
-		assert.Equal(t, randomBits, group["description"])
-
-		groupJson := terraform.OutputJson(t, terraformOptions, "group")
-		parsed, err := gabs.ParseJSON([]byte(groupJson))
-		assert.Nil(t, err)
-
-		assertGPMembership(t, parsed)
-		assertJumpItemAssociations(t, parsed, randomBits, shell["id"])
-
 		assert.Equal(t, 0, len(list))
 	})
 
@@ -100,27 +100,19 @@ func TestVaultSSHKey(t *testing.T) {
 		shell := terraform.OutputMap(t, terraformOptions, "shell")
 
 		data := testData{
-			key:        "item",
 			randomBits: randomBits,
 			groupID:    group["id"],
 			shellID:    shell["id"],
 			ssh:        true,
 		}
 
-		assertAccount(t, terraformOptions, data, false, false)
+		assertAccount(t, terraformOptions, "item", data, false, false)
 
-		data.key = "stand_alone"
 		data.groupID = "1"
-		assertAccount(t, terraformOptions, data, false, false)
-
-		data.key = "stand_alone_gp"
-		assertAccount(t, terraformOptions, data, true, false)
-
-		data.key = "stand_alone_ji"
-		assertAccount(t, terraformOptions, data, false, true)
-
-		data.key = "stand_alone_both"
-		assertAccount(t, terraformOptions, data, true, true)
+		assertAccount(t, terraformOptions, "stand_alone", data, false, false)
+		assertAccount(t, terraformOptions, "stand_alone_gp", data, true, false)
+		assertAccount(t, terraformOptions, "stand_alone_ji", data, false, true)
+		assertAccount(t, terraformOptions, "stand_alone_both", data, true, true)
 
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 		assert.Equal(t, 0, len(list))
@@ -173,27 +165,19 @@ func TestVaultUserPass(t *testing.T) {
 		shell := terraform.OutputMap(t, terraformOptions, "shell")
 
 		data := testData{
-			key:        "item",
 			randomBits: randomBits,
 			groupID:    group["id"],
 			shellID:    shell["id"],
 			ssh:        false,
 		}
 
-		assertAccount(t, terraformOptions, data, false, false)
+		assertAccount(t, terraformOptions, "item", data, false, false)
 
-		data.key = "stand_alone"
 		data.groupID = "1"
-		assertAccount(t, terraformOptions, data, false, false)
-
-		data.key = "stand_alone_gp"
-		assertAccount(t, terraformOptions, data, true, false)
-
-		data.key = "stand_alone_ji"
-		assertAccount(t, terraformOptions, data, false, true)
-
-		data.key = "stand_alone_both"
-		assertAccount(t, terraformOptions, data, true, true)
+		assertAccount(t, terraformOptions, "stand_alone", data, false, false)
+		assertAccount(t, terraformOptions, "stand_alone_gp", data, true, false)
+		assertAccount(t, terraformOptions, "stand_alone_ji", data, false, true)
+		assertAccount(t, terraformOptions, "stand_alone_both", data, true, true)
 
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 		assert.Equal(t, 0, len(list))
@@ -216,27 +200,45 @@ func TestVaultUserPass(t *testing.T) {
 }
 
 type testData struct {
-	key        string
 	randomBits string
 	groupID    string
 	shellID    string
 	ssh        bool
 }
 
-func assertAccount(t *testing.T, options *terraform.Options, data testData, assertGP bool, assertJI bool) {
-	item := terraform.OutputMap(t, options, data.key)
-	itemJson := terraform.OutputJson(t, options, data.key)
+func assertAccountGroup(t *testing.T, options *terraform.Options, key string, data testData, assertGP bool, assertJI bool) {
+	item := terraform.OutputMap(t, options, key)
+	itemJson := terraform.OutputJson(t, options, key)
+	parsed, err := gabs.ParseJSON([]byte(itemJson))
+	assert.Nil(t, err)
+	assert.Equal(t, data.randomBits, item["description"])
+
+	assertExtras(t, options, parsed, data, assertGP, assertJI)
+}
+
+func assertAccount(t *testing.T, options *terraform.Options, key string, data testData, assertGP bool, assertJI bool) {
+	item := terraform.OutputMap(t, options, key)
+	itemJson := terraform.OutputJson(t, options, key)
 	parsed, err := gabs.ParseJSON([]byte(itemJson))
 	assert.Nil(t, err)
 	assertAccountCommonValues(t, item, data.randomBits, data.groupID)
 	if data.ssh {
 		assert.Equal(t, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC8QhNX9O8WIN5XmF+Qyqwtc5kkTddgPh77FmDEers1e", item["public_key"])
 	}
+
+	assertExtras(t, options, parsed, data, assertGP, assertJI)
+}
+
+func assertExtras(t *testing.T, options *terraform.Options, parsed *gabs.Container, data testData, assertGP bool, assertJI bool) {
 	if assertGP {
 		assertGPMembership(t, parsed)
+	} else {
+		assertNoGPMembership(t, parsed)
 	}
 	if assertJI {
 		assertJumpItemAssociations(t, parsed, data.randomBits, data.shellID)
+	} else {
+		assertNoJumpItemAssociations(t, parsed)
 	}
 }
 
@@ -246,13 +248,19 @@ func assertAccountCommonValues(t *testing.T, item map[string]string, randomBits 
 }
 
 func assertGPMembership(t *testing.T, parsed *gabs.Container) {
-	membershipsData, exists := parsed.JSONPointer("/group_policy_memberships")
-	assert.Nil(t, exists)
+	membershipsData, err := parsed.JSONPointer("/group_policy_memberships")
+	assert.Nil(t, err)
 	assert.Equal(t, 1, len(membershipsData.Data().([]any)))
-	membershipsData, exists = parsed.JSONPointer("/group_policy_memberships/0")
-	assert.Nil(t, exists)
+	membershipsData, err = parsed.JSONPointer("/group_policy_memberships/0")
+	assert.Nil(t, err)
 	membership := membershipsData.Data().(map[string]any)
 	assert.Equal(t, "inject", membership["role"])
+}
+
+func assertNoGPMembership(t *testing.T, parsed *gabs.Container) {
+	membership, err := parsed.JSONPointer("/group_policy_memberships")
+	assert.Nil(t, err)
+	assert.Nil(t, membership.Data())
 }
 
 func assertJumpItemAssociations(t *testing.T, parsed *gabs.Container, randomBits string, shellID string) {
@@ -275,4 +283,10 @@ func assertJumpItemAssociations(t *testing.T, parsed *gabs.Container, randomBits
 	assert.True(t, ok)
 	assert.Equal(t, "shell_jump", item["type"])
 	assert.Equal(t, shellID, fmt.Sprintf("%v", item["id"]))
+}
+
+func assertNoJumpItemAssociations(t *testing.T, parsed *gabs.Container) {
+	membership, err := parsed.JSONPointer("/jump_item_association")
+	assert.Nil(t, err)
+	assert.Nil(t, membership.Data())
 }

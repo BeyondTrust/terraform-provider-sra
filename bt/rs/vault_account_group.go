@@ -101,7 +101,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 Account Group updating plan")
+	tflog.Info(ctx, "🤬 Account Group creating plan")
 
 	var tfId types.String
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -118,12 +118,14 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 			return
 		}
 
-		if !tfObj.IsNull() {
-			diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+		if tfObj.IsNull() {
+			return
+		}
+
+		diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 
 		apiSub.ID = &id
@@ -174,12 +176,13 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		}
 
 		var gpList []api.GroupPolicyVaultAccountGroup
-		if !tfGPList.IsNull() {
-			diags = tfGPList.ElementsAs(ctx, &gpList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+		if tfGPList.IsNull() {
+			return
+		}
+		diags = tfGPList.ElementsAs(ctx, &gpList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 
 		setGPList := mapset.NewSet(gpList...)
@@ -441,13 +444,19 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		toAdd, toRemove, noChange := api.DiffGPAccountGroupLists(gpList, stateGPList)
 
 		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
-			"add":    toAdd,
-			"remove": toRemove,
+			"add":      fmt.Sprintf("%+v", toAdd),
+			"remove":   fmt.Sprintf("%+v", toRemove),
+			"noChange": fmt.Sprintf("%+v", noChange),
 
-			"tf":    tfGPList,
-			"list":  gpList,
-			"state": stateGPList,
+			"tfPlan":    fmt.Sprintf("%+v", tfGPList),
+			"tfState":   fmt.Sprintf("%+v", tfGPStateList),
+			"planList":  fmt.Sprintf("%+v", gpList),
+			"stateList": fmt.Sprintf("%+v", stateGPList),
 		})
+
+		if tfGPList.IsNull() && tfGPStateList.IsNull() {
+			return
+		}
 
 		for m := range toRemove.Iterator().C {
 			m.AccountGroupID = &id

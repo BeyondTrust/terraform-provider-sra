@@ -8,6 +8,21 @@ output "group" {
   value       = sra_vault_account_group.new_account_group
 }
 
+output "group_nothing" {
+  description = "The created account group"
+  value       = sra_vault_account_group.new_account_group_nothing
+}
+
+output "group_gp" {
+  description = "The created account group"
+  value       = sra_vault_account_group.new_account_group_gp
+}
+
+output "group_jia" {
+  description = "The created account group"
+  value       = sra_vault_account_group.new_account_group_jia
+}
+
 output "list" {
   description = "The datasource query result"
   value       = data.sra_vault_account_group_list.ag.items

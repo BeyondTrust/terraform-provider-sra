@@ -35,6 +35,35 @@ resource "sra_vault_account_group" "new_account_group" {
   }
 }
 
+resource "sra_vault_account_group" "new_account_group_nothing" {
+  name        = "${var.name} ${var.random_bits} Nothing"
+  description = var.random_bits
+}
+
+resource "sra_vault_account_group" "new_account_group_gp" {
+  name        = "${var.name} ${var.random_bits} GP"
+  description = var.random_bits
+
+  group_policy_memberships = [
+    { group_policy_id : data.sra_group_policy_list.gp.items[0].id, role : "inject" }
+  ]
+}
+
+resource "sra_vault_account_group" "new_account_group_jia" {
+  name        = "${var.name} ${var.random_bits} JIA"
+  description = var.random_bits
+
+  jump_item_association = {
+    filter_type = "criteria"
+    criteria = {
+      tag = [var.random_bits]
+    }
+    jump_items = [
+      { id : module.shell_jump.item.id, type : "shell_jump" }
+    ]
+  }
+}
+
 data "sra_vault_account_group_list" "ag" {
   name = "${var.name} ${var.random_bits}"
 }
