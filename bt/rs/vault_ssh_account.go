@@ -337,13 +337,15 @@ func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadReq
 			return
 		}
 
+		if tfGPList.IsNull() {
+			return
+		}
+
 		var gpList []api.GroupPolicyVaultAccount
-		if !tfGPList.IsNull() {
-			diags = tfGPList.ElementsAs(ctx, &gpList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+		diags = tfGPList.ElementsAs(ctx, &gpList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 
 		for i, m := range gpList {

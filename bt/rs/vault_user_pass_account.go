@@ -184,13 +184,15 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 			return
 		}
 
+		if tfGPList.IsNull() {
+			return
+		}
+
 		var gpList []api.GroupPolicyVaultAccount
-		if !tfGPList.IsNull() {
-			diags = tfGPList.ElementsAs(ctx, &gpList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+		diags = tfGPList.ElementsAs(ctx, &gpList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 
 		setGPList := mapset.NewSet(gpList...)
@@ -214,6 +216,20 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 				)
 				return
 			}
+
+			p := api.GroupPolicyProvision{
+				GroupPolicyID: m.GroupPolicyID,
+			}
+			_, err = api.CreateItem(r.ApiClient, p)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error provisioning item's group policy memberships",
+					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
+				)
+				return
+			}
+
 			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
 		}
@@ -401,6 +417,10 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 			"stateIsNull":    tfStateObj.IsNull(),
 			"stateIsUnknown": tfStateObj.IsUnknown(),
 		})
+
+		if planIsGone && stateIsGone {
+			return
+		}
 
 		var item *api.AccountJumpItemAssociation
 		var err error
