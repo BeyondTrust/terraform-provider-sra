@@ -51,5 +51,9 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
 	}
 
+	if res.StatusCode == http.StatusNoContent {
+		return nil, nil
+	}
+
 	return body, err
 }

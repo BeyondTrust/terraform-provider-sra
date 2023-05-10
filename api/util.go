@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -77,7 +78,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 		}
 		field := apiObj.FieldByName(fieldName)
 		tfField := tfObj.Field(i)
-		tflog.Info(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s [%s]", fieldName, field.Kind()))
+		tflog.Debug(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s [%s]", fieldName, field.Kind()))
 
 		if fieldName == "ID" {
 			m := tfField.MethodByName("IsNull")
@@ -133,7 +134,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 }
 
 func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type) {
-	tflog.Info(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] ", apiObj))
+	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] ", apiObj))
 	for i := 0; i < tfObj.NumField(); i++ {
 		fieldName := tfObj.Type().Field(i).Name
 		apiTypeField, found := apiType.FieldByName(fieldName)
@@ -142,7 +143,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 			continue
 		}
 		field := apiObj.FieldByName(fieldName)
-		tflog.Info(ctx, "🍺 copyAPItoTF field "+fieldName)
+		tflog.Debug(ctx, "🍺 copyAPItoTF field "+fieldName)
 
 		// FIXME (maybe?) The reflect library doesn't have a nice wrapper method for setting
 		// the Terraform types, and I didn't know enough about the other reflect
@@ -155,7 +156,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		// *(*types.String)(tfObj.Field(i).Addr().UnsafePointer())
 		if fieldName == "ID" {
 			val := field.Elem().Int()
-			tflog.Info(ctx, fmt.Sprintf("🥃 ID [%d]", val))
+			tflog.Debug(ctx, fmt.Sprintf("🥃 ID [%d]", val))
 			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(strconv.Itoa(int(val)))
 			continue
 		}
@@ -249,11 +250,223 @@ func MakeFilterMap(ctx context.Context, source any) map[string]string {
 				}
 			}
 			if final != "" {
-				tflog.Info(ctx, fmt.Sprintf("🚀 %s=%s", f, final))
+				tflog.Debug(ctx, fmt.Sprintf("🚀 %s=%s", f, final))
 				filter[f] = final
 			}
 		}
 	}
 
 	return filter
+}
+
+type noPointerGPAccount struct {
+	GroupPolicyID string
+	Role          string
+}
+
+func DiffGPAccountLists(planList []GroupPolicyVaultAccount, stateList []GroupPolicyVaultAccount) (mapset.Set[GroupPolicyVaultAccount], mapset.Set[GroupPolicyVaultAccount], mapset.Set[GroupPolicyVaultAccount]) {
+	newPlanList := []noPointerGPAccount{}
+	for _, i := range planList {
+		newPlanList = append(newPlanList, noPointerGPAccount{
+			GroupPolicyID: *i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+	newSetList := []noPointerGPAccount{}
+	for _, i := range stateList {
+		newSetList = append(newSetList, noPointerGPAccount{
+			GroupPolicyID: *i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+
+	setGPList := mapset.NewSet(newPlanList...)
+	setGPStateList := mapset.NewSet(newSetList...)
+
+	toAdd := setGPList.Difference(setGPStateList)
+	toRemove := setGPStateList.Difference(setGPList)
+	noChange := setGPList.Intersect(setGPStateList)
+
+	toAddReturn := mapset.NewSet[GroupPolicyVaultAccount]()
+	for i := range toAdd.Iterator().C {
+		toAddReturn.Add(GroupPolicyVaultAccount{
+			GroupPolicyID: &i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+	toRemoveReturn := mapset.NewSet[GroupPolicyVaultAccount]()
+	for i := range toRemove.Iterator().C {
+		toRemoveReturn.Add(GroupPolicyVaultAccount{
+			GroupPolicyID: &i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+	noChangeReturn := mapset.NewSet[GroupPolicyVaultAccount]()
+	for i := range noChange.Iterator().C {
+		noChangeReturn.Add(GroupPolicyVaultAccount{
+			GroupPolicyID: &i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+
+	return toAddReturn, toRemoveReturn, noChangeReturn
+}
+
+type noPointerGPAccountGroup struct {
+	GroupPolicyID string
+	Role          string
+}
+
+func DiffGPAccountGroupLists(planList []GroupPolicyVaultAccountGroup, stateList []GroupPolicyVaultAccountGroup) (mapset.Set[GroupPolicyVaultAccountGroup], mapset.Set[GroupPolicyVaultAccountGroup], mapset.Set[GroupPolicyVaultAccountGroup]) {
+	newPlanList := []noPointerGPAccountGroup{}
+	for _, i := range planList {
+		newPlanList = append(newPlanList, noPointerGPAccountGroup{
+			GroupPolicyID: *i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+	newSetList := []noPointerGPAccountGroup{}
+	for _, i := range stateList {
+		newSetList = append(newSetList, noPointerGPAccountGroup{
+			GroupPolicyID: *i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+
+	setGPList := mapset.NewSet(newPlanList...)
+	setGPStateList := mapset.NewSet(newSetList...)
+
+	toAdd := setGPList.Difference(setGPStateList)
+	toRemove := setGPStateList.Difference(setGPList)
+	noChange := setGPList.Intersect(setGPStateList)
+
+	toAddReturn := mapset.NewSet[GroupPolicyVaultAccountGroup]()
+	for i := range toAdd.Iterator().C {
+		toAddReturn.Add(GroupPolicyVaultAccountGroup{
+			GroupPolicyID: &i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+	toRemoveReturn := mapset.NewSet[GroupPolicyVaultAccountGroup]()
+	for i := range toRemove.Iterator().C {
+		toRemoveReturn.Add(GroupPolicyVaultAccountGroup{
+			GroupPolicyID: &i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+	noChangeReturn := mapset.NewSet[GroupPolicyVaultAccountGroup]()
+	for i := range noChange.Iterator().C {
+		noChangeReturn.Add(GroupPolicyVaultAccountGroup{
+			GroupPolicyID: &i.GroupPolicyID,
+			Role:          i.Role,
+		})
+	}
+
+	return toAddReturn, toRemoveReturn, noChangeReturn
+}
+
+type noPointerGPJumpGroup struct {
+	GroupPolicyID  string
+	JumpItemRoleID int
+	JumpPolicyID   int
+}
+
+func DiffGPJumpItemLists(planList []GroupPolicyJumpGroup, stateList []GroupPolicyJumpGroup) (mapset.Set[GroupPolicyJumpGroup], mapset.Set[GroupPolicyJumpGroup], mapset.Set[GroupPolicyJumpGroup]) {
+	newPlanList := []noPointerGPJumpGroup{}
+	for _, i := range planList {
+		newPlanList = append(newPlanList, noPointerGPJumpGroup{
+			GroupPolicyID:  *i.GroupPolicyID,
+			JumpItemRoleID: i.JumpItemRoleID,
+			JumpPolicyID:   i.JumpPolicyID,
+		})
+	}
+	newSetList := []noPointerGPJumpGroup{}
+	for _, i := range stateList {
+		newSetList = append(newSetList, noPointerGPJumpGroup{
+			GroupPolicyID:  *i.GroupPolicyID,
+			JumpItemRoleID: i.JumpItemRoleID,
+			JumpPolicyID:   i.JumpPolicyID,
+		})
+	}
+
+	setGPList := mapset.NewSet(newPlanList...)
+	setGPStateList := mapset.NewSet(newSetList...)
+
+	toAdd := setGPList.Difference(setGPStateList)
+	toRemove := setGPStateList.Difference(setGPList)
+	noChange := setGPList.Intersect(setGPStateList)
+
+	toAddReturn := mapset.NewSet[GroupPolicyJumpGroup]()
+	for i := range toAdd.Iterator().C {
+		toAddReturn.Add(GroupPolicyJumpGroup{
+			GroupPolicyID:  &i.GroupPolicyID,
+			JumpItemRoleID: i.JumpItemRoleID,
+			JumpPolicyID:   i.JumpPolicyID,
+		})
+	}
+	toRemoveReturn := mapset.NewSet[GroupPolicyJumpGroup]()
+	for i := range toRemove.Iterator().C {
+		toRemoveReturn.Add(GroupPolicyJumpGroup{
+			GroupPolicyID:  &i.GroupPolicyID,
+			JumpItemRoleID: i.JumpItemRoleID,
+			JumpPolicyID:   i.JumpPolicyID,
+		})
+	}
+	noChangeReturn := mapset.NewSet[GroupPolicyJumpGroup]()
+	for i := range noChange.Iterator().C {
+		noChangeReturn.Add(GroupPolicyJumpGroup{
+			GroupPolicyID:  &i.GroupPolicyID,
+			JumpItemRoleID: i.JumpItemRoleID,
+			JumpPolicyID:   i.JumpPolicyID,
+		})
+	}
+
+	return toAddReturn, toRemoveReturn, noChangeReturn
+}
+
+type noPointerGPJumpoint struct {
+	GroupPolicyID string
+}
+
+func DiffGPJumpointLists(planList []GroupPolicyJumpoint, stateList []GroupPolicyJumpoint) (mapset.Set[GroupPolicyJumpoint], mapset.Set[GroupPolicyJumpoint], mapset.Set[GroupPolicyJumpoint]) {
+	newPlanList := []noPointerGPJumpGroup{}
+	for _, i := range planList {
+		newPlanList = append(newPlanList, noPointerGPJumpGroup{
+			GroupPolicyID: *i.GroupPolicyID,
+		})
+	}
+	newSetList := []noPointerGPJumpGroup{}
+	for _, i := range stateList {
+		newSetList = append(newSetList, noPointerGPJumpGroup{
+			GroupPolicyID: *i.GroupPolicyID,
+		})
+	}
+
+	setGPList := mapset.NewSet(newPlanList...)
+	setGPStateList := mapset.NewSet(newSetList...)
+
+	toAdd := setGPList.Difference(setGPStateList)
+	toRemove := setGPStateList.Difference(setGPList)
+	noChange := setGPList.Intersect(setGPStateList)
+
+	toAddReturn := mapset.NewSet[GroupPolicyJumpoint]()
+	for i := range toAdd.Iterator().C {
+		toAddReturn.Add(GroupPolicyJumpoint{
+			GroupPolicyID: &i.GroupPolicyID,
+		})
+	}
+	toRemoveReturn := mapset.NewSet[GroupPolicyJumpoint]()
+	for i := range toRemove.Iterator().C {
+		toRemoveReturn.Add(GroupPolicyJumpoint{
+			GroupPolicyID: &i.GroupPolicyID,
+		})
+	}
+	noChangeReturn := mapset.NewSet[GroupPolicyJumpoint]()
+	for i := range noChange.Iterator().C {
+		noChangeReturn.Add(GroupPolicyJumpoint{
+			GroupPolicyID: &i.GroupPolicyID,
+		})
+	}
+
+	return toAddReturn, toRemoveReturn, noChangeReturn
 }

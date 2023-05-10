@@ -123,14 +123,12 @@ func TestVaultSSHKey(t *testing.T) {
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 		group := terraform.OutputMap(t, terraformOptions, "group")
-		groupID := group["id"]
 
-		assertSSHCommonValues(t, item, randomBits, &groupID)
+		assertSSHCommonValues(t, item, randomBits, group["id"])
 		assert.Equal(t, 0, len(list))
 
 		item = terraform.OutputMap(t, terraformOptions, "stand_alone")
-		groupID = ""
-		assertSSHCommonValues(t, item, randomBits, &groupID)
+		assertSSHCommonValues(t, item, randomBits, "1")
 	})
 
 	test_structure.RunTestStage(t, "Test finding the new SSH account with the datasource", func() {
@@ -140,7 +138,7 @@ func TestVaultSSHKey(t *testing.T) {
 		terraform.Apply(t, terraformOptions)
 
 		item := terraform.OutputMap(t, terraformOptions, "item")
-		list := terraform.OutputListOfObjects(t, terraformOptions, "item_list")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, 1, len(list))
 		if len(list) > 0 {
@@ -149,12 +147,8 @@ func TestVaultSSHKey(t *testing.T) {
 	})
 }
 
-func assertSSHCommonValues(t *testing.T, sshItem map[string]string, randomBits string, accountGroupID *string) {
+func assertSSHCommonValues(t *testing.T, sshItem map[string]string, randomBits string, accountGroupID string) {
 	assert.Equal(t, randomBits, sshItem["username"])
 	assert.Equal(t, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC8QhNX9O8WIN5XmF+Qyqwtc5kkTddgPh77FmDEers1e", sshItem["public_key"])
-	if accountGroupID == nil {
-		assert.Nil(t, sshItem["account_group_id"])
-	} else {
-		assert.Equal(t, *accountGroupID, sshItem["account_group_id"])
-	}
+	assert.Equal(t, accountGroupID, sshItem["account_group_id"])
 }

@@ -67,7 +67,7 @@ func (r *apiResource[TApi, TTf]) Metadata(ctx context.Context, req resource.Meta
 	parts := strings.Split(name, ".")
 
 	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, api.ToSnakeCase(parts[len(parts)-1]))
-	tflog.Info(ctx, fmt.Sprintf("🥃 Registered provider name [%s]", resp.TypeName))
+	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered provider name [%s]", resp.TypeName))
 }
 
 /*
@@ -109,7 +109,7 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("🤬 create plan [%v]", plan))
+	tflog.Debug(ctx, fmt.Sprintf("🤬 create plan [%v]", plan))
 
 	var item TApi
 
@@ -118,7 +118,7 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	api.CopyTFtoAPI(ctx, tfObj, apiObj)
 
 	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 executing item post", map[string]interface{}{
+	tflog.Debug(ctx, "🙀 executing item post", map[string]interface{}{
 		"data": string(rb),
 	})
 	newItem, err := api.CreateItem(r.ApiClient, item)
@@ -141,7 +141,7 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 }
 
 func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	tflog.Info(ctx, fmt.Sprintln("Reading"))
+	tflog.Debug(ctx, fmt.Sprintln("Reading"))
 	var state TTf
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -149,14 +149,14 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("🤬 read state [%v]", state))
+	tflog.Debug(ctx, fmt.Sprintf("🤬 read state [%v]", state))
 	tfObj := reflect.ValueOf(&state).Elem()
 	tfId := tfObj.FieldByName("ID").Interface().(types.String)
 	id, _ := strconv.Atoi(tfId.ValueString())
 	item, err := api.GetItem[TApi](r.ApiClient, &id)
 
 	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
 		"data": string(rb),
 	})
 
@@ -185,7 +185,7 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, fmt.Sprintf("🤬 update plan [%v]", plan))
+	tflog.Debug(ctx, fmt.Sprintf("🤬 update plan [%v]", plan))
 
 	var item TApi
 
@@ -194,7 +194,7 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	api.CopyTFtoAPI(ctx, tfObj, apiObj)
 
 	rb, _ := json.Marshal(item)
-	tflog.Info(ctx, "🙀 executing item update", map[string]interface{}{
+	tflog.Debug(ctx, "🙀 executing item update", map[string]interface{}{
 		"data": string(rb),
 	})
 	newItem, err := api.UpdateItem(r.ApiClient, item)
@@ -220,17 +220,17 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 }
 
 func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	tflog.Info(ctx, "Starting delete")
+	tflog.Debug(ctx, "Starting delete")
 	var state TTf
 	diags := req.State.Get(ctx, &state)
-	tflog.Info(ctx, "got state")
+	tflog.Debug(ctx, "got state")
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
-		tflog.Info(ctx, "error getting state")
+		tflog.Debug(ctx, "error getting state")
 		return
 	}
-	tflog.Info(ctx, fmt.Sprintf("🤬 delete state [%v]", state))
-	tflog.Info(ctx, "deleting")
+	tflog.Debug(ctx, fmt.Sprintf("🤬 delete state [%v]", state))
+	tflog.Debug(ctx, "deleting")
 
 	tfObj := reflect.ValueOf(&state).Elem()
 	tfId := tfObj.FieldByName("ID").Interface().(types.String)

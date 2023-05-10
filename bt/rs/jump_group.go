@@ -7,7 +7,6 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -192,11 +191,7 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 			}
 		}
 
-		setGPList := mapset.NewSet(gpList...)
-		setGPStateList := mapset.NewSet(stateGPList...)
-
-		toAdd := setGPList.Difference(setGPStateList)
-		toRemove := setGPStateList.Difference(setGPList)
+		toAdd, toRemove, noChange := api.DiffGPJumpItemLists(gpList, stateGPList)
 
 		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
 			"add":    toAdd,
@@ -226,7 +221,7 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 			}
 		}
 
-		results := []api.GroupPolicyJumpGroup{}
+		results := noChange.ToSlice()
 		for m := range toAdd.Iterator().C {
 			m.JumpGroupID = &id
 			item, err := api.CreateItem(r.ApiClient, m)

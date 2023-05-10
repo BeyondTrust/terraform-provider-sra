@@ -425,6 +425,14 @@ func (a GroupPolicyVaultAccount) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account", *a.GroupPolicyID)
 }
 
+type GroupPolicyProvision struct {
+	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
+}
+
+func (a GroupPolicyProvision) Endpoint() string {
+	return fmt.Sprintf("group-policy/%s/provision", *a.GroupPolicyID)
+}
+
 type GroupPolicyJumpGroup struct {
 	GroupPolicyID  *string `tfsdk:"group_policy_id" json:"-"`
 	JumpGroupID    *int    `tfsdk:"-" json:"jump_group_id"`

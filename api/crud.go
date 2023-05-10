@@ -88,6 +88,11 @@ func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 		return nil, err
 	}
 
+	if body == nil {
+		// success, but no content (204)
+		return nil, nil
+	}
+
 	err = json.Unmarshal(body, &newItem)
 	if err != nil {
 		return nil, err

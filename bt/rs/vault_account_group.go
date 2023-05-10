@@ -438,11 +438,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 			}
 		}
 
-		setGPList := mapset.NewSet(gpList...)
-		setGPStateList := mapset.NewSet(stateGPList...)
-
-		toAdd := setGPList.Difference(setGPStateList)
-		toRemove := setGPStateList.Difference(setGPList)
+		toAdd, toRemove, noChange := api.DiffGPAccountGroupLists(gpList, stateGPList)
 
 		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
 			"add":    toAdd,
@@ -472,7 +468,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 			}
 		}
 
-		results := []api.GroupPolicyVaultAccountGroup{}
+		results := noChange.ToSlice()
 		for m := range toAdd.Iterator().C {
 			m.AccountGroupID = &id
 			item, err := api.CreateItem(r.ApiClient, m)

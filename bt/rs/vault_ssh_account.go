@@ -196,13 +196,15 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 			return
 		}
 
+		if tfGPList.IsNull() {
+			return
+		}
+
 		var gpList []api.GroupPolicyVaultAccount
-		if !tfGPList.IsNull() {
-			diags = tfGPList.ElementsAs(ctx, &gpList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+		diags = tfGPList.ElementsAs(ctx, &gpList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 
 		setGPList := mapset.NewSet(gpList...)
@@ -226,6 +228,20 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 				)
 				return
 			}
+
+			p := api.GroupPolicyProvision{
+				GroupPolicyID: m.GroupPolicyID,
+			}
+			_, err = api.CreateItem(r.ApiClient, p)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error provisioning item's group policy memberships",
+					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
+				)
+				return
+			}
+
 			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
 		}
@@ -412,16 +428,20 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			"stateIsUnknown": tfStateObj.IsUnknown(),
 		})
 
+		if planIsGone && stateIsGone {
+			return
+		}
+
 		var item *api.AccountJumpItemAssociation
 		var err error
 		if !stateIsGone && planIsGone {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Deleting item %v", apiSub))
+			tflog.Info(ctx, fmt.Sprintf("🦠 Deleting item %+v", apiSub))
 			err = api.DeleteItemEndpoint[api.AccountJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
 		} else if stateIsGone {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Creating item %v", apiSub))
+			tflog.Info(ctx, fmt.Sprintf("🦠 Creating item %+v", apiSub))
 			item, err = api.CreateItem(r.ApiClient, apiSub)
 		} else {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Updating item %v", apiSub))
+			tflog.Info(ctx, fmt.Sprintf("🦠 Updating item %+v", apiSub))
 			item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 		}
 
@@ -434,7 +454,7 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 		}
 
 		if item != nil {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Setting item in plan %v", item))
+			tflog.Info(ctx, fmt.Sprintf("🦠 Setting item in plan %+v", item))
 			rb, _ := json.Marshal(item)
 			tflog.Info(ctx, "🙀 got item", map[string]interface{}{
 				"data": string(rb),
@@ -442,7 +462,7 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 		} else {
 			var empty api.AccountJumpItemAssociation
-			tflog.Info(ctx, fmt.Sprintf("🦠 Setting empty item in plan %v", empty))
+			tflog.Info(ctx, fmt.Sprintf("🦠 Setting empty item in plan %+v", empty))
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), empty)
 		}
 		resp.Diagnostics.Append(diags...)
@@ -488,26 +508,28 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			}
 		}
 
-		setGPList := mapset.NewSet(gpList...)
-		setGPStateList := mapset.NewSet(stateGPList...)
+		if tfGPList.IsNull() && tfGPStateList.IsNull() {
+			return
+		}
 
-		toAdd := setGPList.Difference(setGPStateList)
-		toRemove := setGPStateList.Difference(setGPList)
+		toAdd, toRemove, noChange := api.DiffGPAccountLists(gpList, stateGPList)
 
 		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
-			"add":    toAdd,
-			"remove": toRemove,
+			"add":      fmt.Sprintf("%+v", toAdd),
+			"remove":   fmt.Sprintf("%+v", toRemove),
+			"noChange": fmt.Sprintf("%+v", noChange),
 
-			"tf":    tfGPList,
-			"list":  gpList,
-			"state": stateGPList,
+			"tfPlan":    fmt.Sprintf("%+v", tfGPList),
+			"tfState":   fmt.Sprintf("%+v", tfGPStateList),
+			"planList":  fmt.Sprintf("%+v", gpList),
+			"stateList": fmt.Sprintf("%+v", stateGPList),
 		})
 
 		for m := range toRemove.Iterator().C {
 			m.AccountID = &id
 			tflog.Info(ctx, "🌈 Deleting item", map[string]interface{}{
 				"add":     m,
-				"gp":      m.GroupPolicyID,
+				"gp":      *m.GroupPolicyID,
 				"account": m.AccountID,
 			})
 			endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), *m.AccountID)
@@ -522,9 +544,14 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			}
 		}
 
-		results := []api.GroupPolicyVaultAccount{}
+		results := noChange.ToSlice()
 		for m := range toAdd.Iterator().C {
 			m.AccountID = &id
+			tflog.Info(ctx, "🌈 Adding item", map[string]interface{}{
+				"add":     m,
+				"gp":      *m.GroupPolicyID,
+				"account": m.AccountID,
+			})
 			item, err := api.CreateItem(r.ApiClient, m)
 
 			if err != nil {
@@ -537,6 +564,10 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
 		}
+
+		tflog.Info(ctx, "🌈 Updating state with results", map[string]interface{}{
+			"results": fmt.Sprintf("%+v", results),
+		})
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
 		resp.Diagnostics.Append(diags...)

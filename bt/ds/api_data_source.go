@@ -55,7 +55,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Metadata(ctx context.Context, re
 	parts := strings.Split(name, ".")
 
 	resp.TypeName = fmt.Sprintf("%s_%s_list", req.ProviderTypeName, api.ToSnakeCase(parts[len(parts)-1]))
-	tflog.Info(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
+	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
 }
 
 func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
@@ -67,7 +67,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 	}
 	filter := api.MakeFilterMap(ctx, state)
 
-	tflog.Info(ctx, "🙀 list with filter", map[string]interface{}{
+	tflog.Debug(ctx, "🙀 list with filter", map[string]interface{}{
 		"data": filter,
 	})
 
@@ -95,7 +95,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
 	items, err := api.ListItems[TApi](d.apiClient, requestFilter)
 	rb, _ := json.Marshal(items)
-	tflog.Info(ctx, "🙀 ListItems got data", map[string]interface{}{
+	tflog.Debug(ctx, "🙀 ListItems got data", map[string]interface{}{
 		"data": string(rb),
 	})
 	if err != nil {
@@ -116,7 +116,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Conte
 
 		api.CopyAPItoTF(ctx, itemObj, itemStateObj, apiType)
 
-		tflog.Info(ctx, "🐉 TF Object is now copied", map[string]interface{}{
+		tflog.Debug(ctx, "🐉 TF Object is now copied", map[string]interface{}{
 			"object": itemState,
 		})
 
@@ -126,7 +126,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Conte
 			m := field.MethodByName("IsUnknown")
 			mCallable := m.Interface().(func() bool)
 			if mCallable() {
-				tflog.Info(ctx, fmt.Sprintf("👻 IsUnknown? [%s][%v]", fieldName, mCallable()))
+				tflog.Debug(ctx, fmt.Sprintf("👻 IsUnknown? [%s][%v]", fieldName, mCallable()))
 			}
 		}
 

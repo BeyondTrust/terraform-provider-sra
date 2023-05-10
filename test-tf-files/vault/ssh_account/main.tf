@@ -9,11 +9,6 @@ terraform {
   }
 }
 
-module "shell_jump" {
-  source      = "../../jump_items/shell_jump"
-  random_bits = var.random_bits
-}
-
 module "account_group" {
   source      = "../account_group"
   random_bits = var.random_bits
@@ -60,7 +55,7 @@ resource "sra_vault_ssh_account" "stand_alone_ji" {
       tag = [var.random_bits]
     }
     jump_items = [
-      { id : module.shell_jump.item.id, type : "shell_jump" }
+      { id : module.account_group.shell.id, type : "shell_jump" }
     ]
   }
 }
@@ -81,7 +76,7 @@ resource "sra_vault_ssh_account" "stand_alone_both" {
       tag = [var.random_bits]
     }
     jump_items = [
-      { id : module.shell_jump.item.id, type : "shell_jump" }
+      { id : module.account_group.shell.id, type : "shell_jump" }
     ]
   }
 }
