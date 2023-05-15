@@ -47,3 +47,12 @@ output "list" {
   description = "The datasource query result"
   value       = data.sra_vault_account_list.acc.items
 }
+
+output "single" {
+  description = "The datasource query result"
+  value       = data.sra_single_vault_ssh_account.single.account
+}
+output "single_filter" {
+  description = "The datasource result when querying with a filter"
+  value       = data.sra_single_vault_ssh_account.single_filter.account
+}

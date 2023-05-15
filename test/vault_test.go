@@ -131,6 +131,14 @@ func TestVaultSSHKey(t *testing.T) {
 		if len(list) > 0 {
 			assert.Equal(t, item["id"], list[0]["id"])
 		}
+
+		base := terraform.OutputMap(t, terraformOptions, "item")
+		singleDS := terraform.OutputMap(t, terraformOptions, "single")
+		assert.Equal(t, base["id"], singleDS["id"])
+		assert.Equal(t, testPublicKey, singleDS["public_key"])
+		singleFilter := terraform.OutputMap(t, terraformOptions, "single_filter")
+		assert.Equal(t, base["id"], singleFilter["id"])
+		assert.Equal(t, testPublicKey, singleFilter["public_key"])
 	})
 }
 
@@ -216,6 +224,8 @@ func assertAccountGroup(t *testing.T, options *terraform.Options, key string, da
 	assertExtras(t, options, parsed, data, assertGP, assertJI)
 }
 
+const testPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC8QhNX9O8WIN5XmF+Qyqwtc5kkTddgPh77FmDEers1e"
+
 func assertAccount(t *testing.T, options *terraform.Options, key string, data testData, assertGP bool, assertJI bool) {
 	item := terraform.OutputMap(t, options, key)
 	itemJson := terraform.OutputJson(t, options, key)
@@ -223,7 +233,7 @@ func assertAccount(t *testing.T, options *terraform.Options, key string, data te
 	assert.Nil(t, err)
 	assertAccountCommonValues(t, item, data.randomBits, data.groupID)
 	if data.ssh {
-		assert.Equal(t, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC8QhNX9O8WIN5XmF+Qyqwtc5kkTddgPh77FmDEers1e", item["public_key"])
+		assert.Equal(t, testPublicKey, item["public_key"])
 	}
 
 	assertExtras(t, options, parsed, data, assertGP, assertJI)

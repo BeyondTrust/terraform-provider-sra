@@ -3,13 +3,13 @@
 page_title: "sra_vault_account_list Data Source - sra"
 subcategory: ""
 description: |-
-  Fetch a list of Session Policies.
+  Fetch a list of Vault Accounts.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
 # sra_vault_account_list (Data Source)
 
-Fetch a list of Session Policies.
+Fetch a list of Vault Accounts.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 

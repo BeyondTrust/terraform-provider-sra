@@ -54,6 +54,22 @@ type VaultSSHAccount struct {
 	GroupPolicyMemberships types.Set    `tfsdk:"group_policy_memberships"`
 }
 
+type VaultSSHAccountDS struct {
+	ID             types.String `tfsdk:"id"`
+	Type           types.String `tfsdk:"type"`
+	Name           types.String `tfsdk:"name"`
+	Description    types.String `tfsdk:"description"`
+	Personal       types.Bool   `tfsdk:"personal"`
+	OwnerUserID    types.Int64  `tfsdk:"owner_user_id"`
+	AccountGroupID types.Int64  `tfsdk:"account_group_id"`
+	AccountPolicy  types.String `tfsdk:"account_policy"`
+
+	Username              types.String `tfsdk:"username"`
+	PublicKey             types.String `tfsdk:"public_key"`
+	PrivateKeyPublicCert  types.String `tfsdk:"private_key_public_cert"`
+	LastCheckoutTimestamp types.String `tfsdk:"last_checkout_timestamp"`
+}
+
 type VaultAccountGroup struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`

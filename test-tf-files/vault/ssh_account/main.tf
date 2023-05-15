@@ -84,3 +84,11 @@ resource "sra_vault_ssh_account" "stand_alone_both" {
 data "sra_vault_account_list" "acc" {
   account_group_id = module.account_group.group.id
 }
+
+data "sra_single_vault_ssh_account" "single" {
+  id = sra_vault_ssh_account.new_key.id
+}
+
+data "sra_single_vault_ssh_account" "single_filter" {
+  name = sra_vault_ssh_account.new_key.name
+}

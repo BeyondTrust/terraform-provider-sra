@@ -3,13 +3,13 @@
 page_title: "sra_web_jump_list Data Source - sra"
 subcategory: ""
 description: |-
-  Fetch a list of Remote VNC Jump Items.
+  Fetch a list of Web Jump Items.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
 # sra_web_jump_list (Data Source)
 
-Fetch a list of Remote VNC Jump Items.
+Fetch a list of Web Jump Items.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 
