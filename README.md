@@ -4,11 +4,11 @@
 
 # BeyondTrust SRA Terraform Provider
 
-The [BeyondTrust SRA Provider](https://registry.terraform.io/providers/beyondtrust/sra/latest/docs) allows [Terraform](https://terraform.io) to manage access to resources in PRA using SRA's configuration API.
+The [BeyondTrust SRA Provider](https://registry.terraform.io/providers/beyondtrust/sra/latest/docs) allows [Terraform](https://terraform.io) to manage access to resources in SRA using SRA's configuration API.
 
-See the SRA Provider documentation as well as the Configuration API documentation on your appliance for more information on supported endpoints and parameters.
+See the SRA Provider documentation as well as the Configuration API documentation in your instance for more information on supported endpoints and parameters.
 
-Version 1 of this provider requires SRA versions 23.2.1+. Using this provider with prior versions could result in Terraform reporting errors that cannot be worked around.
+As of the initial release, this provider requires Remote Support or Privileged Remote Access version 23.2.1+. Using this provider with prior versions could result in Terraform reporting errors that cannot be addressed.
 
 ## Configuration
 
