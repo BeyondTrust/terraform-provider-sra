@@ -9,8 +9,6 @@ import (
 	"terraform-provider-sra/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -143,60 +141,4 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Configure(_ context.Context, req
 	}
 
 	d.apiClient = req.ProviderData.(*api.APIClient)
-}
-
-func accountJumpItemAssociationDSSchema() schema.SingleNestedAttribute {
-	return schema.SingleNestedAttribute{
-		Optional: true,
-		Computed: true,
-		Attributes: map[string]schema.Attribute{
-			"filter_type": schema.StringAttribute{
-				Required: true,
-			},
-			"criteria": schema.SingleNestedAttribute{
-				Optional: true,
-				Attributes: map[string]schema.Attribute{
-					"shared_jump_groups": schema.SetAttribute{
-						ElementType: types.Int64Type,
-						Optional:    true,
-						Computed:    true,
-					},
-					"host": schema.SetAttribute{
-						ElementType: types.StringType,
-						Optional:    true,
-						Computed:    true,
-					},
-					"name": schema.SetAttribute{
-						ElementType: types.StringType,
-						Optional:    true,
-						Computed:    true,
-					},
-					"tag": schema.SetAttribute{
-						ElementType: types.StringType,
-						Optional:    true,
-						Computed:    true,
-					},
-					"comment": schema.SetAttribute{
-						ElementType: types.StringType,
-						Optional:    true,
-						Computed:    true,
-					},
-				},
-			},
-			"jump_items": schema.SetNestedAttribute{
-				Optional: true,
-				Computed: true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"id": schema.Int64Attribute{
-							Required: true,
-						},
-						"type": schema.StringAttribute{
-							Required: true,
-						},
-					},
-				},
-			},
-		},
-	}
 }
