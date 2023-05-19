@@ -110,6 +110,7 @@ func (d *vaultSSHAccountDataSource) Metadata(ctx context.Context, req datasource
 	resp.TypeName = fmt.Sprintf("%s_single_vault_ssh_account", req.ProviderTypeName)
 	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
 }
+
 func (d *vaultSSHAccountDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var state vaultSSHAccountDataSourceModel
 	diags := req.Config.Get(ctx, &state)

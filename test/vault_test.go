@@ -207,6 +207,43 @@ func TestVaultUserPass(t *testing.T) {
 	})
 }
 
+func TestVaultSecret(t *testing.T) {
+	// t.Parallel()
+
+	randomBits := setEnvAndGetRandom()
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/vault/secret")
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Name",
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "Test Vault Secret Retrieval", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		secret := terraform.OutputMap(t, terraformOptions, "secret")
+
+		assert.Equal(t, item["id"], secret["id"])
+		assert.Equal(t, "username_password", secret["type"])
+		assert.Equal(t, item["username"], secret["username"])
+		assert.Equal(t, item["password"], secret["secret"])
+	})
+}
+
 type testData struct {
 	randomBits string
 	groupID    string

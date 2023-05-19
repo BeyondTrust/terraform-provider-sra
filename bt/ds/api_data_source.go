@@ -34,6 +34,7 @@ func DatasourceList() []func() datasource.DataSource {
 		newVaultSSHAccountDataSource,
 		newVaultAccountGroupDataSource,
 		newVaultAccountPolicyDataSource,
+		newVaultSecretDataSource,
 	}
 }
 

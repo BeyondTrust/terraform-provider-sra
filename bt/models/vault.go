@@ -97,3 +97,10 @@ type VaultAccountPolicy struct {
 	ScheduledPasswordRotation types.Bool   `tfsdk:"scheduled_password_rotation"`
 	MaximumPasswordAge        types.Int64  `tfsdk:"maximum_password_age"`
 }
+
+type VaultSecret struct {
+	ID       types.String `tfsdk:"id"`
+	Username types.String `tfsdk:"username"`
+	Type     types.String `tfsdk:"type"`
+	Secret   types.String `tfsdk:"secret"`
+}

@@ -12,6 +12,30 @@ type APIResource interface {
 	Endpoint() string
 }
 
+func Post[I APIResource](c *APIClient, path string, item I, ignoreReturn bool) (*I, error) {
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s/%s", c.BaseURL, item.Endpoint(), path), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Accept", "application/json")
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if ignoreReturn {
+		return nil, nil
+	}
+
+	err = json.Unmarshal(body, &item)
+	if err != nil {
+		return nil, err
+	}
+
+	return &item, nil
+}
+
 func ListItems[I APIResource](c *APIClient, query ...map[string]string) ([]I, error) {
 	var tmp I
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, tmp.Endpoint()), nil)

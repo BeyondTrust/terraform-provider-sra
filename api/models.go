@@ -452,3 +452,16 @@ type GroupPolicyJumpoint struct {
 func (a GroupPolicyJumpoint) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jumpoint", *a.GroupPolicyID)
 }
+
+type VaultSecret struct {
+	ID         *int    `json:"id,omitempty"`
+	Username   string  `json:"username"`
+	Type       string  `json:"type"`
+	Password   *string `json:"password,omitempty"`
+	PrivateKey *string `json:"private_key,omitempty"`
+	Secret     *string `json:"-"`
+}
+
+func (a VaultSecret) Endpoint() string {
+	return fmt.Sprintf("vault/account/%d", *a.ID)
+}

@@ -429,15 +429,15 @@ type noPointerGPJumpoint struct {
 }
 
 func DiffGPJumpointLists(planList []GroupPolicyJumpoint, stateList []GroupPolicyJumpoint) (mapset.Set[GroupPolicyJumpoint], mapset.Set[GroupPolicyJumpoint], mapset.Set[GroupPolicyJumpoint]) {
-	newPlanList := []noPointerGPJumpGroup{}
+	newPlanList := []noPointerGPJumpoint{}
 	for _, i := range planList {
-		newPlanList = append(newPlanList, noPointerGPJumpGroup{
+		newPlanList = append(newPlanList, noPointerGPJumpoint{
 			GroupPolicyID: *i.GroupPolicyID,
 		})
 	}
-	newSetList := []noPointerGPJumpGroup{}
+	newSetList := []noPointerGPJumpoint{}
 	for _, i := range stateList {
-		newSetList = append(newSetList, noPointerGPJumpGroup{
+		newSetList = append(newSetList, noPointerGPJumpoint{
 			GroupPolicyID: *i.GroupPolicyID,
 		})
 	}
