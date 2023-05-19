@@ -2,6 +2,7 @@ package bt
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"terraform-provider-sra/api"
@@ -154,7 +155,6 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "bt_client_secret")
 
 	tflog.Debug(ctx, "Creating BT API Client")
-
 	c, err := api.NewClient(host, &client_id, &client_secret)
 
 	if err != nil {
@@ -164,6 +164,19 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 				"Error: "+err.Error(),
 		)
 	}
+
+	mechs, err := api.Get[api.MechList](c)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to determine BeyondTrust Product",
+			"An unexpected error occurred when querying the SRA Instance"+
+				"Error: "+err.Error(),
+		)
+	}
+
+	api.SetProductIsRS(mechs.IsRS())
+	tflog.Info(ctx, fmt.Sprintf("Detected product is RS? [%v]", api.IsRS()))
 
 	resp.DataSourceData = c
 	resp.ResourceData = c

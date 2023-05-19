@@ -2,12 +2,14 @@ package ds
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var (
@@ -34,98 +36,130 @@ type jumpClientInstallerDataSourceModel struct {
 }
 
 func (d *jumpClientInstallerDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	tflog.Info(ctx, fmt.Sprintf("🥓🍺🌈 Schema Call is RS? [%v][%v]", api.IsRS(), api.IsDocs()))
+	installerAttributes := map[string]schema.Attribute{
+		"id": schema.StringAttribute{
+			Computed: true,
+		},
+		"valid_duration": schema.Int64Attribute{
+			Optional: true,
+		},
+		"name": schema.StringAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"jump_group_id": schema.Int64Attribute{
+			Required: true,
+		},
+		"jump_group_type": schema.StringAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"tag": schema.StringAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"comments": schema.StringAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"jump_policy_id": schema.Int64Attribute{
+			Optional: true,
+		},
+		"connection_type": schema.StringAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"expiration_timestamp": schema.StringAttribute{
+			Computed: true,
+		},
+		"max_offline_minutes": schema.Int64Attribute{
+			Optional: true,
+			Computed: true,
+		},
+		"elevate_install": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"elevate_prompt": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"allow_override_jump_policy": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"allow_override_jump_group": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"allow_override_name": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"allow_override_tag": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"allow_override_comments": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"allow_override_max_offline_minutes": schema.BoolAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"installer_id": schema.StringAttribute{
+			Computed: true,
+		},
+		"key_info": schema.StringAttribute{
+			Computed: true,
+		},
+	}
+
+	// PRA Attributes
+	installerAttributes["session_policy_id"] = schema.Int64Attribute{
+		Optional:    true,
+		Description: "This field only applies to PRA",
+	}
+	installerAttributes["allow_override_session_policy"] = schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to PRA",
+	}
+
+	// RS Attributes
+	installerAttributes["attended_session_policy_id"] = schema.Int64Attribute{
+		Optional:    true,
+		Description: "This field only applies to RS",
+	}
+	installerAttributes["allow_override_attended_session_policy"] = schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to RS",
+	}
+	installerAttributes["unattended_session_policy_id"] = schema.Int64Attribute{
+		Optional:    true,
+		Description: "This field only applies to RS",
+	}
+	installerAttributes["allow_override_unattended_session_policy"] = schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to RS",
+	}
+	installerAttributes["is_quiet"] = schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to RS",
+	}
+
 	resp.Schema = schema.Schema{
 		Description: "Fetch a list of Jump Client Installers.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"id": schema.StringAttribute{
-							Computed: true,
-						},
-						"valid_duration": schema.Int64Attribute{
-							Optional: true,
-						},
-						"name": schema.StringAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"jump_group_id": schema.Int64Attribute{
-							Required: true,
-						},
-						"jump_group_type": schema.StringAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"tag": schema.StringAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"comments": schema.StringAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"jump_policy_id": schema.Int64Attribute{
-							Optional: true,
-						},
-						"session_policy_id": schema.Int64Attribute{
-							Optional: true,
-						},
-						"connection_type": schema.StringAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"expiration_timestamp": schema.StringAttribute{
-							Computed: true,
-						},
-						"max_offline_minutes": schema.Int64Attribute{
-							Optional: true,
-							Computed: true,
-						},
-						"elevate_install": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"elevate_prompt": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"allow_override_jump_policy": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"allow_override_jump_group": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"allow_override_name": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"allow_override_tag": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"allow_override_comments": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"allow_override_max_offline_minutes": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"allow_override_session_policy": schema.BoolAttribute{
-							Optional: true,
-							Computed: true,
-						},
-						"installer_id": schema.StringAttribute{
-							Computed: true,
-						},
-						"key_info": schema.StringAttribute{
-							Computed: true,
-						},
-					},
+					Attributes: installerAttributes,
 				},
 			},
 			"name": schema.StringAttribute{

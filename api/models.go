@@ -165,7 +165,6 @@ type JumpClientInstaller struct {
 	ConnectionType                 string    `json:"connection_type"`
 	JumpGroupType                  string    `json:"jump_group_type"`
 	JumpPolicyID                   *int      `json:"jump_policy_id,omitempty"`
-	SessionPolicyID                *int      `json:"session_policy_id,omitempty"`
 	MaxOfflineMinutes              int       `json:"max_offline_minutes"`
 	InstallerID                    string    `json:"installer_id,omitempty"`
 	KeyInfo                        string    `json:"key_info,omitempty"`
@@ -178,8 +177,16 @@ type JumpClientInstaller struct {
 	AllowOverrideTag               bool      `json:"allow_override_tag"`
 	AllowOverrideComments          bool      `json:"allow_override_comments"`
 	AllowOverrideMaxOfflineMinutes bool      `json:"allow_override_max_offline_minutes"`
-	AllowOverrideSessionPolicy     bool      `json:"allow_override_session_policy"`
 	ValidDuration                  *int      `json:"valid_duration,omitempty"`
+
+	SessionPolicyID            *int  `json:"session_policy_id,omitempty" sraproduct:"pra"`
+	AllowOverrideSessionPolicy *bool `json:"allow_override_session_policy,omitempty" sraproduct:"pra"`
+
+	AttendedSessionPolicyID              *int  `json:"attended_session_policy_id,omitempty" sraproduct:"rs"`
+	UnattendedSessionPolicyID            *int  `json:"unattended_session_policy_id,omitempty" sraproduct:"rs"`
+	IsQuiet                              *bool `json:"is_quiet,omitempty" sraproduct:"rs"`
+	AllowOverrideAttendedSessionPolicy   *bool `json:"allow_override_attended_session_policy,omitempty" sraproduct:"rs"`
+	AllowOverrideUnattendedSessionPolicy *bool `json:"allow_override_unattended_session_policy,omitempty" sraproduct:"rs"`
 }
 
 func (JumpClientInstaller) Endpoint() string {
@@ -451,6 +458,26 @@ type GroupPolicyJumpoint struct {
 
 func (a GroupPolicyJumpoint) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jumpoint", *a.GroupPolicyID)
+}
+
+type MechList struct {
+	Mechs       []string   `json:"mechs"`
+	DefaultMech string     `json:"default_mech"`
+	Cache       ConfigBool `json:"cache"`
+	Company     string     `json:"company"`
+	Product     string     `json:"product"`
+}
+
+func (a MechList) Endpoint() string {
+	return "get_mech_list?version=3"
+}
+
+func (a *MechList) IsPRA() bool {
+	return a.Product == "bpam"
+}
+
+func (a *MechList) IsRS() bool {
+	return !a.IsPRA()
 }
 
 type VaultSecret struct {

@@ -109,7 +109,6 @@ type JumpClientInstaller struct {
 	JumpPolicyID                   types.Int64  `tfsdk:"jump_policy_id"`
 	ConnectionType                 types.String `tfsdk:"connection_type"`
 	JumpGroupType                  types.String `tfsdk:"jump_group_type"`
-	SessionPolicyID                types.Int64  `tfsdk:"session_policy_id"`
 	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
 	InstallerID                    types.String `tfsdk:"installer_id"`
 	KeyInfo                        types.String `tfsdk:"key_info"`
@@ -122,6 +121,14 @@ type JumpClientInstaller struct {
 	AllowOverrideTag               types.Bool   `tfsdk:"allow_override_tag"`
 	AllowOverrideComments          types.Bool   `tfsdk:"allow_override_comments"`
 	AllowOverrideMaxOfflineMinutes types.Bool   `tfsdk:"allow_override_max_offline_minutes"`
-	AllowOverrideSessionPolicy     types.Bool   `tfsdk:"allow_override_session_policy"`
 	ValidDuration                  types.Int64  `tfsdk:"valid_duration" sra:"persist_state"`
+
+	SessionPolicyID            types.Int64 `tfsdk:"session_policy_id" sraproduct:"pra"`
+	AllowOverrideSessionPolicy types.Bool  `tfsdk:"allow_override_session_policy" sraproduct:"pra"`
+
+	IsQuiet                              types.Bool  `tfsdk:"is_quiet"`
+	AttendedSessionPolicyID              types.Int64 `tfsdk:"attended_session_policy_id" sraproduct:"rs"`
+	UnattendedSessionPolicyID            types.Int64 `tfsdk:"unattended_session_policy_id" sraproduct:"rs"`
+	AllowOverrideAttendedSessionPolicy   types.Bool  `tfsdk:"allow_override_attended_session_policy" sraproduct:"rs"`
+	AllowOverrideUnattendedSessionPolicy types.Bool  `tfsdk:"allow_override_unattended_session_policy" sraproduct:"rs"`
 }

@@ -49,23 +49,28 @@ Required:
 
 Optional:
 
+- `allow_override_attended_session_policy` (Boolean) This field only applies to RS
 - `allow_override_comments` (Boolean)
 - `allow_override_jump_group` (Boolean)
 - `allow_override_jump_policy` (Boolean)
 - `allow_override_max_offline_minutes` (Boolean)
 - `allow_override_name` (Boolean)
-- `allow_override_session_policy` (Boolean)
+- `allow_override_session_policy` (Boolean) This field only applies to PRA
 - `allow_override_tag` (Boolean)
+- `allow_override_unattended_session_policy` (Boolean) This field only applies to RS
+- `attended_session_policy_id` (Number) This field only applies to RS
 - `comments` (String)
 - `connection_type` (String)
 - `elevate_install` (Boolean)
 - `elevate_prompt` (Boolean)
+- `is_quiet` (Boolean) This field only applies to RS
 - `jump_group_type` (String)
 - `jump_policy_id` (Number)
 - `max_offline_minutes` (Number)
 - `name` (String)
-- `session_policy_id` (Number)
+- `session_policy_id` (Number) This field only applies to PRA
 - `tag` (String)
+- `unattended_session_policy_id` (Number) This field only applies to RS
 - `valid_duration` (Number)
 
 Read-Only:
