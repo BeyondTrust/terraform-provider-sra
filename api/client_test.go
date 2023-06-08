@@ -63,13 +63,16 @@ func TestDoRequest(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			if strings.HasSuffix(r.URL.Path, "error") {
 				w.WriteHeader(http.StatusTeapot)
-				w.Write([]byte(errorString))
+				_, err := w.Write([]byte(errorString))
+				assert.Nil(t, err)
 			} else if strings.HasSuffix(r.URL.Path, "no-content") {
 				w.WriteHeader(http.StatusNoContent)
-				w.Write([]byte(""))
+				_, err := w.Write([]byte(""))
+				assert.Nil(t, err)
 			} else if strings.HasSuffix(r.URL.Path, "content") {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(contentString))
+				_, err := w.Write([]byte(contentString))
+				assert.Nil(t, err)
 			} else {
 				assert.Fail(t, "Bad request")
 			}

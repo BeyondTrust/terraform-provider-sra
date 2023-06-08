@@ -25,7 +25,8 @@ func TestGet(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "oauth2/token") {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"secret_access_granted"}`))
+			_, err := w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"secret_access_granted"}`))
+			assert.Nil(t, err)
 		} else {
 			assert.Equal(t, "SRA-Terraform-Plugin", r.Header.Get("User-Agent"))
 			assert.Equal(t, "application/json", r.Header.Get("Accept"))
@@ -33,7 +34,8 @@ func TestGet(t *testing.T) {
 
 			if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "test-resource/") {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(contentString))
+				_, err := w.Write([]byte(contentString))
+				assert.Nil(t, err)
 			} else {
 				assert.Fail(t, "Bad request")
 			}

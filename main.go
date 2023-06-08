@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"terraform-provider-sra/bt"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -11,7 +12,11 @@ import (
 //go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name sra
 
 func main() {
-	providerserver.Serve(context.Background(), bt.New, providerserver.ServeOpts{
+	err := providerserver.Serve(context.Background(), bt.New, providerserver.ServeOpts{
 		Address: "registry.terraform.io/beyondtrust/sra",
 	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
