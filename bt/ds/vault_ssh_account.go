@@ -121,7 +121,7 @@ func (d *vaultSSHAccountDataSource) Read(ctx context.Context, req datasource.Rea
 
 	var tfId basetypes.StringValue
 	if state.ID.IsNull() || state.ID.IsUnknown() {
-		filter := api.MakeFilterMap(ctx, state)
+		filter := api.MakeFilterMap(state)
 		tflog.Debug(ctx, "🙀 list with filter", map[string]interface{}{
 			"data": filter,
 		})

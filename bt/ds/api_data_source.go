@@ -65,7 +65,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	filter := api.MakeFilterMap(ctx, state)
+	filter := api.MakeFilterMap(state)
 
 	tflog.Debug(ctx, "🙀 list with filter", map[string]interface{}{
 		"data": filter,

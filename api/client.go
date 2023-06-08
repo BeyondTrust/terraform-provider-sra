@@ -5,27 +5,40 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"golang.org/x/oauth2/clientcredentials"
 )
 
 type APIClient struct {
+	RootURL    string
 	BaseURL    string
 	HTTPClient *http.Client
 }
 
-func NewClient(host string, client_id, client_secret *string) (*APIClient, error) {
+func NewClient(host string, client_id *string, client_secret *string) (*APIClient, error) {
+	hostURL, err := url.Parse(host)
+	if err != nil {
+		return nil, err
+	}
+
+	if hostURL.Scheme == "" {
+		hostURL.Scheme = "https"
+	}
+
 	config := clientcredentials.Config{
 		ClientID:     *client_id,
 		ClientSecret: *client_secret,
-		TokenURL:     "https://" + host + "/oauth2/token",
+		TokenURL:     hostURL.String() + "/oauth2/token",
 	}
+	ctx := context.Background()
 	c := APIClient{
-		HTTPClient: config.Client(context.Background()),
-		BaseURL:    "https://" + host + "/api/config/v1",
+		HTTPClient: config.Client(ctx),
+		RootURL:    hostURL.String(),
+		BaseURL:    hostURL.String() + "/api/config/v1",
 	}
 
-	_, err := config.Token(context.Background())
+	_, err = config.Token(ctx)
 
 	if err != nil {
 		return nil, err
@@ -36,6 +49,7 @@ func NewClient(host string, client_id, client_secret *string) (*APIClient, error
 
 func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("User-Agent", "SRA-Terraform-Plugin")
+	req.Header.Set("Accept", "application/json")
 	res, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err

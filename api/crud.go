@@ -12,12 +12,31 @@ type APIResource interface {
 	Endpoint() string
 }
 
-func Post[I APIResource](c *APIClient, path string, item I, ignoreReturn bool) (*I, error) {
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s/%s", c.BaseURL, item.Endpoint(), path), nil)
+func Get[I APIResource](c *APIClient) (*I, error) {
+	var item I
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.RootURL, item.Endpoint()), nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Accept", "application/json")
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(body, &item)
+	if err != nil {
+		return nil, err
+	}
+
+	return &item, nil
+}
+
+func Post[I APIResource](c *APIClient, path string, item I, ignoreReturn bool) (*I, error) {
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s/%s", c.BaseURL, item.Endpoint(), path), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	body, err := c.doRequest(req)
 	if err != nil {
@@ -38,7 +57,7 @@ func Post[I APIResource](c *APIClient, path string, item I, ignoreReturn bool) (
 
 func ListItems[I APIResource](c *APIClient, query ...map[string]string) ([]I, error) {
 	var tmp I
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, tmp.Endpoint()), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, tmp.Endpoint()), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +96,7 @@ func GetItem[I APIResource](c *APIClient, id *int) (*I, error) {
 
 func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
 	var item I
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +121,7 @@ func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	}
 
 	var newItem I
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", c.BaseURL, item.Endpoint()), strings.NewReader(string(rb)))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.BaseURL, item.Endpoint()), strings.NewReader(string(rb)))
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +157,7 @@ func UpdateItemEndpoint[I APIResource](c *APIClient, item I, endpoint string) (*
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/%s", c.BaseURL, endpoint), strings.NewReader(string(rb)))
+	req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), strings.NewReader(string(rb)))
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +186,7 @@ func DeleteItem[I APIResource](c *APIClient, id *int) error {
 	return DeleteItemEndpoint[I](c, endpoint)
 }
 func DeleteItemEndpoint[I APIResource](c *APIClient, endpoint string) error {
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
+	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return err
 	}
