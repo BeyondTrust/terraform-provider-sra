@@ -2,14 +2,12 @@ package ds
 
 import (
 	"context"
-	"fmt"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var (
@@ -36,7 +34,6 @@ type jumpClientInstallerDataSourceModel struct {
 }
 
 func (d *jumpClientInstallerDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	tflog.Info(ctx, fmt.Sprintf("🥓🍺🌈 Schema Call is RS? [%v][%v]", api.IsRS(), api.IsDocs()))
 	installerAttributes := map[string]schema.Attribute{
 		"id": schema.StringAttribute{
 			Computed: true,
