@@ -6,7 +6,7 @@ require (
 	github.com/Jeffail/gabs v1.4.0
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/hashicorp/terraform-plugin-framework v1.3.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 )
 
