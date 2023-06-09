@@ -9,11 +9,14 @@ install: tidy
 tidy:
 	go mod tidy
 
-test:
-	go test -count=1 -parallel=4 ./tests
+build: tidy
+	go build -v ./...
 
-testacc:
-	TF_ACC=1 go test -count=1 -parallel=4 -timeout 10m -v ./tests
+unittest: build
+	go test -v $$(go list ./... | grep -v test | xargs)
+
+teste2e: testrelease
+	go test -timeout 10m ./test
 
 tfapply: install
 	cd ./test-tf-files && terraform apply
