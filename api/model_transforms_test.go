@@ -60,7 +60,7 @@ type testAPIModel struct {
 }
 
 func TestCopyTFtoAPI(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	tfObj := &testTFModel{
 		ID:                types.StringValue("1"),
@@ -127,7 +127,7 @@ func TestCopyTFtoAPI(t *testing.T) {
 }
 
 func TestCopyAPItoTF(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	id := 1
 	pointerString := "a different string"

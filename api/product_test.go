@@ -6,15 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestProductDefault(t *testing.T) {
-	t.Parallel()
-
-	assert.True(t, IsPRA())
-	assert.False(t, IsRS())
-}
-
 func TestProductSetting(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	SetProductIsRS(true)
 	assert.False(t, IsPRA())

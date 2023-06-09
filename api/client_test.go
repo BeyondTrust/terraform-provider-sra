@@ -13,6 +13,8 @@ import (
 )
 
 func TestNewClient(t *testing.T) {
+	t.Parallel()
+
 	testClientID := "jean_valjean"
 	testClientSecret := "24601"
 	badTokenError := `{"error":"Nope"}`
