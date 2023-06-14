@@ -36,6 +36,16 @@ func TestNewClient(t *testing.T) {
 	defer ts.Close()
 
 	{
+		c, err := NewClient("https://{}.com", &testClientID, &testClientSecret)
+		assert.NotNil(t, err)
+		assert.Nil(t, c)
+	}
+	{
+		c, err := NewClient("", &testClientID, &testClientSecret)
+		assert.NotNil(t, err)
+		assert.Nil(t, c)
+	}
+	{
 		c, err := NewClient(ts.URL, &testClientID, &testClientSecret)
 		assert.Nil(t, err)
 		assert.Equal(t, ts.URL, c.RootURL)
@@ -89,6 +99,14 @@ func TestDoRequest(t *testing.T) {
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
 	assert.Nil(t, err)
+
+	{
+		req, err := http.NewRequest("GET", "", nil)
+		assert.Nil(t, err)
+		body, err := c.doRequest(req)
+		assert.Nil(t, body)
+		assert.NotNil(t, err)
+	}
 
 	{
 		req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.RootURL, "error"), nil)
