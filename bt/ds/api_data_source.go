@@ -50,15 +50,19 @@ type apiDataSource[TDataSource any, TApi api.APIResource, TTf any] struct {
 // }
 
 func (d *apiDataSource[TDataSource, TApi, TTf]) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	var tmp TApi
-	name := reflect.TypeOf(tmp).String()
-	parts := strings.Split(name, ".")
-
-	resp.TypeName = fmt.Sprintf("%s_%s_list", req.ProviderTypeName, api.ToSnakeCase(parts[len(parts)-1]))
+	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, d.printableName())
 	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
 }
 
 func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var item TApi
+	if !api.IsProductAllowed(ctx, item) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("%s can't be used with a %s data source", api.ProductName(), d.printableName()),
+			fmt.Sprintf("The %s data source can't be used when BT_API_HOST is configured for a %s site.", d.printableName(), api.ProductName()),
+		)
+		return
+	}
 	var state TDataSource
 	diags := req.Config.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -142,4 +146,12 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Configure(_ context.Context, req
 	}
 
 	d.apiClient = req.ProviderData.(*api.APIClient)
+}
+
+func (d *apiDataSource[TDataSource, TApi, TTf]) printableName() string {
+	var tmp TApi
+	name := reflect.TypeOf(tmp).String()
+	parts := strings.Split(name, ".")
+
+	return fmt.Sprintf("%s_list", api.ToSnakeCase(parts[len(parts)-1]))
 }

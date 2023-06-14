@@ -86,12 +86,14 @@ func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Optional: true,
 			},
 			"protocol_tunnel_enabled": schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  booldefault.StaticBool(true),
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+				Description: "This field only applies to PRA",
 			},
 			"rdp_service_account_id": schema.Int64Attribute{
-				Optional: true,
+				Optional:    true,
+				Description: "This field only applies to PRA",
 			},
 
 			"group_policy_memberships": schema.SetNestedAttribute{

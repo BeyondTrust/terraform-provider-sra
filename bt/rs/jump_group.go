@@ -72,10 +72,12 @@ func (r *jumpGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 							Default:     int64default.StaticInt64(0),
 						},
 						"jump_policy_id": schema.Int64Attribute{
-							Description: `The ID of the Jump Policy that applies to this membership. Omitting or 0 means "Set on Jump Items"`,
-							Optional:    true,
-							Computed:    true,
-							Default:     int64default.StaticInt64(0),
+							Description: `The ID of the Jump Policy that applies to this membership. Omitting or 0 means "Set on Jump Items"
+
+This field only applies to PRA`,
+							Optional: true,
+							Computed: true,
+							Default:  int64default.StaticInt64(0),
 						},
 					},
 				},

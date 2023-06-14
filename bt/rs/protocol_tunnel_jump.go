@@ -35,7 +35,11 @@ type protocolTunnelJumpResource struct {
 
 func (r *protocolTunnelJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a Protocol Tunnel Jump Item.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
+		Description: `Manages a Protocol Tunnel Jump Item.
+
+NOTE: Protocol Tunnel Jumps are PRA only.
+
+For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,

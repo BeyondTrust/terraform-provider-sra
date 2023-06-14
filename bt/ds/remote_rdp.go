@@ -106,7 +106,8 @@ func (d *remoteRDPDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 							Optional: true,
 						},
 						"session_forensics": schema.BoolAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"jump_policy_id": schema.Int64Attribute{
 							Optional: true,
