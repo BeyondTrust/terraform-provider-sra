@@ -82,16 +82,15 @@ func TestCopyTFtoAPI(t *testing.T) {
 		TFOnlyField:       types.BoolValue(false),
 	}
 
-	var apiObj testAPIModel
-
 	ctx := context.Background()
 
 	tfElem := reflect.ValueOf(tfObj).Elem()
-	apiElem := reflect.ValueOf(&apiObj).Elem()
 
 	for _, isRS := range []bool{false, true} {
 		SetProductIsRS(isRS)
 
+		var apiObj testAPIModel
+		apiElem := reflect.ValueOf(&apiObj).Elem()
 		CopyTFtoAPI(ctx, tfElem, apiElem)
 
 		id, _ := strconv.Atoi(tfObj.ID.ValueString())
@@ -119,7 +118,10 @@ func TestCopyTFtoAPI(t *testing.T) {
 		assert.Equal(t, tfObj.PersistStateField.ValueString(), *apiObj.PersistStateField)
 
 		if isRS {
-			assert.Equal(t, tfObj.ProductField.ValueString(), *apiObj.ProductField)
+			assert.NotNil(t, apiObj.ProductField)
+			if apiObj.ProductField != nil {
+				assert.Equal(t, tfObj.ProductField.ValueString(), *apiObj.ProductField)
+			}
 		} else {
 			assert.Nil(t, apiObj.ProductField)
 		}
@@ -155,34 +157,35 @@ func TestCopyAPItoTF(t *testing.T) {
 		APISkipField:      &apiField,
 		PersistStateField: &stateField,
 	}
-	tfObj := &testTFModel{
-		ID:                types.StringUnknown(),
-		StringVal:         types.StringUnknown(),
-		IntVal:            types.Int64Unknown(),
-		BoolVal:           types.BoolUnknown(),
-		PointerStringVal:  types.StringUnknown(),
-		PointerIntVal:     types.Int64Unknown(),
-		PointerBoolVal:    types.BoolUnknown(),
-		NullStringVal:     types.StringNull(),
-		NullIntVal:        types.Int64Null(),
-		NullBoolVal:       types.BoolNull(),
-		UnknownStringVal:  types.StringUnknown(),
-		UnknownIntVal:     types.Int64Unknown(),
-		UnknownBoolVal:    types.BoolUnknown(),
-		ProductField:      types.StringUnknown(),
-		PersistStateField: types.StringValue(persistedStateValue),
-		APISkipField:      types.StringUnknown(),
-		TFOnlyField:       types.BoolValue(false),
-	}
 
 	ctx := context.Background()
 
-	tfElem := reflect.ValueOf(tfObj).Elem()
 	apiElem := reflect.ValueOf(apiObj).Elem()
 	apiType := reflect.TypeOf(apiObj).Elem()
 
 	for _, isRS := range []bool{false, true} {
 		SetProductIsRS(isRS)
+
+		tfObj := &testTFModel{
+			ID:                types.StringUnknown(),
+			StringVal:         types.StringUnknown(),
+			IntVal:            types.Int64Unknown(),
+			BoolVal:           types.BoolUnknown(),
+			PointerStringVal:  types.StringUnknown(),
+			PointerIntVal:     types.Int64Unknown(),
+			PointerBoolVal:    types.BoolUnknown(),
+			NullStringVal:     types.StringNull(),
+			NullIntVal:        types.Int64Null(),
+			NullBoolVal:       types.BoolNull(),
+			UnknownStringVal:  types.StringUnknown(),
+			UnknownIntVal:     types.Int64Unknown(),
+			UnknownBoolVal:    types.BoolUnknown(),
+			ProductField:      types.StringUnknown(),
+			PersistStateField: types.StringValue(persistedStateValue),
+			APISkipField:      types.StringUnknown(),
+			TFOnlyField:       types.BoolValue(false),
+		}
+		tfElem := reflect.ValueOf(tfObj).Elem()
 
 		CopyAPItoTF(ctx, apiElem, tfElem, apiType)
 

@@ -14,18 +14,35 @@ func TestTimestampJson(t *testing.T) {
 		Field Timestamp
 	}
 
-	// Timestamp is always UTC
-	test := &tsTest{"1983-01-24T23:47:00Z"}
-	testJson := []byte(`{"Field":412300020}`)
+	{
+		// Timestamp is always UTC
+		test := &tsTest{"1983-01-24T23:47:00Z"}
+		testJson := []byte(`{"Field":412300020}`)
 
-	result, err := json.Marshal(test)
-	assert.Nil(t, err)
-	assert.Equal(t, testJson, result)
+		result, err := json.Marshal(test)
+		assert.Nil(t, err)
+		assert.Equal(t, testJson, result)
 
-	var output tsTest
-	err = json.Unmarshal(testJson, &output)
-	assert.Nil(t, err)
-	assert.Equal(t, test.Field, output.Field)
+		var output tsTest
+		err = json.Unmarshal(testJson, &output)
+		assert.Nil(t, err)
+		assert.Equal(t, test.Field, output.Field)
+	}
+
+	{
+		// Timestamp is always UTC
+		test := &tsTest{"not a date"}
+		testJson := []byte(`{"Field":"not a number"}`)
+
+		result, err := json.Marshal(test)
+		assert.NotNil(t, err)
+		assert.Nil(t, result)
+
+		var output tsTest
+		err = json.Unmarshal(testJson, &output)
+		assert.NotNil(t, err)
+		assert.Empty(t, output.Field)
+	}
 }
 
 func TestConfigBool(t *testing.T) {

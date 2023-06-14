@@ -43,7 +43,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			continue
 		}
 		prod := tfObjField.Tag.Get("sraproduct")
-		if prod != "" && prod != product {
+		if prod != "" && !strings.EqualFold(prod, product) {
 			continue
 		}
 		field := apiObj.FieldByName(fieldName)
@@ -72,11 +72,13 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			m := tfField.MethodByName("IsNull")
 			mCallable := m.Interface().(func() bool)
 			if mCallable() {
+				tflog.Info(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s was null", fieldName))
 				continue
 			}
 			m = tfField.MethodByName("IsUnknown")
 			mCallable = m.Interface().(func() bool)
 			if mCallable() {
+				tflog.Info(ctx, fmt.Sprintf("🍺 copyTFtoAPI field %s was unknown", fieldName))
 				continue
 			}
 
@@ -139,7 +141,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		setToNil := false
 		fieldKind := field.Kind()
 		prod := tfObjField.Tag.Get("sraproduct")
-		if prod != "" && prod != product {
+		if prod != "" && !strings.EqualFold(prod, product) {
 			setToNil = true
 			fieldKind = apiTypeField.Type.Elem().Kind()
 		} else if fieldKind == reflect.Pointer {
