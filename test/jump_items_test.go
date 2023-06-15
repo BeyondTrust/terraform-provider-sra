@@ -373,6 +373,56 @@ func TestWebJump(t *testing.T) {
 	})
 }
 
+func TestJumpClientInstaller(t *testing.T) {
+	// t.Parallel()
+
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jump_client_installer", productPath()))
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Name",
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "Create a new Jump Client Installer", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, randomBits, item["tag"])
+		assert.Equal(t, 0, len(list))
+	})
+
+	test_structure.RunTestStage(t, "Find the new Jump Client installer with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
+		terraform.Apply(t, terraformOptions)
+
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 1, len(list))
+		if len(list) > 0 {
+			assert.Equal(t, item["id"], list[0]["id"])
+		}
+	})
+}
+
 func assertJPGPMembership(t *testing.T, parsed *gabs.Container, gpID string) {
 	membershipsData, err := parsed.JSONPointer("/group_policy_memberships")
 	assert.Nil(t, err)
