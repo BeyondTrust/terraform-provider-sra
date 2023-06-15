@@ -39,7 +39,7 @@ resource "sra_remote_rdp" "example" {
 
 - `comments` (String)
 - `console` (Boolean)
-- `credential_type` (String)
+- `credential_type` (String) This field only applies to PRA
 - `domain` (String)
 - `endpoint_id` (Number)
 - `ignore_untrusted` (Boolean)
@@ -47,15 +47,15 @@ resource "sra_remote_rdp" "example" {
 - `jump_policy_id` (Number)
 - `quality` (String)
 - `rdp_username` (String)
-- `remote_app_name` (String)
-- `remote_app_params` (String)
-- `remote_exe_params` (String)
-- `remote_exe_path` (String)
-- `secure_app_type` (String)
-- `session_forensics` (Boolean)
+- `remote_app_name` (String) This field only applies to PRA
+- `remote_app_params` (String) This field only applies to PRA
+- `remote_exe_params` (String) This field only applies to PRA
+- `remote_exe_path` (String) This field only applies to PRA
+- `secure_app_type` (String) This field only applies to PRA
+- `session_forensics` (Boolean) This field only applies to PRA
 - `session_policy_id` (Number)
 - `tag` (String)
-- `target_system` (String)
+- `target_system` (String) This field only applies to PRA
 
 ### Read-Only
 

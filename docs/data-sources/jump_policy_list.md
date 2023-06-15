@@ -45,23 +45,23 @@ Required:
 
 Optional:
 
-- `approval_display_name` (String)
-- `approval_email_addresses` (Set of String)
-- `approval_email_language` (String)
-- `approval_max_duration` (Number)
-- `approval_required` (Boolean)
-- `approval_scope` (String)
-- `approval_user_ids` (Set of String)
+- `approval_display_name` (String) This field only applies to PRA
+- `approval_email_addresses` (Set of String) This field only applies to PRA
+- `approval_email_language` (String) This field only applies to PRA
+- `approval_max_duration` (Number) This field only applies to PRA
+- `approval_required` (Boolean) This field only applies to PRA
+- `approval_scope` (String) This field only applies to PRA
+- `approval_user_ids` (Set of String) This field only applies to PRA
 - `code_name` (String)
 - `description` (String)
-- `notification_display_name` (String)
-- `notification_email_addresses` (Set of String)
-- `notification_email_language` (String)
-- `recordings_disabled` (Boolean)
+- `notification_display_name` (String) This field only applies to PRA
+- `notification_email_addresses` (Set of String) This field only applies to PRA
+- `notification_email_language` (String) This field only applies to PRA
+- `recordings_disabled` (Boolean) This field only applies to PRA
 - `schedule_enabled` (Boolean)
 - `schedule_strict` (Boolean)
-- `session_end_notification` (Boolean)
-- `session_start_notification` (Boolean)
+- `session_end_notification` (Boolean) This field only applies to PRA
+- `session_start_notification` (Boolean) This field only applies to PRA
 - `ticket_id_required` (Boolean)
 
 Read-Only:

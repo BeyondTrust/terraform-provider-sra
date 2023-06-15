@@ -4,12 +4,15 @@ page_title: "sra_protocol_tunnel_jump_list Data Source - sra"
 subcategory: ""
 description: |-
   Fetch a list of Protocol Tunnel Jump Items.
+  NOTE: Protocol Tunnel Jumps are PRA only.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
 # sra_protocol_tunnel_jump_list (Data Source)
 
 Fetch a list of Protocol Tunnel Jump Items.
+
+NOTE: Protocol Tunnel Jumps are PRA only.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 

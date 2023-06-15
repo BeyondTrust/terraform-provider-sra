@@ -4,12 +4,15 @@ page_title: "sra_web_jump Resource - sra"
 subcategory: ""
 description: |-
   Manages a Web Jump Item.
+  NOTE: Web Jump is PRA only.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
 # sra_web_jump (Resource)
 
 Manages a Web Jump Item.
+
+NOTE: Web Jump is PRA only.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 
