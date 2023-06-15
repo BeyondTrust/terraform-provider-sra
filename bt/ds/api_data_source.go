@@ -104,7 +104,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Conte
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Unable to list shell jump items",
+			fmt.Sprintf("Unable to list %s items", d.printableName()),
 			err.Error(),
 		)
 		return nil

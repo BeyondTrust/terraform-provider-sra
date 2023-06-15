@@ -24,7 +24,7 @@ var (
 	_ resource.Resource                = &jumpGroupResource{}
 	_ resource.ResourceWithConfigure   = &jumpGroupResource{}
 	_ resource.ResourceWithImportState = &jumpGroupResource{}
-	// _ resource.ResourceWithModifyPlan  = &jumpGroupResource{}
+	_ resource.ResourceWithModifyPlan  = &jumpGroupResource{}
 )
 
 func newJumpGroupResource() resource.Resource {
@@ -77,13 +77,58 @@ func (r *jumpGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 This field only applies to PRA`,
 							Optional: true,
 							Computed: true,
-							Default:  int64default.StaticInt64(0),
 						},
 					},
 				},
 			},
 		},
 	}
+}
+
+func (r *jumpGroupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	tflog.Info(ctx, "Starting plan modification")
+	if req.Plan.Raw.IsNull() {
+		tflog.Info(ctx, "No plan to modify")
+		return
+	}
+
+	/*
+		Here we are setting some things that get defaults if they are not supplied.
+	*/
+	var tfGPList types.Set
+	diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !tfGPList.IsNull() {
+		var planList []models.GroupPolicyJumpGroup
+		diags = tfGPList.ElementsAs(ctx, &planList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		for i, m := range planList {
+			if api.IsPRA() {
+				if m.JumpPolicyID.IsNull() || m.JumpPolicyID.IsUnknown() {
+					m.JumpPolicyID = types.Int64Value(0)
+				}
+			} else {
+				m.JumpPolicyID = types.Int64Null()
+			}
+			planList[i] = m
+		}
+
+		diags = resp.Plan.SetAttribute(ctx, path.Root("group_policy_memberships"), planList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	tflog.Info(ctx, "Finished modification")
 }
 
 func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -226,8 +271,13 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 		results := noChange.ToSlice()
 		for m := range toAdd.Iterator().C {
 			m.JumpGroupID = &id
+			tflog.Info(ctx, "🌈 Adding item", map[string]interface{}{
+				"add":         fmt.Sprintf("%+v", m),
+				"gp":          m.GroupPolicyID,
+				"jump group":  m.JumpGroupID,
+				"jump policy": m.JumpPolicyID,
+			})
 			item, err := api.CreateItem(r.ApiClient, m)
-			item.GroupPolicyID = m.GroupPolicyID
 
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -236,6 +286,7 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 				)
 				return
 			}
+			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
 		}
 

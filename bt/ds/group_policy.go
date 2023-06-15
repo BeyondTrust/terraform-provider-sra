@@ -53,7 +53,7 @@ func (d *groupPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaR
 							Optional:    true,
 							Description: "This field only applies to PRA",
 						},
-						"perm_support_allowed": schema.BoolAttribute{
+						"perm_support_allowed": schema.StringAttribute{
 							Optional:    true,
 							Description: "This field only applies to RS",
 						},

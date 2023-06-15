@@ -39,15 +39,15 @@ type RemoteRDP struct {
 	JumpPolicyID    types.Int64  `tfsdk:"jump_policy_id"`
 	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
 	EndpointID      types.Int64  `tfsdk:"endpoint_id"`
-	SecureAppType   types.String `tfsdk:"secure_app_type"`
-	RemoteAppName   types.String `tfsdk:"remote_app_name"`
-	RemoteAppParams types.String `tfsdk:"remote_app_params"`
-	RemoteExePath   types.String `tfsdk:"remote_exe_path"`
-	RemoteExeParams types.String `tfsdk:"remote_exe_params"`
-	TargetSystem    types.String `tfsdk:"target_system"`
-	CredentialType  types.String `tfsdk:"credential_type"`
 
-	SessionForensics types.Bool `tfsdk:"session_forensics" sraproduct:"pra"`
+	SecureAppType    types.String `tfsdk:"secure_app_type" sraproduct:"pra"`
+	RemoteAppName    types.String `tfsdk:"remote_app_name" sraproduct:"pra"`
+	RemoteAppParams  types.String `tfsdk:"remote_app_params" sraproduct:"pra"`
+	RemoteExePath    types.String `tfsdk:"remote_exe_path" sraproduct:"pra"`
+	RemoteExeParams  types.String `tfsdk:"remote_exe_params" sraproduct:"pra"`
+	TargetSystem     types.String `tfsdk:"target_system" sraproduct:"pra"`
+	CredentialType   types.String `tfsdk:"credential_type" sraproduct:"pra"`
+	SessionForensics types.Bool   `tfsdk:"session_forensics" sraproduct:"pra"`
 }
 
 type RemoteVNC struct {

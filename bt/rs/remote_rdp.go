@@ -13,6 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // These throw away variable declarations are to allow the compiler to
@@ -103,45 +105,44 @@ func (r *remoteRDPResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"secure_app_type": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  stringdefault.StaticString(""),
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"", "none", "remote_app", "remote_desktop_agent", "remote_desktop_agent_credentials"}...),
+					stringvalidator.OneOf([]string{"", "remote_app", "remote_desktop_agent", "remote_desktop_agent_credentials"}...),
 				},
+				Description: "This field only applies to PRA",
 			},
 			"remote_app_name": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString(""),
+				Optional:    true,
+				Computed:    true,
+				Description: "This field only applies to PRA",
 			},
 			"remote_app_params": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString(""),
+				Optional:    true,
+				Computed:    true,
+				Description: "This field only applies to PRA",
 			},
 			"remote_exe_path": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString(""),
+				Optional:    true,
+				Computed:    true,
+				Description: "This field only applies to PRA",
 			},
 			"remote_exe_params": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString(""),
+				Optional:    true,
+				Computed:    true,
+				Description: "This field only applies to PRA",
 			},
 			"target_system": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString(""),
+				Optional:    true,
+				Computed:    true,
+				Description: "This field only applies to PRA",
 			},
 			"credential_type": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString(""),
+				Optional:    true,
+				Computed:    true,
+				Description: "This field only applies to PRA",
 			},
 			"session_forensics": schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
-				Default:     booldefault.StaticBool(false),
 				Description: "This field only applies to PRA",
 			},
 			"jump_policy_id": schema.Int64Attribute{
@@ -155,4 +156,71 @@ func (r *remoteRDPResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 		},
 	}
+}
+
+func (r *remoteRDPResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	tflog.Info(ctx, "Starting plan modification")
+	if req.Plan.Raw.IsNull() {
+		tflog.Info(ctx, "No plan to modify")
+		return
+	}
+	var plan models.RemoteRDP
+	diags := req.Plan.Get(ctx, &plan)
+	tflog.Info(ctx, "Read plan")
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		tflog.Info(ctx, "Error reading plan")
+		return
+	}
+	/*
+		Here we are setting some things that get defaults if they are not supplied.
+	*/
+	if api.IsPRA() {
+		if plan.SecureAppType.IsNull() || plan.SecureAppType.IsUnknown() || plan.SecureAppType.ValueString() == "" {
+			plan.SecureAppType = types.StringValue("")
+			plan.RemoteAppName = types.StringValue("")
+			plan.RemoteAppParams = types.StringValue("")
+			plan.RemoteExePath = types.StringValue("")
+			plan.TargetSystem = types.StringValue("")
+			plan.CredentialType = types.StringValue("")
+		} else {
+			if plan.RemoteAppName.IsUnknown() {
+				plan.RemoteAppName = types.StringValue("")
+			}
+			if plan.RemoteAppParams.IsUnknown() {
+				plan.RemoteAppParams = types.StringValue("")
+			}
+			if plan.RemoteExePath.IsUnknown() {
+				plan.RemoteExePath = types.StringValue("")
+			}
+			if plan.RemoteExeParams.IsUnknown() {
+				plan.RemoteExeParams = types.StringValue("")
+			}
+			if plan.TargetSystem.IsUnknown() {
+				plan.TargetSystem = types.StringValue("")
+			}
+			if plan.CredentialType.IsUnknown() {
+				plan.CredentialType = types.StringValue("")
+			}
+		}
+
+		if plan.SessionForensics.IsUnknown() || plan.SessionForensics.IsNull() {
+			plan.SessionForensics = types.BoolValue(false)
+		}
+	} else {
+		plan.SecureAppType = types.StringNull()
+		plan.RemoteAppName = types.StringNull()
+		plan.RemoteAppParams = types.StringNull()
+		plan.RemoteExePath = types.StringNull()
+		plan.TargetSystem = types.StringNull()
+		plan.CredentialType = types.StringNull()
+		plan.SessionForensics = types.BoolNull()
+	}
+
+	diags = resp.Plan.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "Finished modification")
 }

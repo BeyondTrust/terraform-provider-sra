@@ -12,6 +12,12 @@ type JumpGroup struct {
 
 	GroupPolicyMemberships types.Set `tfsdk:"group_policy_memberships"`
 }
+type GroupPolicyJumpGroup struct {
+	GroupPolicyID  types.String `tfsdk:"group_policy_id"`
+	JumpItemRoleID types.Int64  `tfsdk:"jump_item_role_id"`
+	JumpPolicyID   types.Int64  `tfsdk:"jump_policy_id" sraproduct:"pra"`
+}
+
 type JumpGroupDS struct {
 	ID       types.String `tfsdk:"id"`
 	Name     types.String `tfsdk:"name"`
@@ -30,8 +36,8 @@ type Jumpoint struct {
 	Clustered                 types.Bool   `tfsdk:"clustered"`
 	ShellJumpEnabled          types.Bool   `tfsdk:"shell_jump_enabled"`
 	ExternalJumpItemNetworkID types.String `tfsdk:"external_jump_item_network_id"`
-	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled"`
-	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id"`
+	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled" sraproduct:"pra"`
+	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id" sraproduct:"pra"`
 
 	GroupPolicyMemberships types.Set `tfsdk:"group_policy_memberships"`
 }
@@ -47,8 +53,8 @@ type JumpointDS struct {
 	Clustered                 types.Bool   `tfsdk:"clustered"`
 	ShellJumpEnabled          types.Bool   `tfsdk:"shell_jump_enabled"`
 	ExternalJumpItemNetworkID types.String `tfsdk:"external_jump_item_network_id"`
-	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled"`
-	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id"`
+	ProtocolTunnelEnabled     types.Bool   `tfsdk:"protocol_tunnel_enabled" sraproduct:"pra"`
+	RdpServiceAccountID       types.Int64  `tfsdk:"rdp_service_account_id" sraproduct:"pra"`
 }
 
 type JumpItemRole struct {
@@ -101,7 +107,7 @@ type GroupPolicy struct {
 	PermWebJump            types.Bool   `tfsdk:"perm_web_jump" sraproduct:"pra"`
 	PermProtocolTunnel     types.Bool   `tfsdk:"perm_protocol_tunnel" sraproduct:"pra"`
 
-	PermSupportAllowed                 types.Bool   `tfsdk:"perm_support_allowed" sraproduct:"rs"`
+	PermSupportAllowed                 types.String `tfsdk:"perm_support_allowed" sraproduct:"rs"`
 	RepPermStatus                      types.String `tfsdk:"rep_perm_status" sraproduct:"rs"`
 	PermGenerateSessionKey             types.Bool   `tfsdk:"perm_generate_session_key" sraproduct:"rs"`
 	PermSendIosProfiles                types.Bool   `tfsdk:"perm_send_ios_profiles" sraproduct:"rs"`

@@ -29,31 +29,31 @@ func (ShellJump) Endpoint() string {
 }
 
 type RemoteRDP struct {
-	ID              *int    `json:"id,omitempty"`
-	Name            string  `json:"name"`
-	JumpointID      int     `json:"jumpoint_id"`
-	Hostname        string  `json:"hostname"`
-	JumpGroupID     int     `json:"jump_group_id"`
-	JumpGroupType   string  `json:"jump_group_type"`
-	Quality         string  `json:"quality"`
-	Console         bool    `json:"console"`
-	IgnoreUntrusted bool    `json:"ignore_untrusted"`
-	Tag             string  `json:"tag"`
-	Comments        string  `json:"comments"`
-	RdpUsername     string  `json:"rdp_username"`
-	Domain          string  `json:"domain"`
-	SecureAppType   *string `json:"secure_app_type,omitempty"`
-	RemoteAppName   *string `json:"remote_app_name,omitempty"`
-	RemoteAppParams *string `json:"remote_app_params,omitempty"`
-	RemoteExePath   *string `json:"remote_exe_path,omitempty"`
-	RemoteExeParams *string `json:"remote_exe_params,omitempty"`
-	TargetSystem    *string `json:"target_system,omitempty"`
-	CredentialType  *string `json:"credential_type,omitempty"`
-	EndpointID      *int    `json:"endpoint_id,omitempty"`
-	JumpPolicyID    *int    `json:"jump_policy_id,omitempty"`
-	SessionPolicyID *int    `json:"session_policy_id,omitempty"`
+	ID              *int   `json:"id,omitempty"`
+	Name            string `json:"name"`
+	JumpointID      int    `json:"jumpoint_id"`
+	Hostname        string `json:"hostname"`
+	JumpGroupID     int    `json:"jump_group_id"`
+	JumpGroupType   string `json:"jump_group_type"`
+	Quality         string `json:"quality"`
+	Console         bool   `json:"console"`
+	IgnoreUntrusted bool   `json:"ignore_untrusted"`
+	Tag             string `json:"tag"`
+	Comments        string `json:"comments"`
+	RdpUsername     string `json:"rdp_username"`
+	Domain          string `json:"domain"`
+	EndpointID      *int   `json:"endpoint_id,omitempty"`
+	JumpPolicyID    *int   `json:"jump_policy_id,omitempty"`
+	SessionPolicyID *int   `json:"session_policy_id,omitempty"`
 
-	SessionForensics *bool `json:"session_forensics,omitempty" sraproduct:"pra"`
+	SecureAppType    *string `json:"secure_app_type,omitempty" sraproduct:"pra"`
+	RemoteAppName    *string `json:"remote_app_name,omitempty" sraproduct:"pra"`
+	RemoteAppParams  *string `json:"remote_app_params,omitempty" sraproduct:"pra"`
+	RemoteExePath    *string `json:"remote_exe_path,omitempty" sraproduct:"pra"`
+	RemoteExeParams  *string `json:"remote_exe_params,omitempty" sraproduct:"pra"`
+	TargetSystem     *string `json:"target_system,omitempty" sraproduct:"pra"`
+	CredentialType   *string `json:"credential_type,omitempty" sraproduct:"pra"`
+	SessionForensics *bool   `json:"session_forensics,omitempty" sraproduct:"pra"`
 }
 
 func (RemoteRDP) Endpoint() string {
@@ -297,7 +297,7 @@ type GroupPolicy struct {
 	PermWebJump            *bool   `json:"perm_web_jump,omitempty" sraproduct:"pra"`
 	PermProtocolTunnel     *bool   `json:"perm_protocol_tunnel,omitempty" sraproduct:"pra"`
 
-	PermSupportAllowed                 *bool   `json:"perm_support_allowed,omitempty" sraproduct:"rs"`
+	PermSupportAllowed                 *string `json:"perm_support_allowed,omitempty" sraproduct:"rs"`
 	RepPermStatus                      *string `json:"rep_perm_status,omitempty" sraproduct:"rs"`
 	PermGenerateSessionKey             *bool   `json:"perm_generate_session_key,omitempty" sraproduct:"rs"`
 	PermSendIosProfiles                *bool   `json:"perm_send_ios_profiles,omitempty" sraproduct:"rs"`
@@ -484,7 +484,7 @@ type GroupPolicyJumpGroup struct {
 	GroupPolicyID  *string `tfsdk:"group_policy_id" json:"-"`
 	JumpGroupID    *int    `tfsdk:"-" json:"jump_group_id"`
 	JumpItemRoleID int     `tfsdk:"jump_item_role_id" json:"jump_item_role_id"`
-	JumpPolicyID   *int    `tfsdk:"jump_policy_id" json:"jump_policy_id" sraproduct:"pra"`
+	JumpPolicyID   *int    `tfsdk:"jump_policy_id" json:"jump_policy_id,omitempty" sraproduct:"pra"`
 }
 
 func (a GroupPolicyJumpGroup) Endpoint() string {
