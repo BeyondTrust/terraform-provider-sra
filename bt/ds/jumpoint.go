@@ -74,10 +74,12 @@ func (d *jumpointDataSource) Schema(ctx context.Context, _ datasource.SchemaRequ
 							Optional: true,
 						},
 						"protocol_tunnel_enabled": schema.BoolAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"rdp_service_account_id": schema.Int64Attribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 					},
 				},

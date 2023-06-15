@@ -120,7 +120,7 @@ func DiffGPJumpItemLists(planList []GroupPolicyJumpGroup, stateList []GroupPolic
 		newPlanList = append(newPlanList, noPointerGPJumpGroup{
 			GroupPolicyID:  *i.GroupPolicyID,
 			JumpItemRoleID: i.JumpItemRoleID,
-			JumpPolicyID:   i.JumpPolicyID,
+			JumpPolicyID:   *i.JumpPolicyID,
 		})
 	}
 	newSetList := []noPointerGPJumpGroup{}
@@ -128,7 +128,7 @@ func DiffGPJumpItemLists(planList []GroupPolicyJumpGroup, stateList []GroupPolic
 		newSetList = append(newSetList, noPointerGPJumpGroup{
 			GroupPolicyID:  *i.GroupPolicyID,
 			JumpItemRoleID: i.JumpItemRoleID,
-			JumpPolicyID:   i.JumpPolicyID,
+			JumpPolicyID:   *i.JumpPolicyID,
 		})
 	}
 
@@ -144,7 +144,7 @@ func DiffGPJumpItemLists(planList []GroupPolicyJumpGroup, stateList []GroupPolic
 		toAddReturn.Add(GroupPolicyJumpGroup{
 			GroupPolicyID:  &i.GroupPolicyID,
 			JumpItemRoleID: i.JumpItemRoleID,
-			JumpPolicyID:   i.JumpPolicyID,
+			JumpPolicyID:   &i.JumpPolicyID,
 		})
 	}
 	toRemoveReturn := mapset.NewSet[GroupPolicyJumpGroup]()
@@ -152,7 +152,7 @@ func DiffGPJumpItemLists(planList []GroupPolicyJumpGroup, stateList []GroupPolic
 		toRemoveReturn.Add(GroupPolicyJumpGroup{
 			GroupPolicyID:  &i.GroupPolicyID,
 			JumpItemRoleID: i.JumpItemRoleID,
-			JumpPolicyID:   i.JumpPolicyID,
+			JumpPolicyID:   &i.JumpPolicyID,
 		})
 	}
 	noChangeReturn := mapset.NewSet[GroupPolicyJumpGroup]()
@@ -160,7 +160,7 @@ func DiffGPJumpItemLists(planList []GroupPolicyJumpGroup, stateList []GroupPolic
 		noChangeReturn.Add(GroupPolicyJumpGroup{
 			GroupPolicyID:  &i.GroupPolicyID,
 			JumpItemRoleID: i.JumpItemRoleID,
-			JumpPolicyID:   i.JumpPolicyID,
+			JumpPolicyID:   &i.JumpPolicyID,
 		})
 	}
 

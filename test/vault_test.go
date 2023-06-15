@@ -14,8 +14,8 @@ import (
 func TestAccountGroupKey(t *testing.T) {
 	// t.Parallel()
 
-	randomBits := setEnvAndGetRandom()
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/vault/account_group")
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath()))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -72,8 +72,8 @@ func TestAccountGroupKey(t *testing.T) {
 func TestVaultSSHKey(t *testing.T) {
 	// t.Parallel()
 
-	randomBits := setEnvAndGetRandom()
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/vault/ssh_account")
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/ssh_account", productPath()))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -145,8 +145,8 @@ func TestVaultSSHKey(t *testing.T) {
 func TestVaultUserPass(t *testing.T) {
 	// t.Parallel()
 
-	randomBits := setEnvAndGetRandom()
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/vault/user_pass_account")
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/user_pass_account", productPath()))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -210,8 +210,8 @@ func TestVaultUserPass(t *testing.T) {
 func TestVaultSecret(t *testing.T) {
 	// t.Parallel()
 
-	randomBits := setEnvAndGetRandom()
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", "test-tf-files/vault/secret")
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/secret", productPath()))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)

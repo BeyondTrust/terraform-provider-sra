@@ -4,12 +4,15 @@ page_title: "sra_protocol_tunnel_jump Resource - sra"
 subcategory: ""
 description: |-
   Manages a Protocol Tunnel Jump Item.
+  NOTE: Protocol Tunnel Jumps are PRA only.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
 # sra_protocol_tunnel_jump (Resource)
 
 Manages a Protocol Tunnel Jump Item.
+
+NOTE: Protocol Tunnel Jumps are PRA only.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 

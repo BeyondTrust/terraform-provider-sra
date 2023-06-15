@@ -26,7 +26,7 @@ var (
 	_ resource.Resource                = &jumpointResource{}
 	_ resource.ResourceWithConfigure   = &jumpointResource{}
 	_ resource.ResourceWithImportState = &jumpointResource{}
-	// _ resource.ResourceWithModifyPlan  = &jumpointResource{}
+	_ resource.ResourceWithModifyPlan  = &jumpointResource{}
 )
 
 func newJumpointResource() resource.Resource {
@@ -86,12 +86,13 @@ func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Optional: true,
 			},
 			"protocol_tunnel_enabled": schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  booldefault.StaticBool(true),
+				Optional:    true,
+				Computed:    true,
+				Description: "This field only applies to PRA",
 			},
 			"rdp_service_account_id": schema.Int64Attribute{
-				Optional: true,
+				Optional:    true,
+				Description: "This field only applies to PRA",
 			},
 
 			"group_policy_memberships": schema.SetNestedAttribute{
@@ -107,6 +108,35 @@ func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 		},
 	}
+}
+
+func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	tflog.Info(ctx, "Starting plan modification")
+	if req.Plan.Raw.IsNull() {
+		tflog.Info(ctx, "No plan to modify")
+		return
+	}
+	var plan models.Jumpoint
+	diags := req.Plan.Get(ctx, &plan)
+	tflog.Info(ctx, "Read plan")
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		tflog.Info(ctx, "Error reading plan")
+		return
+	}
+
+	if api.IsRS() {
+		plan.ProtocolTunnelEnabled = types.BoolNull()
+	} else if api.IsPRA() && plan.ProtocolTunnelEnabled.IsUnknown() {
+		plan.ProtocolTunnelEnabled = types.BoolValue(true)
+	}
+
+	diags = resp.Plan.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "Finished modification")
 }
 
 func (r *jumpointResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

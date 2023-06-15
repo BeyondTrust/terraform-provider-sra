@@ -44,8 +44,8 @@ resource "sra_jumpoint" "example" {
 - `enabled` (Boolean)
 - `external_jump_item_network_id` (String)
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
-- `protocol_tunnel_enabled` (Boolean)
-- `rdp_service_account_id` (Number)
+- `protocol_tunnel_enabled` (Boolean) This field only applies to PRA
+- `rdp_service_account_id` (Number) This field only applies to PRA
 - `shell_jump_enabled` (Boolean)
 
 ### Read-Only

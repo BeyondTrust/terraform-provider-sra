@@ -15,6 +15,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // These throw away variable declarations are to allow the compiler to
@@ -60,6 +62,52 @@ func (r jumpClientInstallerResource) ModifyPlan(ctx context.Context, req resourc
 			path.Root(attr),
 		)
 	}
+
+	tflog.Info(ctx, "Starting plan modification")
+	if req.Plan.Raw.IsNull() {
+		tflog.Info(ctx, "No plan to modify")
+		return
+	}
+	var plan models.JumpClientInstaller
+	diags := req.Plan.Get(ctx, &plan)
+	tflog.Info(ctx, "Read plan")
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		tflog.Info(ctx, "Error reading plan")
+		return
+	}
+
+	if api.IsPRA() {
+		if plan.SessionPolicyID.IsUnknown() {
+			plan.SessionPolicyID = types.Int64Null()
+		}
+		if plan.AllowOverrideSessionPolicy.IsUnknown() {
+			plan.AllowOverrideSessionPolicy = types.BoolValue(false)
+		}
+	} else if api.IsRS() {
+		if plan.AttendedSessionPolicyID.IsUnknown() {
+			plan.AttendedSessionPolicyID = types.Int64Null()
+		}
+		if plan.AllowOverrideAttendedSessionPolicy.IsUnknown() {
+			plan.AllowOverrideAttendedSessionPolicy = types.BoolValue(false)
+		}
+		if plan.UnattendedSessionPolicyID.IsUnknown() {
+			plan.UnattendedSessionPolicyID = types.Int64Null()
+		}
+		if plan.AllowOverrideUnattendedSessionPolicy.IsUnknown() {
+			plan.AllowOverrideUnattendedSessionPolicy = types.BoolValue(false)
+		}
+		if plan.IsQuiet.IsUnknown() {
+			plan.IsQuiet = types.BoolValue(false)
+		}
+	}
+
+	diags = resp.Plan.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "Finished modification")
 }
 
 var jciSchema = map[string]schema.Attribute{
@@ -97,9 +145,6 @@ var jciSchema = map[string]schema.Attribute{
 		Default:  stringdefault.StaticString(""),
 	},
 	"jump_policy_id": schema.Int64Attribute{
-		Optional: true,
-	},
-	"session_policy_id": schema.Int64Attribute{
 		Optional: true,
 	},
 	"connection_type": schema.StringAttribute{
@@ -158,15 +203,45 @@ var jciSchema = map[string]schema.Attribute{
 		Computed: true,
 		Default:  booldefault.StaticBool(false),
 	},
-	"allow_override_session_policy": schema.BoolAttribute{
-		Optional: true,
-		Computed: true,
-		Default:  booldefault.StaticBool(false),
-	},
 	"installer_id": schema.StringAttribute{
 		Computed: true,
 	},
 	"key_info": schema.StringAttribute{
 		Computed: true,
+	},
+
+	"session_policy_id": schema.Int64Attribute{
+		Optional:    true,
+		Description: "This field only applies to PRA",
+	},
+	"allow_override_session_policy": schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to PRA",
+	},
+
+	// RS Attributes
+	"attended_session_policy_id": schema.Int64Attribute{
+		Optional:    true,
+		Description: "This field only applies to RS",
+	},
+	"unattended_session_policy_id": schema.Int64Attribute{
+		Optional:    true,
+		Description: "This field only applies to RS",
+	},
+	"allow_override_attended_session_policy": schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to RS",
+	},
+	"allow_override_unattended_session_policy": schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to RS",
+	},
+	"is_quiet": schema.BoolAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to RS",
 	},
 }

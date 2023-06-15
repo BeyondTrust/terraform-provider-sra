@@ -1,8 +1,10 @@
 package test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
+	"terraform-provider-sra/api"
 	"testing"
 
 	"github.com/Jeffail/gabs"
@@ -12,9 +14,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setEnvAndGetRandom() string {
+var (
+	client *api.APIClient = nil
+	mechs  *api.MechList  = nil
+)
+
+func setEnvAndGetRandom(t *testing.T) string {
 	// os.Setenv("SKIP_setup", "true")
 	// os.Setenv("SKIP_teardown", "true")
+
+	if client == nil {
+		client_id := os.Getenv("BT_CLIENT_ID")
+		client_secret := os.Getenv("BT_CLIENT_SECRET")
+		client, _ = api.NewClient(os.Getenv("BT_API_HOST"), &client_id, &client_secret)
+
+		mechs, _ = api.Get[api.MechList](client)
+		t.Logf("Got mechs [%+v]", mechs)
+	}
 
 	randomBits := strings.ToLower(random.UniqueId())
 
@@ -23,6 +39,14 @@ func setEnvAndGetRandom() string {
 	}
 
 	return randomBits
+}
+
+func productPath() string {
+	if mechs.IsRS() {
+		return "rs"
+	} else {
+		return "pra"
+	}
 }
 
 func withBaseTFOptions(t *testing.T, originalOptions *terraform.Options) *terraform.Options {

@@ -36,7 +36,11 @@ type protocolTunnelJumpDataSourceModel struct {
 
 func (d *protocolTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Fetch a list of Protocol Tunnel Jump Items.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
+		Description: `Fetch a list of Protocol Tunnel Jump Items.
+
+NOTE: Protocol Tunnel Jumps are PRA only.
+
+For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance`,
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{
 				Computed: true,

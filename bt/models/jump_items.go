@@ -23,30 +23,31 @@ type ShellJump struct {
 }
 
 type RemoteRDP struct {
-	ID               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	JumpointID       types.Int64  `tfsdk:"jumpoint_id"`
-	Hostname         types.String `tfsdk:"hostname"`
-	JumpGroupID      types.Int64  `tfsdk:"jump_group_id"`
-	JumpGroupType    types.String `tfsdk:"jump_group_type"`
-	Quality          types.String `tfsdk:"quality"`
-	Console          types.Bool   `tfsdk:"console"`
-	IgnoreUntrusted  types.Bool   `tfsdk:"ignore_untrusted"`
-	Tag              types.String `tfsdk:"tag"`
-	Comments         types.String `tfsdk:"comments"`
-	RdpUsername      types.String `tfsdk:"rdp_username"`
-	Domain           types.String `tfsdk:"domain"`
-	JumpPolicyID     types.Int64  `tfsdk:"jump_policy_id"`
-	SessionForensics types.Bool   `tfsdk:"session_forensics"`
-	SessionPolicyID  types.Int64  `tfsdk:"session_policy_id"`
-	EndpointID       types.Int64  `tfsdk:"endpoint_id"`
-	SecureAppType    types.String `tfsdk:"secure_app_type"`
-	RemoteAppName    types.String `tfsdk:"remote_app_name"`
-	RemoteAppParams  types.String `tfsdk:"remote_app_params"`
-	RemoteExePath    types.String `tfsdk:"remote_exe_path"`
-	RemoteExeParams  types.String `tfsdk:"remote_exe_params"`
-	TargetSystem     types.String `tfsdk:"target_system"`
-	CredentialType   types.String `tfsdk:"credential_type"`
+	ID              types.String `tfsdk:"id"`
+	Name            types.String `tfsdk:"name"`
+	JumpointID      types.Int64  `tfsdk:"jumpoint_id"`
+	Hostname        types.String `tfsdk:"hostname"`
+	JumpGroupID     types.Int64  `tfsdk:"jump_group_id"`
+	JumpGroupType   types.String `tfsdk:"jump_group_type"`
+	Quality         types.String `tfsdk:"quality"`
+	Console         types.Bool   `tfsdk:"console"`
+	IgnoreUntrusted types.Bool   `tfsdk:"ignore_untrusted"`
+	Tag             types.String `tfsdk:"tag"`
+	Comments        types.String `tfsdk:"comments"`
+	RdpUsername     types.String `tfsdk:"rdp_username"`
+	Domain          types.String `tfsdk:"domain"`
+	JumpPolicyID    types.Int64  `tfsdk:"jump_policy_id"`
+	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
+	EndpointID      types.Int64  `tfsdk:"endpoint_id"`
+
+	SecureAppType    types.String `tfsdk:"secure_app_type" sraproduct:"pra"`
+	RemoteAppName    types.String `tfsdk:"remote_app_name" sraproduct:"pra"`
+	RemoteAppParams  types.String `tfsdk:"remote_app_params" sraproduct:"pra"`
+	RemoteExePath    types.String `tfsdk:"remote_exe_path" sraproduct:"pra"`
+	RemoteExeParams  types.String `tfsdk:"remote_exe_params" sraproduct:"pra"`
+	TargetSystem     types.String `tfsdk:"target_system" sraproduct:"pra"`
+	CredentialType   types.String `tfsdk:"credential_type" sraproduct:"pra"`
+	SessionForensics types.Bool   `tfsdk:"session_forensics" sraproduct:"pra"`
 }
 
 type RemoteVNC struct {
@@ -109,7 +110,6 @@ type JumpClientInstaller struct {
 	JumpPolicyID                   types.Int64  `tfsdk:"jump_policy_id"`
 	ConnectionType                 types.String `tfsdk:"connection_type"`
 	JumpGroupType                  types.String `tfsdk:"jump_group_type"`
-	SessionPolicyID                types.Int64  `tfsdk:"session_policy_id"`
 	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
 	InstallerID                    types.String `tfsdk:"installer_id"`
 	KeyInfo                        types.String `tfsdk:"key_info"`
@@ -122,6 +122,14 @@ type JumpClientInstaller struct {
 	AllowOverrideTag               types.Bool   `tfsdk:"allow_override_tag"`
 	AllowOverrideComments          types.Bool   `tfsdk:"allow_override_comments"`
 	AllowOverrideMaxOfflineMinutes types.Bool   `tfsdk:"allow_override_max_offline_minutes"`
-	AllowOverrideSessionPolicy     types.Bool   `tfsdk:"allow_override_session_policy"`
 	ValidDuration                  types.Int64  `tfsdk:"valid_duration" sra:"persist_state"`
+
+	SessionPolicyID            types.Int64 `tfsdk:"session_policy_id" sraproduct:"pra"`
+	AllowOverrideSessionPolicy types.Bool  `tfsdk:"allow_override_session_policy" sraproduct:"pra"`
+
+	IsQuiet                              types.Bool  `tfsdk:"is_quiet"`
+	AttendedSessionPolicyID              types.Int64 `tfsdk:"attended_session_policy_id" sraproduct:"rs"`
+	UnattendedSessionPolicyID            types.Int64 `tfsdk:"unattended_session_policy_id" sraproduct:"rs"`
+	AllowOverrideAttendedSessionPolicy   types.Bool  `tfsdk:"allow_override_attended_session_policy" sraproduct:"rs"`
+	AllowOverrideUnattendedSessionPolicy types.Bool  `tfsdk:"allow_override_unattended_session_policy" sraproduct:"rs"`
 }

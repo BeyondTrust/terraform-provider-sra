@@ -35,7 +35,11 @@ type webJumpResource struct {
 
 func (r *webJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a Web Jump Item.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",
+		Description: `Manages a Web Jump Item.
+
+NOTE: Web Jump is PRA only.
+
+For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,

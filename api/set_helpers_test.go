@@ -109,29 +109,32 @@ func TestDiffGPJumpItemLists(t *testing.T) {
 
 	gpID1 := "1"
 	groupID1 := 1
+	policyID1 := 1
 	toAddItem := GroupPolicyJumpGroup{
 		GroupPolicyID:  &gpID1,
 		JumpGroupID:    &groupID1,
 		JumpItemRoleID: 1,
-		JumpPolicyID:   1,
+		JumpPolicyID:   &policyID1,
 	}
 
 	gpID2 := "2"
 	groupID2 := 2
+	policyID2 := 2
 	toRemoveItem := GroupPolicyJumpGroup{
 		GroupPolicyID:  &gpID2,
 		JumpGroupID:    &groupID2,
 		JumpItemRoleID: 2,
-		JumpPolicyID:   2,
+		JumpPolicyID:   &policyID2,
 	}
 
 	gpID3 := "3"
 	groupID3 := 3
+	policyID3 := 3
 	noChangeItem := GroupPolicyJumpGroup{
 		GroupPolicyID:  &gpID3,
 		JumpGroupID:    &groupID3,
 		JumpItemRoleID: 3,
-		JumpPolicyID:   3,
+		JumpPolicyID:   &policyID3,
 	}
 
 	set1 := []GroupPolicyJumpGroup{toAddItem, noChangeItem}
@@ -146,17 +149,17 @@ func TestDiffGPJumpItemLists(t *testing.T) {
 	assert.Equal(t, *toAddItem.GroupPolicyID, *toAdd.ToSlice()[0].GroupPolicyID)
 	assert.Nil(t, toAdd.ToSlice()[0].JumpGroupID)
 	assert.Equal(t, toAddItem.JumpItemRoleID, toAdd.ToSlice()[0].JumpItemRoleID)
-	assert.Equal(t, toAddItem.JumpPolicyID, toAdd.ToSlice()[0].JumpItemRoleID)
+	assert.Equal(t, *toAddItem.JumpPolicyID, *toAdd.ToSlice()[0].JumpPolicyID)
 
 	assert.Equal(t, *toRemoveItem.GroupPolicyID, *toRemove.ToSlice()[0].GroupPolicyID)
 	assert.Nil(t, toRemove.ToSlice()[0].JumpGroupID)
 	assert.Equal(t, toRemoveItem.JumpItemRoleID, toRemove.ToSlice()[0].JumpItemRoleID)
-	assert.Equal(t, toRemoveItem.JumpPolicyID, toRemove.ToSlice()[0].JumpPolicyID)
+	assert.Equal(t, *toRemoveItem.JumpPolicyID, *toRemove.ToSlice()[0].JumpPolicyID)
 
 	assert.Equal(t, *noChangeItem.GroupPolicyID, *noChange.ToSlice()[0].GroupPolicyID)
 	assert.Nil(t, noChange.ToSlice()[0].JumpGroupID)
 	assert.Equal(t, noChangeItem.JumpItemRoleID, noChange.ToSlice()[0].JumpItemRoleID)
-	assert.Equal(t, noChangeItem.JumpPolicyID, noChange.ToSlice()[0].JumpPolicyID)
+	assert.Equal(t, *noChangeItem.JumpPolicyID, *noChange.ToSlice()[0].JumpPolicyID)
 }
 
 func TestDiffGPJumpointLists(t *testing.T) {

@@ -45,26 +45,45 @@ Required:
 
 Optional:
 
-- `access_perm_status` (String)
+- `access_perm_status` (String) This field only applies to PRA
+- `auto_assignment_max_sessions` (Number) This field only applies to RS
 - `default_jump_item_role_id` (Number)
 - `inferior_jump_item_role_id` (Number)
-- `perm_access_allowed` (Boolean)
+- `perm_accept_team_sessions` (Boolean) This field only applies to RS
+- `perm_access_allowed` (Boolean) This field only applies to PRA
 - `perm_collaborate` (Boolean)
 - `perm_collaborate_control` (Boolean)
+- `perm_console_idle_timeout` (Number) This field only applies to RS
+- `perm_disable_auto_assignment` (Boolean) This field only applies to RS
 - `perm_edit_external_key` (Boolean)
 - `perm_extended_availability_mode_allowed` (Boolean)
-- `perm_invite_external_user` (Boolean)
+- `perm_generate_session_key` (Boolean) This field only applies to RS
+- `perm_invite_external_rep` (Boolean) This field only applies to RS
+- `perm_invite_external_user` (Boolean) This field only applies to PRA
 - `perm_jump_client` (Boolean)
 - `perm_local_jump` (Boolean)
-- `perm_protocol_tunnel` (Boolean)
+- `perm_local_rdp` (Boolean) This field only applies to RS
+- `perm_local_vnc` (Boolean) This field only applies to RS
+- `perm_next_session_button` (Boolean) This field only applies to RS
+- `perm_protocol_tunnel` (Boolean) This field only applies to PRA
 - `perm_remote_jump` (Boolean)
 - `perm_remote_rdp` (Boolean)
 - `perm_remote_vnc` (Boolean)
+- `perm_routing_idle_timeout` (Number) This field only applies to RS
+- `perm_send_ios_profiles` (Boolean) This field only applies to RS
 - `perm_session_idle_timeout` (Number)
 - `perm_share_other_team` (Boolean)
 - `perm_shell_jump` (Boolean)
-- `perm_web_jump` (Boolean)
+- `perm_support_allowed` (String) This field only applies to RS
+- `perm_support_button_change_public_sites` (Boolean) This field only applies to RS
+- `perm_support_button_personal_deploy` (Boolean) This field only applies to RS
+- `perm_support_button_team_deploy` (Boolean) This field only applies to RS
+- `perm_support_button_team_manage` (Boolean) This field only applies to RS
+- `perm_transfer_other_team` (Boolean) This field only applies to RS
+- `perm_vpro` (Boolean) This field only applies to RS
+- `perm_web_jump` (Boolean) This field only applies to PRA
 - `private_jump_item_role_id` (Number)
+- `rep_perm_status` (String) This field only applies to RS
 - `unassigned_jump_item_role_id` (Number)
 
 Read-Only:

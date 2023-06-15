@@ -85,28 +85,36 @@ func (d *remoteRDPDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 							Optional: true,
 						},
 						"secure_app_type": schema.StringAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"remote_app_name": schema.StringAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"remote_app_params": schema.StringAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"remote_exe_path": schema.StringAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"remote_exe_params": schema.StringAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"target_system": schema.StringAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"credential_type": schema.StringAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"session_forensics": schema.BoolAttribute{
-							Optional: true,
+							Optional:    true,
+							Description: "This field only applies to PRA",
 						},
 						"jump_policy_id": schema.Int64Attribute{
 							Optional: true,

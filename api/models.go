@@ -29,30 +29,31 @@ func (ShellJump) Endpoint() string {
 }
 
 type RemoteRDP struct {
-	ID               *int    `json:"id,omitempty"`
-	Name             string  `json:"name"`
-	JumpointID       int     `json:"jumpoint_id"`
-	Hostname         string  `json:"hostname"`
-	JumpGroupID      int     `json:"jump_group_id"`
-	JumpGroupType    string  `json:"jump_group_type"`
-	Quality          string  `json:"quality"`
-	Console          bool    `json:"console"`
-	IgnoreUntrusted  bool    `json:"ignore_untrusted"`
-	Tag              string  `json:"tag"`
-	Comments         string  `json:"comments"`
-	RdpUsername      string  `json:"rdp_username"`
-	Domain           string  `json:"domain"`
-	SessionForensics bool    `json:"session_forensics"`
-	SecureAppType    *string `json:"secure_app_type,omitempty"`
-	RemoteAppName    *string `json:"remote_app_name,omitempty"`
-	RemoteAppParams  *string `json:"remote_app_params,omitempty"`
-	RemoteExePath    *string `json:"remote_exe_path,omitempty"`
-	RemoteExeParams  *string `json:"remote_exe_params,omitempty"`
-	TargetSystem     *string `json:"target_system,omitempty"`
-	CredentialType   *string `json:"credential_type,omitempty"`
-	EndpointID       *int    `json:"endpoint_id,omitempty"`
-	JumpPolicyID     *int    `json:"jump_policy_id,omitempty"`
-	SessionPolicyID  *int    `json:"session_policy_id,omitempty"`
+	ID              *int   `json:"id,omitempty"`
+	Name            string `json:"name"`
+	JumpointID      int    `json:"jumpoint_id"`
+	Hostname        string `json:"hostname"`
+	JumpGroupID     int    `json:"jump_group_id"`
+	JumpGroupType   string `json:"jump_group_type"`
+	Quality         string `json:"quality"`
+	Console         bool   `json:"console"`
+	IgnoreUntrusted bool   `json:"ignore_untrusted"`
+	Tag             string `json:"tag"`
+	Comments        string `json:"comments"`
+	RdpUsername     string `json:"rdp_username"`
+	Domain          string `json:"domain"`
+	EndpointID      *int   `json:"endpoint_id,omitempty"`
+	JumpPolicyID    *int   `json:"jump_policy_id,omitempty"`
+	SessionPolicyID *int   `json:"session_policy_id,omitempty"`
+
+	SecureAppType    *string `json:"secure_app_type,omitempty" sraproduct:"pra"`
+	RemoteAppName    *string `json:"remote_app_name,omitempty" sraproduct:"pra"`
+	RemoteAppParams  *string `json:"remote_app_params,omitempty" sraproduct:"pra"`
+	RemoteExePath    *string `json:"remote_exe_path,omitempty" sraproduct:"pra"`
+	RemoteExeParams  *string `json:"remote_exe_params,omitempty" sraproduct:"pra"`
+	TargetSystem     *string `json:"target_system,omitempty" sraproduct:"pra"`
+	CredentialType   *string `json:"credential_type,omitempty" sraproduct:"pra"`
+	SessionForensics *bool   `json:"session_forensics,omitempty" sraproduct:"pra"`
 }
 
 func (RemoteRDP) Endpoint() string {
@@ -99,6 +100,14 @@ func (ProtocolTunnelJump) Endpoint() string {
 	return "jump-item/protocol-tunnel-jump"
 }
 
+func (ProtocolTunnelJump) AllowPRA() bool {
+	return true
+}
+
+func (ProtocolTunnelJump) AllowRS() bool {
+	return false
+}
+
 type WebJump struct {
 	ID                    *int   `json:"id,omitempty"`
 	Name                  string `json:"name"`
@@ -120,6 +129,14 @@ type WebJump struct {
 
 func (WebJump) Endpoint() string {
 	return "jump-item/web-jump"
+}
+
+func (WebJump) AllowPRA() bool {
+	return true
+}
+
+func (WebJump) AllowRS() bool {
+	return false
 }
 
 type JumpGroup struct {
@@ -146,8 +163,9 @@ type Jumpoint struct {
 	Clustered                 bool    `json:"clustered"`
 	ShellJumpEnabled          bool    `json:"shell_jump_enabled"`
 	ExternalJumpItemNetworkID *string `json:"external_jump_item_network_id,omitempty"`
-	ProtocolTunnelEnabled     bool    `json:"protocol_tunnel_enabled"`
-	RdpServiceAccountID       *int    `json:"rdp_service_account_id"`
+
+	ProtocolTunnelEnabled *bool `json:"protocol_tunnel_enabled,omitempty" sraproduct:"pra"`
+	RdpServiceAccountID   *int  `json:"rdp_service_account_id,omitempty" sraproduct:"pra"`
 
 	GroupPolicyMemberships []GroupPolicyJumpoint `json:"-" sraapi:"skip"`
 }
@@ -165,7 +183,6 @@ type JumpClientInstaller struct {
 	ConnectionType                 string    `json:"connection_type"`
 	JumpGroupType                  string    `json:"jump_group_type"`
 	JumpPolicyID                   *int      `json:"jump_policy_id,omitempty"`
-	SessionPolicyID                *int      `json:"session_policy_id,omitempty"`
 	MaxOfflineMinutes              int       `json:"max_offline_minutes"`
 	InstallerID                    string    `json:"installer_id,omitempty"`
 	KeyInfo                        string    `json:"key_info,omitempty"`
@@ -178,8 +195,16 @@ type JumpClientInstaller struct {
 	AllowOverrideTag               bool      `json:"allow_override_tag"`
 	AllowOverrideComments          bool      `json:"allow_override_comments"`
 	AllowOverrideMaxOfflineMinutes bool      `json:"allow_override_max_offline_minutes"`
-	AllowOverrideSessionPolicy     bool      `json:"allow_override_session_policy"`
 	ValidDuration                  *int      `json:"valid_duration,omitempty"`
+
+	SessionPolicyID            *int  `json:"session_policy_id,omitempty" sraproduct:"pra"`
+	AllowOverrideSessionPolicy *bool `json:"allow_override_session_policy,omitempty" sraproduct:"pra"`
+
+	IsQuiet                              *bool `json:"is_quiet,omitempty" sraproduct:"rs"`
+	AttendedSessionPolicyID              *int  `json:"attended_session_policy_id,omitempty" sraproduct:"rs"`
+	UnattendedSessionPolicyID            *int  `json:"unattended_session_policy_id,omitempty" sraproduct:"rs"`
+	AllowOverrideAttendedSessionPolicy   *bool `json:"allow_override_attended_session_policy,omitempty" sraproduct:"rs"`
+	AllowOverrideUnattendedSessionPolicy *bool `json:"allow_override_unattended_session_policy,omitempty" sraproduct:"rs"`
 }
 
 func (JumpClientInstaller) Endpoint() string {
@@ -208,26 +233,27 @@ func (JumpItemRole) Endpoint() string {
 }
 
 type JumpPolicy struct {
-	ID                         *int     `json:"id,omitempty"`
-	DisplayName                string   `json:"display_name"`
-	CodeName                   string   `json:"code_name"`
-	Description                string   `json:"description"`
-	ScheduleEnabled            bool     `json:"schedule_enabled"`
-	ScheduleStrict             bool     `json:"schedule_strict"`
-	SessionStartNotification   bool     `json:"session_start_notification"`
-	SessionEndNotification     bool     `json:"session_end_notification"`
-	NotificationEmailAddresses []string `json:"notification_email_addresses"`
-	NotificationDisplayName    string   `json:"notification_display_name"`
-	NotificationEmailLanguage  string   `json:"notification_email_language"`
-	TicketIdRequired           bool     `json:"ticket_id_required"`
-	ApprovalRequired           bool     `json:"approval_required"`
-	ApprovalMaxDuration        int      `json:"approval_max_duration"`
-	ApprovalScope              string   `json:"approval_scope"`
-	ApprovalEmailAddresses     []string `json:"approval_email_addresses"`
-	ApprovalUserIds            []string `json:"approval_user_ids"`
-	ApprovalDisplayName        string   `json:"approval_display_name"`
-	ApprovalEmailLanguage      string   `json:"approval_email_language"`
-	RecordingsDisabled         bool     `json:"recordings_disabled"`
+	ID               *int   `json:"id,omitempty"`
+	DisplayName      string `json:"display_name"`
+	CodeName         string `json:"code_name"`
+	Description      string `json:"description"`
+	ScheduleEnabled  bool   `json:"schedule_enabled"`
+	ScheduleStrict   bool   `json:"schedule_strict"`
+	TicketIdRequired bool   `json:"ticket_id_required"`
+
+	SessionStartNotification   *bool     `json:"session_start_notification,omitempty" sraproduct:"pra"`
+	SessionEndNotification     *bool     `json:"session_end_notification,omitempty" sraproduct:"pra"`
+	NotificationEmailAddresses *[]string `json:"notification_email_addresses,omitempty" sraproduct:"pra"`
+	NotificationDisplayName    *string   `json:"notification_display_name,omitempty" sraproduct:"pra"`
+	NotificationEmailLanguage  *string   `json:"notification_email_language,omitempty" sraproduct:"pra"`
+	ApprovalRequired           *bool     `json:"approval_required,omitempty" sraproduct:"pra"`
+	ApprovalMaxDuration        *int      `json:"approval_max_duration,omitempty" sraproduct:"pra"`
+	ApprovalScope              *string   `json:"approval_scope,omitempty" sraproduct:"pra"`
+	ApprovalEmailAddresses     *[]string `json:"approval_email_addresses,omitempty" sraproduct:"pra"`
+	ApprovalUserIds            *[]string `json:"approval_user_ids,omitempty" sraproduct:"pra"`
+	ApprovalDisplayName        *string   `json:"approval_display_name,omitempty" sraproduct:"pra"`
+	ApprovalEmailLanguage      *string   `json:"approval_email_language,omitempty" sraproduct:"pra"`
+	RecordingsDisabled         *bool     `json:"recordings_disabled,omitempty" sraproduct:"pra"`
 }
 
 func (JumpPolicy) Endpoint() string {
@@ -248,10 +274,7 @@ func (SessionPolicy) Endpoint() string {
 type GroupPolicy struct {
 	ID                                  *int   `json:"id,omitempty"`
 	Name                                string `json:"name"`
-	PermAccessAllowed                   bool   `json:"perm_access_allowed"`
-	AccessPermStatus                    string `json:"access_perm_status"`
 	PermShareOtherTeam                  bool   `json:"perm_share_other_team"`
-	PermInviteExternalUser              bool   `json:"perm_invite_external_user"`
 	PermSessionIdleTimeout              int    `json:"perm_session_idle_timeout"`
 	PermExtendedAvailabilityModeAllowed bool   `json:"perm_extended_availability_mode_allowed"`
 	PermEditExternalKey                 bool   `json:"perm_edit_external_key"`
@@ -263,12 +286,36 @@ type GroupPolicy struct {
 	PermRemoteVnc                       bool   `json:"perm_remote_vnc"`
 	PermRemoteRdp                       bool   `json:"perm_remote_rdp"`
 	PermShellJump                       bool   `json:"perm_shell_jump"`
-	PermWebJump                         bool   `json:"perm_web_jump"`
-	PermProtocolTunnel                  bool   `json:"perm_protocol_tunnel"`
 	DefaultJumpItemRoleID               int    `json:"default_jump_item_role_id"`
 	PrivateJumpItemRoleID               int    `json:"private_jump_item_role_id"`
 	InferiorJumpItemRoleID              int    `json:"inferior_jump_item_role_id"`
 	UnassignedJumpItemRoleID            int    `json:"unassigned_jump_item_role_id"`
+
+	PermAccessAllowed      *bool   `json:"perm_access_allowed,omitempty" sraproduct:"pra"`
+	AccessPermStatus       *string `json:"access_perm_status,omitempty" sraproduct:"pra"`
+	PermInviteExternalUser *bool   `json:"perm_invite_external_user,omitempty" sraproduct:"pra"`
+	PermWebJump            *bool   `json:"perm_web_jump,omitempty" sraproduct:"pra"`
+	PermProtocolTunnel     *bool   `json:"perm_protocol_tunnel,omitempty" sraproduct:"pra"`
+
+	PermSupportAllowed                 *string `json:"perm_support_allowed,omitempty" sraproduct:"rs"`
+	RepPermStatus                      *string `json:"rep_perm_status,omitempty" sraproduct:"rs"`
+	PermGenerateSessionKey             *bool   `json:"perm_generate_session_key,omitempty" sraproduct:"rs"`
+	PermSendIosProfiles                *bool   `json:"perm_send_ios_profiles,omitempty" sraproduct:"rs"`
+	PermAcceptTeamSessions             *bool   `json:"perm_accept_team_sessions,omitempty" sraproduct:"rs"`
+	PermTransferOtherTeam              *bool   `json:"perm_transfer_other_team,omitempty" sraproduct:"rs"`
+	PermInviteExternalRep              *bool   `json:"perm_invite_external_rep,omitempty" sraproduct:"rs"`
+	PermNextSessionButton              *bool   `json:"perm_next_session_button,omitempty" sraproduct:"rs"`
+	PermDisableAutoAssignment          *bool   `json:"perm_disable_auto_assignment,omitempty" sraproduct:"rs"`
+	PermRoutingIdleTimeout             *int    `json:"perm_routing_idle_timeout,omitempty" sraproduct:"rs"`
+	AutoAssignmentMaxSessions          *int    `json:"auto_assignment_max_sessions,omitempty" sraproduct:"rs"`
+	PermSupportButtonPersonalDeploy    *bool   `json:"perm_support_button_personal_deploy,omitempty" sraproduct:"rs"`
+	PermSupportButtonTeamManage        *bool   `json:"perm_support_button_team_manage,omitempty" sraproduct:"rs"`
+	PermSupportButtonChangePublicSites *bool   `json:"perm_support_button_change_public_sites,omitempty" sraproduct:"rs"`
+	PermSupportButtonTeamDeploy        *bool   `json:"perm_support_button_team_deploy,omitempty" sraproduct:"rs"`
+	PermLocalVNC                       *bool   `json:"perm_local_vnc,omitempty" sraproduct:"rs"`
+	PermLocalRDP                       *bool   `json:"perm_local_rdp,omitempty" sraproduct:"rs"`
+	PermVpro                           *bool   `json:"perm_vpro,omitempty" sraproduct:"rs"`
+	PermConsoleIdleTimeout             *int    `json:"perm_console_idle_timeout,omitempty" sraproduct:"rs"`
 }
 
 func (GroupPolicy) Endpoint() string {
@@ -437,7 +484,7 @@ type GroupPolicyJumpGroup struct {
 	GroupPolicyID  *string `tfsdk:"group_policy_id" json:"-"`
 	JumpGroupID    *int    `tfsdk:"-" json:"jump_group_id"`
 	JumpItemRoleID int     `tfsdk:"jump_item_role_id" json:"jump_item_role_id"`
-	JumpPolicyID   int     `tfsdk:"jump_policy_id" json:"jump_policy_id"`
+	JumpPolicyID   *int    `tfsdk:"jump_policy_id" json:"jump_policy_id,omitempty" sraproduct:"pra"`
 }
 
 func (a GroupPolicyJumpGroup) Endpoint() string {
@@ -451,6 +498,26 @@ type GroupPolicyJumpoint struct {
 
 func (a GroupPolicyJumpoint) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jumpoint", *a.GroupPolicyID)
+}
+
+type MechList struct {
+	Mechs       []string   `json:"mechs"`
+	DefaultMech string     `json:"default_mech"`
+	Cache       ConfigBool `json:"cache"`
+	Company     string     `json:"company"`
+	Product     string     `json:"product"`
+}
+
+func (a MechList) Endpoint() string {
+	return "get_mech_list?version=3"
+}
+
+func (a *MechList) IsPRA() bool {
+	return a.Product == "bpam"
+}
+
+func (a *MechList) IsRS() bool {
+	return !a.IsPRA()
 }
 
 type VaultSecret struct {

@@ -4,12 +4,15 @@ page_title: "sra_web_jump_list Data Source - sra"
 subcategory: ""
 description: |-
   Fetch a list of Web Jump Items.
+  NOTE: Web Jump is PRA only.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
 # sra_web_jump_list (Data Source)
 
 Fetch a list of Web Jump Items.
+
+NOTE: Web Jump is PRA only.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 

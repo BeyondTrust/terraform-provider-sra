@@ -56,6 +56,8 @@ Optional:
 - `jump_item_role_id` (Number) The ID of the Jump Item Role that applies to this membership. Omitting or 0 means "User's Default"
 - `jump_policy_id` (Number) The ID of the Jump Policy that applies to this membership. Omitting or 0 means "Set on Jump Items"
 
+This field only applies to PRA
+
 ## Import
 
 Import is supported using the following syntax:

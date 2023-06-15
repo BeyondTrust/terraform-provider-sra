@@ -62,11 +62,7 @@ func (r *apiResource[TApi, TTf]) Configure(ctx context.Context, req resource.Con
 // name from that. It does this by dropping "Resource" from the type name and converting the rest to snake_case, which is
 // prefixed with "sra_". For example, shellJumpResource is publicly exposed as sra_shell_jump
 func (r *apiResource[TApi, TTf]) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	var tmp TApi
-	name := reflect.TypeOf(tmp).String()
-	parts := strings.Split(name, ".")
-
-	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, api.ToSnakeCase(parts[len(parts)-1]))
+	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, r.printableName())
 	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered provider name [%s]", resp.TypeName))
 }
 
@@ -102,6 +98,15 @@ Additionally, for Terraform to be happy:
 */
 
 func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var item TApi
+	if !api.IsProductAllowed(ctx, item) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+		)
+		return
+	}
+
 	var plan TTf
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -110,8 +115,6 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	}
 
 	tflog.Debug(ctx, fmt.Sprintf("🤬 create plan [%v]", plan))
-
-	var item TApi
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
@@ -142,6 +145,15 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 
 func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	tflog.Debug(ctx, fmt.Sprintln("Reading"))
+	var testItem TApi
+	if !api.IsProductAllowed(ctx, testItem) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+		)
+		return
+	}
+
 	var state TTf
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -179,6 +191,15 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var item TApi
+	if !api.IsProductAllowed(ctx, item) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+		)
+		return
+	}
+
 	var plan TTf
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -186,8 +207,6 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 		return
 	}
 	tflog.Debug(ctx, fmt.Sprintf("🤬 update plan [%v]", plan))
-
-	var item TApi
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
@@ -221,6 +240,15 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 
 func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Debug(ctx, "Starting delete")
+	var item TApi
+	if !api.IsProductAllowed(ctx, item) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+		)
+		return
+	}
+
 	var state TTf
 	diags := req.State.Get(ctx, &state)
 	tflog.Debug(ctx, "got state")
@@ -247,7 +275,24 @@ func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.Delete
 
 // Generic ImportState implementation that just imports by ID
 func (r *apiResource[TApi, TTf]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	var item TApi
+	if !api.IsProductAllowed(ctx, item) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+		)
+		return
+	}
+
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (d *apiResource[TApi, TTf]) printableName() string {
+	var tmp TApi
+	name := reflect.TypeOf(tmp).String()
+	parts := strings.Split(name, ".")
+
+	return api.ToSnakeCase(parts[len(parts)-1])
 }
 
 // Jump Group type validator
