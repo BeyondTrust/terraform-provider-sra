@@ -42,7 +42,7 @@ jobs:
       - name: "Build"
         run: make testrelease
 
-      - name: "PRA E2E Tests"
+      - name: "Run Tests"
         run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
         env:
           BT_API_HOST: ${{ matrix.env.MY_VAR == 'PRA' && secrets.BT_API_HOST_PRA || secrets.BT_API_HOST_RS }}
