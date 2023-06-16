@@ -16,7 +16,10 @@ module "jump_resources" {
 
 data "sra_session_policy_list" "sp" {}
 locals {
-  sp_map = { for i, sp in data.sra_session_policy_list.sp.items : sp.id => sp }
+  sp_list = [
+    for sp in data.sra_session_policy_list.sp.items : sp
+    if sp.id != "1"
+  ]
 }
 
 resource "sra_jump_client_installer" "test" {
@@ -24,7 +27,7 @@ resource "sra_jump_client_installer" "test" {
   jump_group_id = module.jump_resources.jump_group.id
   tag           = var.random_bits
 
-  session_policy_id             = local.sp_map["2"].id
+  session_policy_id             = local.sp_list[0].id
   allow_override_session_policy = true
 }
 
