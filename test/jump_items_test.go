@@ -32,7 +32,7 @@ func TestJumpointAndJumpGroup(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		terraform.Apply(t, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
 	})
 
 	test_structure.RunTestStage(t, "Test Jumpoint/Jump Group Creation", func() {
