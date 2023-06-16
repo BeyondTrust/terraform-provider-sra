@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   run_terratest:
-    if: github.event.review.state == 'approved' || github.action == 'workflow_dispatch' || github.action == 'pull_request'
+    if: github.event.review.state == 'approved' || github.action != 'pull_request_review'
     runs-on: ubuntu-latest
     strategy:
       matrix:
