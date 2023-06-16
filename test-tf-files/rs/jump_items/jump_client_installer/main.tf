@@ -15,15 +15,18 @@ module "jump_resources" {
 }
 
 data "sra_session_policy_list" "sp" {}
+locals {
+  sp_map = { for i, sp in data.sra_session_policy_list.sp.items : sp.id => sp }
+}
 
 resource "sra_jump_client_installer" "test" {
   name          = var.name
   jump_group_id = module.jump_resources.jump_group.id
   tag           = var.random_bits
 
-  attended_session_policy_id               = data.sra_session_policy_list.sp.items[0].id
+  attended_session_policy_id               = local.sp_map["2"].id
   allow_override_attended_session_policy   = true
-  unattended_session_policy_id             = data.sra_session_policy_list.sp.items[0].id
+  unattended_session_policy_id             = local.sp_map["2"].id
   allow_override_unattended_session_policy = true
 }
 
