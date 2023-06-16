@@ -1,16 +1,24 @@
 name: Terraform E2E Test
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
 
 permissions:
   contents: none
 
 jobs:
-  test_pra:
+  run_terratest:
+    if: github.event.review.state == 'approved' || github.action == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - env:
+            PROD: RS
+          - env:
+            PROD: PRA
     permissions:
       contents: read
     steps:
@@ -36,6 +44,6 @@ jobs:
       - name: "PRA E2E Tests"
         run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
         env:
-          BT_API_HOST: ${{ secrets.BT_API_HOST_PRA }}
-          BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID_PRA }}
-          BT_CLIENT_SECRET: ${{ secrets.BT_CLIENT_SECRET_PRA }}
+          BT_API_HOST: ${{ matrix.env.MY_VAR == 'PRA' && secrets.BT_API_HOST_PRA || secrets.BT_API_HOST_RS }}
+          BT_CLIENT_ID: ${{ matrix.env.MY_VAR == 'PRA' && secrets.BT_CLIENT_ID_PRA || secrets.BT_CLIENT_ID_RS }}
+          BT_CLIENT_SECRET: ${{ matrix.env.MY_VAR == 'PRA' && secrets.BT_CLIENT_SECRET_PRA || secrets.BT_CLIENT_SECRET_RS }}
