@@ -25,6 +25,11 @@ jobs:
         with:
           terraform_version: 1.4.5
 
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v4.3.0
+        with:
+          install-only: true
+
       - name: "Build"
         run: make testrelease
 
