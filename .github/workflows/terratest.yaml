@@ -1,0 +1,36 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: none
+
+jobs:
+  test_pra:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+
+      - name: "Configure Go"
+        uses: actions/setup-go@v4
+
+      - name: "Setup Terraform"
+        uses: autero1/action-terraform@v1.1.1
+        with:
+          terraform_version: 1.4.5
+
+      - name: "Build"
+        run: make testrelease
+
+      - name: "PRA E2E Tests"
+        run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
+        env:
+          BT_API_HOST: ${{ secrets.BT_API_HOST_PRA }}
+          BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID_PRA }}
+          BT_CLIENT_SECRET: ${{ secrets.BT_CLIENT_SECRET_PRA }}
