@@ -1,7 +1,6 @@
 name: Terraform E2E Test
 
 on:
-  pull_request:
   pull_request_review:
     types: [submitted]
   workflow_dispatch:
@@ -11,7 +10,7 @@ permissions:
 
 jobs:
   run_terratest:
-    if: github.event.review.state == 'approved' || github.action != 'pull_request_review'
+    if: github.event.review.state == 'approved' || github.event_name != 'pull_request_review'
     runs-on: ubuntu-latest
     strategy:
       matrix:
