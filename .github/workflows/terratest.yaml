@@ -1,24 +1,16 @@
 name: Terraform E2E Test
 
 on:
-  pull_request_review:
-    types: [submitted]
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: none
 
 jobs:
-  run_terratest:
-    if: github.event.review.state == 'approved' || github.event_name != 'pull_request_review'
+  build_for_terratest:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - env:
-            PROD: RS
-          - env:
-            PROD: PRA
     permissions:
       contents: read
     steps:
@@ -28,11 +20,6 @@ jobs:
       - name: "Configure Go"
         uses: actions/setup-go@v4
 
-      - name: "Setup Terraform"
-        uses: autero1/action-terraform@v1.1.1
-        with:
-          terraform_version: 1.4.5
-
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v4.3.0
         with:
@@ -41,9 +28,71 @@ jobs:
       - name: "Build"
         run: make testrelease
 
+      - name: "Save build for testing"
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: test-build
+          path: ./test-reg/
+          if-no-files-found: error
+
+  terratest_pra:
+    runs-on: ubuntu-latest
+    needs: [build_for_terratest]
+    environment:
+      name: terratest-pra
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+
+      - name: "Configure Go"
+        uses: actions/setup-go@v4
+
+      - name: "Download test release"
+        uses: actions/download-artifact@v3.0.2
+        with:
+          name: test-build
+
+      - name: "Setup Terraform"
+        uses: autero1/action-terraform@v1.1.1
+        with:
+          terraform_version: 1.4.5
+
       - name: "Run Tests"
         run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
         env:
-          BT_API_HOST: ${{ matrix.env.MY_VAR == 'PRA' && secrets.BT_API_HOST_PRA || secrets.BT_API_HOST_RS }}
-          BT_CLIENT_ID: ${{ matrix.env.MY_VAR == 'PRA' && secrets.BT_CLIENT_ID_PRA || secrets.BT_CLIENT_ID_RS }}
-          BT_CLIENT_SECRET: ${{ matrix.env.MY_VAR == 'PRA' && secrets.BT_CLIENT_SECRET_PRA || secrets.BT_CLIENT_SECRET_RS }}
+          BT_API_HOST: ${{ secrets.BT_API_HOST }}
+          BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
+          BT_CLIENT_SECRET: ${{ secrets.BT_CLIENT_SECRET }}
+
+  terratest_rs:
+    runs-on: ubuntu-latest
+    needs: [build_for_terratest]
+    environment:
+      name: terratest-rs
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+
+      - name: "Configure Go"
+        uses: actions/setup-go@v4
+
+      - name: "Download test release"
+        uses: actions/download-artifact@v3.0.2
+        with:
+          name: test-build
+
+      - name: "Setup Terraform"
+        uses: autero1/action-terraform@v1.1.1
+        with:
+          terraform_version: 1.4.5
+
+      - name: "Run Tests"
+        run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
+        env:
+          BT_API_HOST: ${{ secrets.BT_API_HOST }}
+          BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
+          BT_CLIENT_SECRET: ${{ secrets.BT_CLIENT_SECRET }}
