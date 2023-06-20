@@ -53,6 +53,7 @@ jobs:
         uses: actions/download-artifact@v3.0.2
         with:
           name: test-build
+          path: ./test-reg
 
       - name: "Setup Terraform"
         uses: autero1/action-terraform@v1.1.1
@@ -84,6 +85,7 @@ jobs:
         uses: actions/download-artifact@v3.0.2
         with:
           name: test-build
+          path: ./test-reg
 
       - name: "Setup Terraform"
         uses: autero1/action-terraform@v1.1.1
