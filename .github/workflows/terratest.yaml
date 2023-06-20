@@ -28,11 +28,14 @@ jobs:
       - name: "Build"
         run: make testrelease
 
+      - name: "Tar files"
+        run: tar -cvf test-reg.tar ./test-reg
+
       - name: "Save build for testing"
         uses: actions/upload-artifact@v3.1.2
         with:
           name: test-build
-          path: ./test-reg/
+          path: ./test-reg.tar
           if-no-files-found: error
 
   terratest_pra:
@@ -53,6 +56,9 @@ jobs:
         uses: actions/download-artifact@v3.0.2
         with:
           name: test-build
+
+      - name: "Untar files"
+        run: tar -xvf test-reg.tar
 
       - name: "Setup Terraform"
         uses: autero1/action-terraform@v1.1.1
@@ -84,6 +90,9 @@ jobs:
         uses: actions/download-artifact@v3.0.2
         with:
           name: test-build
+
+      - name: "Untar files"
+        run: tar -xvf test-reg.tar
 
       - name: "Setup Terraform"
         uses: autero1/action-terraform@v1.1.1
