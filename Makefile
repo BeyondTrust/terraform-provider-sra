@@ -16,7 +16,7 @@ unittest: build
 	go test -v $$(go list ./... | grep -v test | xargs)
 
 teste2e: testrelease
-	go test -timeout 10m ./test
+	go test -v -timeout 10m ./test
 
 tfapply: install
 	cd ./test-tf-files && terraform apply
