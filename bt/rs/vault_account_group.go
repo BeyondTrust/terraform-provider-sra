@@ -198,7 +198,6 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		for m := range setGPList.Iterator().C {
 			m.AccountGroupID = &id
 			item, err := api.CreateItem(r.ApiClient, m)
-			item.GroupPolicyID = m.GroupPolicyID
 
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -207,6 +206,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 				)
 				return
 			}
+			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
 		}
 
