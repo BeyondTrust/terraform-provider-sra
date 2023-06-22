@@ -114,7 +114,7 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 User/Pass creating plan")
+	tflog.Debug(ctx, "🤬 User/Pass creating plan")
 
 	var tfId types.String
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -147,7 +147,7 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 		}
 
 		apiSub.ID = &id
-		tflog.Info(ctx, fmt.Sprintf("🙀 Creating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Creating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
 			"data": apiSub,
 		})
 
@@ -162,7 +162,7 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 		}
 
 		rb, _ := json.Marshal(item)
-		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
 			"data": string(rb),
 		})
 		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
@@ -197,7 +197,7 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 
 		setGPList := mapset.NewSet(gpList...)
 
-		tflog.Info(ctx, "🌈 Adding group policy memberships", map[string]interface{}{
+		tflog.Trace(ctx, "🌈 Adding group policy memberships", map[string]interface{}{
 			"add": setGPList,
 
 			"tf":   tfGPList,
@@ -249,7 +249,7 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 User/Pass reading state")
+	tflog.Debug(ctx, "🤬 User/Pass reading state")
 
 	var tfId types.String
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -277,7 +277,7 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 		}
 
 		apiSub.ID = &id
-		tflog.Info(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+		tflog.Trace(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
 			"data":          apiSub,
 			"planIsNull":    tfObj.IsNull(),
 			"planIsUnknown": tfObj.IsUnknown(),
@@ -304,7 +304,7 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 		}
 
 		rb, _ := json.Marshal(item)
-		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
 			"data": string(rb),
 		})
 		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
@@ -339,7 +339,7 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 
 		for i, m := range gpList {
 			m.AccountID = &id
-			tflog.Info(ctx, "🌈 Reading item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
 				"read": m,
 			})
 			gpId := *m.GroupPolicyID
@@ -348,12 +348,12 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 			item, err := api.GetItemEndpoint[api.GroupPolicyVaultAccount](r.ApiClient, endpoint)
 
 			if err != nil {
-				tflog.Info(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
+				tflog.Trace(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
 					"read":  m,
 					"error": err,
 				})
 			} else if item != nil {
-				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
+				tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
 					"read": *item,
 				})
 				item.GroupPolicyID = &gpId
@@ -376,7 +376,7 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 User/Pass updating plan")
+	tflog.Debug(ctx, "🤬 User/Pass updating plan")
 	var tfId types.String
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
@@ -410,7 +410,7 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		stateIsGone := tfStateObj.IsNull() || tfStateObj.IsUnknown()
 
 		apiSub.ID = &id
-		tflog.Info(ctx, fmt.Sprintf("🤷🏻‍♂️ Updating User/Pass Jump Associations with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+		tflog.Debug(ctx, fmt.Sprintf("🤷🏻‍♂️ Updating User/Pass Jump Associations with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
 			"data":           apiSub,
 			"planIsNull":     tfObj.IsNull(),
 			"planIsUnknown":  tfObj.IsUnknown(),
@@ -425,13 +425,13 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		var item *api.AccountJumpItemAssociation
 		var err error
 		if !stateIsGone && planIsGone {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Deleting item %v", apiSub))
+			tflog.Trace(ctx, fmt.Sprintf("🦠 Deleting item %v", apiSub))
 			err = api.DeleteItemEndpoint[api.AccountJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
 		} else if stateIsGone {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Creating item %v", apiSub))
+			tflog.Trace(ctx, fmt.Sprintf("🦠 Creating item %v", apiSub))
 			item, err = api.CreateItem(r.ApiClient, apiSub)
 		} else {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Updating item %v", apiSub))
+			tflog.Trace(ctx, fmt.Sprintf("🦠 Updating item %v", apiSub))
 			item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 		}
 
@@ -444,15 +444,15 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		}
 
 		if item != nil {
-			tflog.Info(ctx, fmt.Sprintf("🦠 Setting item in plan %v", item))
+			tflog.Trace(ctx, fmt.Sprintf("🦠 Setting item in plan %v", item))
 			rb, _ := json.Marshal(item)
-			tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+			tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
 				"data": string(rb),
 			})
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 		} else {
 			var empty api.AccountJumpItemAssociation
-			tflog.Info(ctx, fmt.Sprintf("🦠 Setting empty item in plan %v", empty))
+			tflog.Trace(ctx, fmt.Sprintf("🦠 Setting empty item in plan %v", empty))
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), empty)
 		}
 		resp.Diagnostics.Append(diags...)
@@ -504,7 +504,7 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 
 		toAdd, toRemove, noChange := api.DiffGPAccountLists(gpList, stateGPList)
 
-		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
 			"add":    toAdd,
 			"remove": toRemove,
 
@@ -515,7 +515,7 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 
 		for m := range toRemove.Iterator().C {
 			m.AccountID = &id
-			tflog.Info(ctx, "🌈 Deleting item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
 				"add":     m,
 				"gp":      m.GroupPolicyID,
 				"account": m.AccountID,

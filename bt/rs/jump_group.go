@@ -86,9 +86,9 @@ This field only applies to PRA`,
 }
 
 func (r *jumpGroupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	tflog.Info(ctx, "Starting plan modification")
+	tflog.Debug(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
-		tflog.Info(ctx, "No plan to modify")
+		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
 
@@ -128,7 +128,7 @@ func (r *jumpGroupResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		}
 	}
 
-	tflog.Info(ctx, "Finished modification")
+	tflog.Debug(ctx, "Finished modification")
 }
 
 func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -164,7 +164,7 @@ func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 		for i, m := range gpList {
 			m.JumpGroupID = &id
-			tflog.Info(ctx, "🌈 Reading item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
 				"read": m,
 			})
 			gpId := *m.GroupPolicyID
@@ -173,12 +173,12 @@ func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 			item, err := api.GetItemEndpoint[api.GroupPolicyJumpGroup](r.ApiClient, endpoint)
 
 			if err != nil {
-				tflog.Info(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
+				tflog.Trace(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
 					"read":  m,
 					"error": err,
 				})
 			} else if item != nil {
-				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
+				tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
 					"read": *item,
 				})
 				item.GroupPolicyID = &gpId
@@ -240,7 +240,7 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 
 		toAdd, toRemove, noChange := api.DiffGPJumpItemLists(gpList, stateGPList)
 
-		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
 			"add":    toAdd,
 			"remove": toRemove,
 
@@ -251,7 +251,7 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 
 		for m := range toRemove.Iterator().C {
 			m.JumpGroupID = &id
-			tflog.Info(ctx, "🌈 Deleting item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
 				"add":        m,
 				"gp":         m.GroupPolicyID,
 				"jump group": m.JumpGroupID,
@@ -271,7 +271,7 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 		results := noChange.ToSlice()
 		for m := range toAdd.Iterator().C {
 			m.JumpGroupID = &id
-			tflog.Info(ctx, "🌈 Adding item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Adding item", map[string]interface{}{
 				"add":         fmt.Sprintf("%+v", m),
 				"gp":          m.GroupPolicyID,
 				"jump group":  m.JumpGroupID,

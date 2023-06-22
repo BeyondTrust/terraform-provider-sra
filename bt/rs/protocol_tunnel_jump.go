@@ -114,17 +114,17 @@ For descriptions of individual fields, please see the Configuration API document
 }
 
 func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	tflog.Info(ctx, "Starting plan modification")
+	tflog.Debug(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
-		tflog.Info(ctx, "No plan to modify")
+		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
 	var plan models.ProtocolTunnelJump
 	diags := req.Plan.Get(ctx, &plan)
-	tflog.Info(ctx, "Read plan")
+	tflog.Debug(ctx, "Read plan")
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
-		tflog.Info(ctx, "Error reading plan")
+		tflog.Debug(ctx, "Error reading plan")
 		return
 	}
 
@@ -142,5 +142,5 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "Finished modification")
+	tflog.Debug(ctx, "Finished modification")
 }

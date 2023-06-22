@@ -111,17 +111,17 @@ func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 }
 
 func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	tflog.Info(ctx, "Starting plan modification")
+	tflog.Debug(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
-		tflog.Info(ctx, "No plan to modify")
+		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
 	var plan models.Jumpoint
 	diags := req.Plan.Get(ctx, &plan)
-	tflog.Info(ctx, "Read plan")
+	tflog.Debug(ctx, "Read plan")
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
-		tflog.Info(ctx, "Error reading plan")
+		tflog.Debug(ctx, "Error reading plan")
 		return
 	}
 
@@ -136,7 +136,7 @@ func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "Finished modification")
+	tflog.Debug(ctx, "Finished modification")
 }
 
 func (r *jumpointResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -172,7 +172,7 @@ func (r *jumpointResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 		for i, m := range gpList {
 			m.JumpointID = &id
-			tflog.Info(ctx, "🌈 Reading item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
 				"read": m,
 			})
 			gpId := *m.GroupPolicyID
@@ -181,12 +181,12 @@ func (r *jumpointResource) Read(ctx context.Context, req resource.ReadRequest, r
 			item, err := api.GetItemEndpoint[api.GroupPolicyJumpoint](r.ApiClient, endpoint)
 
 			if err != nil {
-				tflog.Info(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
+				tflog.Trace(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
 					"read":  m,
 					"error": err,
 				})
 			} else if item != nil {
-				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
+				tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
 					"read": *item,
 				})
 				item.GroupPolicyID = &gpId
@@ -248,7 +248,7 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 
 		toAdd, toRemove, noChange := api.DiffGPJumpointLists(gpList, stateGPList)
 
-		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
 			"add":    toAdd,
 			"remove": toRemove,
 
@@ -259,7 +259,7 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 
 		for m := range toRemove.Iterator().C {
 			m.JumpointID = &id
-			tflog.Info(ctx, "🌈 Deleting item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
 				"add":      m,
 				"gp":       m.GroupPolicyID,
 				"jumpoint": m.JumpointID,

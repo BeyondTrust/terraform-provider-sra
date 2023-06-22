@@ -44,9 +44,9 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 		}
 		prod := tfObjField.Tag.Get("sraproduct")
 		if prod != "" {
-			tflog.Info(ctx, fmt.Sprintf("🍻 🔥 copyTFtoAPI check product for %s [%s][%s][%v]", fieldName, prod, product, strings.EqualFold(prod, product)))
+			tflog.Debug(ctx, fmt.Sprintf("🍻 🔥 copyTFtoAPI check product for %s [%s][%s][%v]", fieldName, prod, product, strings.EqualFold(prod, product)))
 			if !strings.EqualFold(prod, product) {
-				tflog.Info(ctx, fmt.Sprintf("🍻 copyTFtoAPI field Skipping %s as it's for [%s]", fieldName, prod))
+				tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI field Skipping %s as it's for [%s]", fieldName, prod))
 				continue
 			}
 		}
@@ -76,13 +76,13 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			m := tfField.MethodByName("IsNull")
 			mCallable := m.Interface().(func() bool)
 			if mCallable() {
-				tflog.Info(ctx, fmt.Sprintf("🍻 copyTFtoAPI field %s was null", fieldName))
+				tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI field %s was null", fieldName))
 				continue
 			}
 			m = tfField.MethodByName("IsUnknown")
 			mCallable = m.Interface().(func() bool)
 			if mCallable() {
-				tflog.Info(ctx, fmt.Sprintf("🍻 copyTFtoAPI field %s was unknown", fieldName))
+				tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI field %s was unknown", fieldName))
 				continue
 			}
 
@@ -110,7 +110,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 }
 
 func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type) {
-	tflog.Info(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, IsRS()))
+	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, IsRS()))
 	for i := 0; i < tfObj.NumField(); i++ {
 		tfObjField := tfObj.Type().Field(i)
 		fieldName := tfObjField.Name
@@ -146,7 +146,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		fieldKind := field.Kind()
 		prod := tfObjField.Tag.Get("sraproduct")
 		if prod != "" && !strings.EqualFold(prod, product) {
-			tflog.Info(ctx, fmt.Sprintf("🍺 copyAPItoTF field setting %s to nil as it's for [%s]", fieldName, prod))
+			tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF field setting %s to nil as it's for [%s]", fieldName, prod))
 			setToNil = true
 			fieldKind = apiTypeField.Type.Elem().Kind()
 		} else if fieldKind == reflect.Pointer {

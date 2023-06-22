@@ -101,7 +101,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 Account Group creating plan")
+	tflog.Debug(ctx, "🤬 Account Group creating plan")
 
 	var tfId types.String
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -129,7 +129,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		}
 
 		apiSub.ID = &id
-		tflog.Info(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
 			"data": apiSub,
 		})
 
@@ -145,7 +145,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
 		rb, _ := json.Marshal(item)
-		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+		tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
 			"data": string(rb),
 		})
 
@@ -187,7 +187,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 
 		setGPList := mapset.NewSet(gpList...)
 
-		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
 			"add": setGPList,
 
 			"tf":   tfGPList,
@@ -225,7 +225,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 Account Group reading state")
+	tflog.Debug(ctx, "🤬 Account Group reading state")
 
 	var tfId types.String
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -251,7 +251,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		}
 
 		apiSub.ID = &id
-		tflog.Info(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
 			"data": apiSub,
 		})
 
@@ -259,7 +259,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 
 		if item != nil && !tfObj.IsNull() {
 			rb, _ := json.Marshal(item)
-			tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+			tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
 				"data": string(rb),
 			})
 
@@ -303,7 +303,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 
 		for i, m := range gpList {
 			m.AccountGroupID = &id
-			tflog.Info(ctx, "🌈 Reading item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
 				"read": m,
 			})
 			gpId := *m.GroupPolicyID
@@ -312,12 +312,12 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 			item, err := api.GetItemEndpoint[api.GroupPolicyVaultAccountGroup](r.ApiClient, endpoint)
 
 			if err != nil {
-				tflog.Info(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
+				tflog.Debug(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
 					"read":  m,
 					"error": err,
 				})
 			} else if item != nil {
-				tflog.Info(ctx, "🌈 Read item", map[string]interface{}{
+				tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
 					"read": *item,
 				})
 				item.GroupPolicyID = &gpId
@@ -340,7 +340,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "🤬 Account group updating plan")
+	tflog.Trace(ctx, "🤬 Account group updating plan")
 
 	var tfId types.String
 	req.Plan.GetAttribute(ctx, path.Root("id"), &tfId)
@@ -366,7 +366,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		}
 
 		apiSub.ID = &id
-		tflog.Info(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
 			"data": apiSub,
 		})
 
@@ -386,7 +386,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		}
 
 		rb, _ := json.Marshal(item)
-		tflog.Info(ctx, "🙀 got item", map[string]interface{}{
+		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
 			"data": string(rb),
 		})
 
@@ -443,7 +443,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 
 		toAdd, toRemove, noChange := api.DiffGPAccountGroupLists(gpList, stateGPList)
 
-		tflog.Info(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
 			"add":      fmt.Sprintf("%+v", toAdd),
 			"remove":   fmt.Sprintf("%+v", toRemove),
 			"noChange": fmt.Sprintf("%+v", noChange),
@@ -460,7 +460,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 
 		for m := range toRemove.Iterator().C {
 			m.AccountGroupID = &id
-			tflog.Info(ctx, "🌈 Deleting item", map[string]interface{}{
+			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
 				"add":     m,
 				"gp":      m.GroupPolicyID,
 				"account": m.AccountGroupID,

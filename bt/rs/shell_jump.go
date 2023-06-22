@@ -133,17 +133,17 @@ func (r *shellJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 // like this must be done before sending to the appliance. If terraform complains that the plan isn't stable,
 // then you need to do something here. Defaults that don't need any logic can be specified in the schema.
 func (r *shellJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	tflog.Info(ctx, "Starting plan modification")
+	tflog.Debug(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
-		tflog.Info(ctx, "No plan to modify")
+		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
 	var plan models.ShellJump
 	diags := req.Plan.Get(ctx, &plan)
-	tflog.Info(ctx, "Read plan")
+	tflog.Debug(ctx, "Read plan")
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
-		tflog.Info(ctx, "Error reading plan")
+		tflog.Debug(ctx, "Error reading plan")
 		return
 	}
 	/*
@@ -151,10 +151,10 @@ func (r *shellJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	*/
 	if plan.Port.ValueInt64() == 0 {
 		if plan.Protocol.ValueString() != "ssh" {
-			tflog.Info(ctx, "plan.Port was null, setting default as 23")
+			tflog.Debug(ctx, "plan.Port was null, setting default as 23")
 			plan.Port = types.Int64Value(23)
 		} else {
-			tflog.Info(ctx, "plan.Port was null, setting default as 22")
+			tflog.Debug(ctx, "plan.Port was null, setting default as 22")
 			plan.Port = types.Int64Value(22)
 		}
 	}
@@ -164,5 +164,5 @@ func (r *shellJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, "Finished modification")
+	tflog.Debug(ctx, "Finished modification")
 }
