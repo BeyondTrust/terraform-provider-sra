@@ -199,9 +199,10 @@ var jciSchema = map[string]schema.Attribute{
 		Default:  booldefault.StaticBool(false),
 	},
 	"allow_override_max_offline_minutes": schema.BoolAttribute{
-		Optional: true,
-		Computed: true,
-		Default:  booldefault.StaticBool(false),
+		Optional:    true,
+		Computed:    true,
+		Default:     booldefault.StaticBool(false),
+		Description: "If true, the max offline minutes can be specified during installation, which will override the max offline minutes specified in this API call.",
 	},
 	"installer_id": schema.StringAttribute{
 		Computed: true,

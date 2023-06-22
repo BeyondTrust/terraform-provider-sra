@@ -103,8 +103,9 @@ func (d *jumpClientInstallerDataSource) Schema(ctx context.Context, _ datasource
 			Computed: true,
 		},
 		"allow_override_max_offline_minutes": schema.BoolAttribute{
-			Optional: true,
-			Computed: true,
+			Optional:    true,
+			Computed:    true,
+			Description: "If true, the max offline minutes can be specified during installation, which will override the max offline minutes specified in this API call.",
 		},
 		"installer_id": schema.StringAttribute{
 			Computed: true,
