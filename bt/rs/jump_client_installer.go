@@ -65,7 +65,7 @@ func (r jumpClientInstallerResource) ModifyPlan(ctx context.Context, req resourc
 
 	tflog.Debug(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
-		tflog.InDebugfo(ctx, "No plan to modify")
+		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
 	var plan models.JumpClientInstaller
