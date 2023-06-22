@@ -10,6 +10,7 @@ import (
 
 // Provider documentation generation.
 //go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name sra
+//go:generate go run openapi.go
 
 func main() {
 	err := providerserver.Serve(context.Background(), bt.New, providerserver.ServeOpts{
