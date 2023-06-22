@@ -46,24 +46,24 @@ resource "sra_vault_username_password_account" "new_account" {
 
 ### Required
 
-- `name` (String)
+- `name` (String) The name of the Account.
 - `password` (String, Sensitive)
-- `username` (String)
+- `username` (String) The username that will be injected and/or checked out.
 
 ### Optional
 
-- `account_group_id` (Number)
-- `account_policy` (String)
-- `description` (String)
+- `account_group_id` (Number) The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
+- `account_policy` (String) The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
+- `description` (String) The Account's description.
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
-- `last_checkout_timestamp` (String)
-- `owner_user_id` (Number)
-- `personal` (Boolean)
+- `id` (String) The unique identifier assigned to this Account by the system.
+- `last_checkout_timestamp` (String) When the account was last checked out. Not returned for personal accounts.
+- `owner_user_id` (Number) The unique identifier of a user who owns the personal account.
+- `personal` (Boolean) Indicates if this is a personal account.
 - `type` (String)
 
 <a id="nestedatt--group_policy_memberships"></a>
@@ -104,7 +104,7 @@ Optional:
 
 Required:
 
-- `id` (Number)
+- `id` (Number) The unique identifier assigned to this Account by the system.
 - `type` (String)
 
 ## Import

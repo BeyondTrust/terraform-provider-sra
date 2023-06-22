@@ -33,16 +33,16 @@ resource "sra_jump_group" "example" {
 ### Required
 
 - `code_name` (String)
-- `name` (String)
+- `name` (String) The display name of the Jump Group.
 
 ### Optional
 
-- `comments` (String)
+- `comments` (String) The Jump Group's comments.
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The unique identifier assigned to this Jump Group by the appliance.
 
 <a id="nestedatt--group_policy_memberships"></a>
 ### Nested Schema for `group_policy_memberships`

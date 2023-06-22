@@ -49,26 +49,37 @@ data "sra_protocol_tunnel_jump_list" "filtered" {
 
 Required:
 
-- `hostname` (String)
-- `jump_group_id` (Number)
-- `jumpoint_id` (Number)
-- `name` (String)
+- `hostname` (String) The hostname or IP address. _This field only applies to PRA_
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item. _This field only applies to PRA_
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made. _This field only applies to PRA_
+- `name` (String) The name of the Protocol Tunnel Jump Item. _This field only applies to PRA_
 
 Optional:
 
-- `comments` (String)
-- `database` (String)
-- `jump_group_type` (String)
-- `jump_policy_id` (Number)
-- `session_policy_id` (Number)
-- `tag` (String)
-- `tunnel_definitions` (String)
-- `tunnel_listen_address` (String)
-- `tunnel_type` (String)
-- `username` (String)
+- `comments` (String) The Jump Item's comments. _This field only applies to PRA_
+- `database` (String) An additional database parameter for the database used by the different tunnel types. _This field only applies to PRA_
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Item. _This field only applies to PRA_
+- `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item. _This field only applies to PRA_
+- `session_policy_id` (Number) The unique identifier of the Session Policy used to control the user's capabilities in the session. _This field only applies to PRA_
+- `tag` (String) The Jump Item's tag. _This field only applies to PRA_
+- `tunnel_definitions` (String) A description of the tunnels that should be created for the remote system, must be pairs of local and report ports.
+
+Example: For a 2-sets of local & remote ports (22,24) and (26,28), this field must be "22;24;26;28".
+
+The local ports must be between 0 and 65535, inclusive and the remote ports must be between 1 and 65535, inclusive.
+
+This is a required field when the tunnel type is tcp.
+ _This field only applies to PRA_
+- `tunnel_listen_address` (String) The address on which the users should connect to start tunnels. The value must be within the 127.0.0.0/24 subnet. _This field only applies to PRA_
+- `tunnel_type` (String) One of the following:
+  * tcp
+  * mssql
+ _This field only applies to PRA_
+- `username` (String) An additional parameter for the username used by the different tunnel types. The username is required when `tunnel_type` is "mssql". _This field only applies to PRA_
 
 Read-Only:
 
-- `id` (String)
+- `id` (String) The unique identifier assigned to this Protocol Tunnel Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+ _This field only applies to PRA_
 
 

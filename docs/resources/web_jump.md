@@ -33,28 +33,34 @@ resource "sra_web_jump" "example" {
 
 ### Required
 
-- `jump_group_id` (Number)
-- `jumpoint_id` (Number)
-- `name` (String)
-- `url` (String)
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item. _This field only applies to PRA_
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made. _This field only applies to PRA_
+- `name` (String) The name of the Web Jump Item. _This field only applies to PRA_
+- `url` (String) The URL of the web site. _This field only applies to PRA_
 
 ### Optional
 
-- `authentication_timeout` (Number)
-- `comments` (String)
-- `jump_group_type` (String)
-- `jump_policy_id` (Number)
-- `password_field` (String)
-- `session_policy_id` (Number)
-- `submit_field` (String)
-- `tag` (String)
-- `username_field` (String)
-- `username_format` (String)
-- `verify_certificate` (Boolean)
+- `authentication_timeout` (Number) The authentication timeout value in seconds. _This field only applies to PRA_
+- `comments` (String) The Jump Item's comments. _This field only applies to PRA_
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Item. _This field only applies to PRA_
+- `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item. _This field only applies to PRA_
+- `password_field` (String) The HTML id, name or CSS Selector that can be used to detect the password input element. Auto-detection is done if this is not set. _This field only applies to PRA_
+- `session_policy_id` (Number) The unique identifier of the Session Policy used to control the rep's capabilities in the session. _This field only applies to PRA_
+- `submit_field` (String) The HTML id, name or CSS Selector that can be used to detect the submit input element. Auto-detection is done if this is not set. _This field only applies to PRA_
+- `tag` (String) The Jump Item's tag. _This field only applies to PRA_
+- `username_field` (String) The HTML id, name or CSS Selector that can be used to detect the username input element. Auto-detection is done if this is not set. _This field only applies to PRA_
+- `username_format` (String) One of the following:
+  * default
+  * username_only
+  * force_upn_format
+  * force_dlln_format
+ _This field only applies to PRA_
+- `verify_certificate` (Boolean) If true, then browser's certificate will be verified. _This field only applies to PRA_
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The unique identifier assigned to this Web Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+ _This field only applies to PRA_
 
 ## Import
 

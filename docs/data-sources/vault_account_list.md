@@ -44,19 +44,19 @@ data "sra_vault_account_list" "filtered" {
 
 Required:
 
-- `name` (String)
+- `name` (String) The name of the Account.
 
 Optional:
 
-- `description` (String)
-- `owner_user_id` (Number)
+- `description` (String) The Account's description.
+- `owner_user_id` (Number) The unique identifier of a user who owns the personal account.
 
 Read-Only:
 
-- `account_group_id` (Number)
-- `account_policy` (String)
-- `id` (String)
-- `personal` (Boolean)
+- `account_group_id` (Number) The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
+- `account_policy` (String) The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
+- `id` (String) The unique identifier assigned to this Account by the system.
+- `personal` (Boolean) Indicates if this is a personal account.
 - `type` (String)
 
 

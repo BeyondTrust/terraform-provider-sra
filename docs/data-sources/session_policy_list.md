@@ -41,15 +41,15 @@ output "specific_session_policy" {
 
 Required:
 
-- `code_name` (String)
-- `display_name` (String)
+- `code_name` (String) The code name of the Session Policy.
+- `display_name` (String) The display name of the Session Policy.
 
 Optional:
 
-- `description` (String)
+- `description` (String) The Session Policy's comments.
 
 Read-Only:
 
-- `id` (String)
+- `id` (String) The unique identifier assigned to this Session Policy by the appliance.
 
 

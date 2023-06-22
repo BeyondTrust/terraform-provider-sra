@@ -34,24 +34,24 @@ resource "sra_jumpoint" "example" {
 ### Required
 
 - `code_name` (String)
-- `name` (String)
-- `platform` (String)
+- `name` (String) The display name of the Jumpoint.
+- `platform` (String) The platform of the Jumpoint. This attribute cannot be modified after the Jumpoint is created.
 
 ### Optional
 
-- `clustered` (Boolean)
-- `comments` (String)
-- `enabled` (Boolean)
-- `external_jump_item_network_id` (String)
+- `clustered` (Boolean) If true, the Jumpoint can have more than one node. This attribute cannot be modified after the Jumpoint is created.
+- `comments` (String) The Jumpoint's comments.
+- `enabled` (Boolean) If true, the Jumpoint is enabled.
+- `external_jump_item_network_id` (String) This field is only applicable when the option 'Allow Search for External Jump Items.' is Enabled in Management -> Security. The value must be unique if it is not empty.
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
-- `protocol_tunnel_enabled` (Boolean) This field only applies to PRA
-- `rdp_service_account_id` (Number) This field only applies to PRA
-- `shell_jump_enabled` (Boolean)
+- `protocol_tunnel_enabled` (Boolean) If true, users are allowed to start Protocol Tunnel sessions with the Jumpoint. _This field only applies to PRA_
+- `rdp_service_account_id` (Number) The unique identifier of the Vault account through which RDP sessions can also receive additional audit capabilities. It must be an generic account or a domain account. _This field only applies to PRA_
+- `shell_jump_enabled` (Boolean) If true, users are allowed to start Shell Jump sessions with the Jumpoint.
 
 ### Read-Only
 
-- `connected` (Boolean)
-- `id` (String) The ID of this resource.
+- `connected` (Boolean) If true, the Jumpoint is connected to the appliance.
+- `id` (String) The unique identifier assigned to this Jumpoint by the appliance.
 
 <a id="nestedatt--group_policy_memberships"></a>
 ### Nested Schema for `group_policy_memberships`

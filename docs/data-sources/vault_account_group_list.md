@@ -41,15 +41,15 @@ data "sra_vault_account_group_list" "filtered" {
 
 Required:
 
-- `name` (String)
+- `name` (String) The name of the Account Group.
 
 Optional:
 
-- `description` (String)
+- `description` (String) The Account Group's description.
 
 Read-Only:
 
-- `account_policy` (String)
-- `id` (String)
+- `account_policy` (String) The code name of the Account Policy associated with the Account Group. When the value is `null`, the account policy is inherited from the global default.
+- `id` (String) The unique identifier assigned to this Account Group by the system.
 
 

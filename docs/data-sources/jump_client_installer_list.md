@@ -45,39 +45,39 @@ data "sra_jump_client_installer_list" "filtered" {
 
 Required:
 
-- `jump_group_id` (Number)
+- `jump_group_id` (Number) The unique identifier of the shared Jump Group or user that owns this Jump Client.
 
 Optional:
 
-- `allow_override_attended_session_policy` (Boolean) This field only applies to RS
-- `allow_override_comments` (Boolean)
-- `allow_override_jump_group` (Boolean)
-- `allow_override_jump_policy` (Boolean)
-- `allow_override_max_offline_minutes` (Boolean)
-- `allow_override_name` (Boolean)
-- `allow_override_session_policy` (Boolean) This field only applies to PRA
-- `allow_override_tag` (Boolean)
-- `allow_override_unattended_session_policy` (Boolean) This field only applies to RS
-- `attended_session_policy_id` (Number) This field only applies to RS
-- `comments` (String)
-- `connection_type` (String)
-- `elevate_install` (Boolean)
-- `elevate_prompt` (Boolean)
-- `is_quiet` (Boolean) This field only applies to RS
-- `jump_group_type` (String)
-- `jump_policy_id` (Number)
-- `max_offline_minutes` (Number)
-- `name` (String)
-- `session_policy_id` (Number) This field only applies to PRA
-- `tag` (String)
-- `unattended_session_policy_id` (Number) This field only applies to RS
+- `allow_override_attended_session_policy` (Boolean) If true, the attended session policy can be specified during installation, which will override the value specified in this API call. _This field only applies to RS_
+- `allow_override_comments` (Boolean) If true, the comments can be specified during installation, which will override the comments specified in this API call.
+- `allow_override_jump_group` (Boolean) If true, the jump group can be specified during installation, which will override the jump group id specified in this API call.
+- `allow_override_jump_policy` (Boolean) If true, the jump policy can be specified during installation, which will override the jump policy id specified in this API call.
+- `allow_override_max_offline_minutes` (Boolean) If true, the max offline minutes can be specified during installation, which will override the max offline minutes specified in this API call.
+- `allow_override_name` (Boolean) If true, the name can be specified during installation, which will override the name specified in this API call.
+- `allow_override_session_policy` (Boolean) If true, the session policy can be specified during installation, which will override the value specified in this API call. _This field only applies to PRA_
+- `allow_override_tag` (Boolean) If true, the tag can be specified during installation, which will override the tag specified in this API call.
+- `allow_override_unattended_session_policy` (Boolean) If true, the unattended session policy can be specified during installation, which will override the value specified in this API call. _This field only applies to RS_
+- `attended_session_policy_id` (Number) The session policy used when an end user is present on the Jump Client system. _This field only applies to RS_
+- `comments` (String) The Jump Client's comments.
+- `connection_type` (String) The type of connection maintained between the appliance and the Jump Client. Cloud deployments only allow active Jump Clients.
+- `elevate_install` (Boolean) If true, the installer will attempt to elevate the Jump Client to make it run as a service.
+- `elevate_prompt` (Boolean) If true, the installer will prompt for elevation credentials if necessary. This parameter is ignored if elevate_install is false.
+- `is_quiet` (Boolean) If true, the customer client will start minimized when sessions are started from the deployed Jump Client. _This field only applies to RS_
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Client.
+- `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
+- `max_offline_minutes` (Number) The maximum number of minutes the installed Jump Client can be offline before being uninstalled. If 0, the Jump Client will follow the global lost client settings.
+- `name` (String) The Jump Client's user-friendly name.
+- `session_policy_id` (Number) The session policy used on the Jump Client system. _This field only applies to PRA_
+- `tag` (String) The Jump Client's tag.
+- `unattended_session_policy_id` (Number) The session policy used when an end user is not present on the Jump Client system. _This field only applies to RS_
 - `valid_duration` (Number)
 
 Read-Only:
 
-- `expiration_timestamp` (String)
-- `id` (String)
-- `installer_id` (String)
-- `key_info` (String)
+- `expiration_timestamp` (String) The date/time at which the Jump Client installer will no longer be valid.
+- `id` (String) The unique identifier assigned to this Jump Client Installer by the appliance.
+- `installer_id` (String) The unique installer identifier that can be used to download the installer for a specific platform.
+- `key_info` (String) The information needed to deploy a Windows MSI installer. Only included in the response when creating a new installer.
 
 

@@ -41,53 +41,53 @@ data "sra_group_policy_list" "filtered" {
 
 Required:
 
-- `name` (String)
+- `name` (String) The name of the group policy.
 
 Optional:
 
-- `access_perm_status` (String) This field only applies to PRA
-- `auto_assignment_max_sessions` (Number) This field only applies to RS
-- `default_jump_item_role_id` (Number)
-- `inferior_jump_item_role_id` (Number)
-- `perm_accept_team_sessions` (Boolean) This field only applies to RS
-- `perm_access_allowed` (Boolean) This field only applies to PRA
-- `perm_collaborate` (Boolean)
-- `perm_collaborate_control` (Boolean)
-- `perm_console_idle_timeout` (Number) This field only applies to RS
-- `perm_disable_auto_assignment` (Boolean) This field only applies to RS
-- `perm_edit_external_key` (Boolean)
-- `perm_extended_availability_mode_allowed` (Boolean)
-- `perm_generate_session_key` (Boolean) This field only applies to RS
-- `perm_invite_external_rep` (Boolean) This field only applies to RS
-- `perm_invite_external_user` (Boolean) This field only applies to PRA
-- `perm_jump_client` (Boolean)
-- `perm_local_jump` (Boolean)
-- `perm_local_rdp` (Boolean) This field only applies to RS
-- `perm_local_vnc` (Boolean) This field only applies to RS
-- `perm_next_session_button` (Boolean) This field only applies to RS
-- `perm_protocol_tunnel` (Boolean) This field only applies to PRA
-- `perm_remote_jump` (Boolean)
-- `perm_remote_rdp` (Boolean)
-- `perm_remote_vnc` (Boolean)
-- `perm_routing_idle_timeout` (Number) This field only applies to RS
-- `perm_send_ios_profiles` (Boolean) This field only applies to RS
-- `perm_session_idle_timeout` (Number)
-- `perm_share_other_team` (Boolean)
-- `perm_shell_jump` (Boolean)
-- `perm_support_allowed` (String) This field only applies to RS
-- `perm_support_button_change_public_sites` (Boolean) This field only applies to RS
-- `perm_support_button_personal_deploy` (Boolean) This field only applies to RS
-- `perm_support_button_team_deploy` (Boolean) This field only applies to RS
-- `perm_support_button_team_manage` (Boolean) This field only applies to RS
-- `perm_transfer_other_team` (Boolean) This field only applies to RS
-- `perm_vpro` (Boolean) This field only applies to RS
-- `perm_web_jump` (Boolean) This field only applies to PRA
-- `private_jump_item_role_id` (Number)
-- `rep_perm_status` (String) This field only applies to RS
-- `unassigned_jump_item_role_id` (Number)
+- `access_perm_status` (String) This field indicates if this policy defines user permissions or not. A value of 'defined' means the policy defines values for user permissions. A value of 'final' is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any user permission fields; otherwise the default is "not_defined". _This field only applies to PRA_
+- `auto_assignment_max_sessions` (Number) Do not assign sessions if the representative is participating in more sessions. _This field only applies to RS_
+- `default_jump_item_role_id` (Number) Default Jump Item Role.
+- `inferior_jump_item_role_id` (Number) Teams Jump Item Role.
+- `perm_accept_team_sessions` (Boolean) Allowed to manually accept sessions from a team queue. _This field only applies to RS_
+- `perm_access_allowed` (Boolean) Allowed to access endpoints. _This field only applies to PRA_
+- `perm_collaborate` (Boolean) Allowed to show screen to other Users.
+- `perm_collaborate_control` (Boolean) Allowed to give control when showing screen to other Users.
+- `perm_console_idle_timeout` (Number) Representative Console Idle Timeout in seconds. Allowed values are -1, 0, 300, 600, 900, 1800, 3600, 7200, 14400, 28800, 43200, and 86400. -1 means "Use site wide setting". 0 means "No timeout". _This field only applies to RS_
+- `perm_disable_auto_assignment` (Boolean) Allowed to opt-out of session assignments. _This field only applies to RS_
+- `perm_edit_external_key` (Boolean) Allowed to edit the external key.
+- `perm_extended_availability_mode_allowed` (Boolean) Allowed to enable extended availability mode.
+- `perm_generate_session_key` (Boolean) Allowed to generate session keys for support sessions within the Representative Console. _This field only applies to RS_
+- `perm_invite_external_rep` (Boolean) Allowed to invite external support Representatives. _This field only applies to RS_
+- `perm_invite_external_user` (Boolean) Allowed to invite external Users. _This field only applies to PRA_
+- `perm_jump_client` (Boolean) Allowed to use Jump Clients.
+- `perm_local_jump` (Boolean) Allowed to use Local Jump (Windows only).
+- `perm_local_rdp` (Boolean) Allowed to use Local RDP. _This field only applies to RS_
+- `perm_local_vnc` (Boolean) Allowed to use Local VNC. _This field only applies to RS_
+- `perm_next_session_button` (Boolean) Allowed to use the Get Next Session feature. _This field only applies to RS_
+- `perm_protocol_tunnel` (Boolean) Allowed to use Protocol Tunnel Jump. _This field only applies to PRA_
+- `perm_remote_jump` (Boolean) Allowed to use Remote Jump.
+- `perm_remote_rdp` (Boolean) Allowed to use Remote RDP.
+- `perm_remote_vnc` (Boolean) Allowed to use Remote VNC.
+- `perm_routing_idle_timeout` (Number) Do not assign sessions if the representative has been idle in seconds. Allowed values are 0, 180, 300, 600, 900, 1200, 1800, 2700, and 3600. 0 Means "No timeout". _This field only applies to RS_
+- `perm_send_ios_profiles` (Boolean) Allowed to generate access keys for sending iOS profiles. _This field only applies to RS_
+- `perm_session_idle_timeout` (Number) Remove User from the session after they've been inactive for a certain number of seconds. Allowed values are -1, 0, 300, 600, 900, 1800, 3600, 7200, 14400, 28800, 43200, and 86400. -1 means "Use site wide setting". 0 means "No timeout".
+- `perm_share_other_team` (Boolean) Allowed to share sessions with teams which they do not belong to.
+- `perm_shell_jump` (Boolean) Allowed to use Shell Jump.
+- `perm_support_allowed` (String) Allowed to provide remote support. _This field only applies to RS_
+- `perm_support_button_change_public_sites` (Boolean) Allowed to change the Public Portal associated with Support Buttons. _This field only applies to RS_
+- `perm_support_button_personal_deploy` (Boolean) Allowed to deploy and manage Support Buttons in a personal queue. _This field only applies to RS_
+- `perm_support_button_team_deploy` (Boolean) Allowed to deploy Team Support Buttons. _This field only applies to RS_
+- `perm_support_button_team_manage` (Boolean) Allowed to manage Team Support Buttons. _This field only applies to RS_
+- `perm_transfer_other_team` (Boolean) Allowed to transfer sessions to teams which they do not belong to. _This field only applies to RS_
+- `perm_vpro` (Boolean) Allowed to use Intel vPro. _This field only applies to RS_
+- `perm_web_jump` (Boolean) Allowed to use Web Jump. _This field only applies to PRA_
+- `private_jump_item_role_id` (Number) Personal Jump Item Role.
+- `rep_perm_status` (String) This field indicates if this policy defines representative permissions or not. A value of 'defined' means the policy defines values for representative permissions. A value of 'final' is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any representative permission fields; otherwise the default is "not_defined". _This field only applies to RS_
+- `unassigned_jump_item_role_id` (Number) System Jump Item Role.
 
 Read-Only:
 
-- `id` (String)
+- `id` (String) The unique identifier assigned to this group policy by the system.
 
 

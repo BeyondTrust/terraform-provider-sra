@@ -43,14 +43,14 @@ data "sra_jump_group_list" "filtered" {
 Required:
 
 - `code_name` (String)
-- `name` (String)
+- `name` (String) The display name of the Jump Group.
 
 Optional:
 
-- `comments` (String)
+- `comments` (String) The Jump Group's comments.
 
 Read-Only:
 
-- `id` (String)
+- `id` (String) The unique identifier assigned to this Jump Group by the appliance.
 
 

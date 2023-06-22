@@ -32,20 +32,20 @@ resource "sra_vault_account_policy" "new_account_policy" {
 
 ### Required
 
-- `allow_simultaneous_checkout` (Boolean)
-- `auto_rotate_credentials` (Boolean)
-- `code_name` (String)
-- `name` (String)
-- `scheduled_password_rotation` (Boolean)
+- `allow_simultaneous_checkout` (Boolean) If enabled, the vault account can be checked out and used by multiple users or sessions at the same time.
+- `auto_rotate_credentials` (Boolean) If enabled, the system will change the account's password after it is checked in.
+- `code_name` (String) The code name of the Account Policy.
+- `name` (String) The name of the Account Policy.
+- `scheduled_password_rotation` (Boolean) If enabled, the system will automatically rotate an account password when it reaches the specified maximum age.
 
 ### Optional
 
-- `description` (String)
-- `maximum_password_age` (Number)
+- `description` (String) The Account Policy's description.
+- `maximum_password_age` (Number) The amount of time in days before the system automatically rotates an account password when `scheduled_password_rotation` is enabled. When creating a new account policy with `scheduled_password_rotation` as enabled, this value must be defined. If `scheduled_password_rotation` is null or false, this value is also null and not required.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The unique identifier assigned to this Account Policy by the system.
 
 ## Import
 
