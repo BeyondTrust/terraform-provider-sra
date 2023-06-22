@@ -47,35 +47,53 @@ data "sra_remote_rdp_list" "filtered" {
 
 Required:
 
-- `hostname` (String)
-- `jump_group_id` (Number)
-- `jump_group_type` (String)
-- `jumpoint_id` (Number)
-- `name` (String)
+- `hostname` (String) The hostname or IP address used to connect over RDP.
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
+- `name` (String) The name of the Remote RDP Jump Item.
 
 Optional:
 
-- `comments` (String)
-- `console` (Boolean)
-- `credential_type` (String) This field only applies to PRA
-- `domain` (String)
-- `endpoint_id` (Number)
-- `ignore_untrusted` (Boolean)
-- `jump_policy_id` (Number)
-- `quality` (String)
-- `rdp_username` (String)
-- `remote_app_name` (String) This field only applies to PRA
-- `remote_app_params` (String) This field only applies to PRA
-- `remote_exe_params` (String) This field only applies to PRA
-- `remote_exe_path` (String) This field only applies to PRA
-- `secure_app_type` (String) This field only applies to PRA
-- `session_forensics` (Boolean) This field only applies to PRA
-- `session_policy_id` (Number)
-- `tag` (String)
-- `target_system` (String) This field only applies to PRA
+- `comments` (String) The Jump Item's comments.
+- `console` (Boolean) If true, starts a console session. If false, starts a new session.
+- `credential_type` (String) Valid only when secure_app_type is "remote_desktop_agent_credentials". _This field only applies to PRA_
+- `domain` (String) The Endpoint domain.
+- `endpoint_id` (Number) The unique identifier of the linked Endpoint. This is `null` when no endpoint is linked to the RDP connection.
+- `ignore_untrusted` (Boolean) If true, untrusted server certificates are ignored. If false, the user is shown a warning when the server's certificate cannot be verified.
+
+- `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
+- `quality` (String) The quality of the connection. One of the following:
+  * low
+  * performance
+  * performance_quality
+  * quality
+  * video
+  * lossless
+
+- `rdp_username` (String) The Endpoint username.
+- `remote_app_name` (String) Valid only when secure_app_type is "remote_app". This is the name of the remote app that will be launched on the endpoint.
+ _This field only applies to PRA_
+- `remote_app_params` (String) Valid only when secure_app_type is "remote_app". The parameters to pass to the remote app.
+ _This field only applies to PRA_
+- `remote_exe_params` (String) Valid only when secure_app_type is "remote_desktop_agent" or "remote_desktop_agent_credentials". The parameters to pass to the executable.
+ _This field only applies to PRA_
+- `remote_exe_path` (String) Valid only when secure_app_type is "remote_desktop_agent" or "remote_desktop_agent_credentials". The path to the executable that will be launched by the remote desktop agent.
+ _This field only applies to PRA_
+- `secure_app_type` (String) One of the following:
+  * remote_app
+  * remote_desktop_agent
+  * remote_desktop_agent_credentials
+If blank then SecureApp technology will not be used.
+ _This field only applies to PRA_
+- `session_forensics` (Boolean) If true, enables RDP with Session Forensics functionality. If false, uses normal RDP functionality. _This field only applies to PRA_
+- `session_policy_id` (Number) The unique identifier of the Session Policy.
+- `tag` (String) The Jump Item's tag.
+- `target_system` (String) Valid only when secure_app_type is "remote_desktop_agent_credentials". _This field only applies to PRA_
 
 Read-Only:
 
-- `id` (String)
+- `id` (String) The unique identifier assigned to this RDP Jump Item by Privileged Remote Access. Other Jump Item types, like Shell Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+
 
 

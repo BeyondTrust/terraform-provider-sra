@@ -44,18 +44,18 @@ resource "sra_vault_account_group" "new_account_group" {
 
 ### Required
 
-- `name` (String)
+- `name` (String) The name of the Account Group.
 
 ### Optional
 
-- `account_policy` (String)
-- `description` (String)
+- `account_policy` (String) The code name of the Account Policy associated with the Account Group. When the value is `null`, the account policy is inherited from the global default.
+- `description` (String) The Account Group's description.
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The unique identifier assigned to this Account Group by the system.
 
 <a id="nestedatt--group_policy_memberships"></a>
 ### Nested Schema for `group_policy_memberships`
@@ -95,7 +95,7 @@ Optional:
 
 Required:
 
-- `id` (Number)
+- `id` (Number) The unique identifier assigned to this Account Group by the system.
 - `type` (String)
 
 ## Import

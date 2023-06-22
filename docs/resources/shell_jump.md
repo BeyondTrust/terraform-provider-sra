@@ -30,27 +30,32 @@ resource "sra_shell_jump" "example" {
 
 ### Required
 
-- `hostname` (String)
-- `jump_group_id` (Number)
-- `jumpoint_id` (Number)
-- `name` (String)
+- `hostname` (String) The hostname or IP address used to connect over SSH.
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
+- `name` (String) The name of the Shell Jump Item.
 
 ### Optional
 
-- `comments` (String)
-- `jump_group_type` (String)
-- `jump_policy_id` (Number)
-- `keep_alive` (Number)
-- `port` (Number)
+- `comments` (String) The Jump Item's comments.
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
+- `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
+- `keep_alive` (Number) The number of seconds between each packet sent to keep an idle session from ending. Must be between 0 and 300, inclusive. 0 disables keep-alive.
+
+- `port` (Number) The port to use for SSH or telnet. Must be between 1 and 65535, inclusive. Defaults to 22 if the protocol is SSH or 23 if the protocol is Telnet.
 - `protocol` (String)
-- `session_policy_id` (Number)
-- `tag` (String)
-- `terminal` (String)
-- `username` (String)
+- `session_policy_id` (Number) The unique identifier of the Session Policy used to control the rep's capabilities in the session.
+- `tag` (String) The Jump Item's tag.
+- `terminal` (String) One of the following:
+  * xterm
+  * VT100
+
+- `username` (String) The default username that will be used to authenticate with the remote system. This is only used when credentials are not available from the ECM or Vault.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The unique identifier assigned to this Shell Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+
 
 ## Import
 

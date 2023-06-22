@@ -41,25 +41,28 @@ data "sra_jump_item_role_list" "filtered" {
 
 Required:
 
-- `description` (String)
-- `name` (String)
+- `description` (String) The description of the Jump Item Role.
+- `name` (String) The name of the Jump Item Role.
 
 Optional:
 
-- `perm_add` (Boolean)
-- `perm_assign_jump_group` (Boolean)
-- `perm_edit_behavior` (Boolean)
-- `perm_edit_comments` (Boolean)
-- `perm_edit_identity` (Boolean)
-- `perm_edit_jump_policy` (Boolean)
-- `perm_edit_session_policy` (Boolean)
-- `perm_edit_tag` (Boolean)
-- `perm_remove` (Boolean)
-- `perm_start` (Boolean)
-- `perm_view_jump_item_report` (Boolean)
+- `perm_add` (Boolean) If true, users can create and deploy new Jump Items or upgrade Jump Clients.
+- `perm_assign_jump_group` (Boolean) If true, users can move or copy Jump Items from one Jump Group to another Jump Group.
+- `perm_edit_behavior` (Boolean) If true, users can edit all behavior and experience fields on Jump Items. This includes, but is not limited to: Connection Type, Quality, Console Session, Terminal Type.
+
+- `perm_edit_comments` (Boolean) If true, users can edit the Comments field on Jump Items.
+- `perm_edit_identity` (Boolean) If true, users can edit all connectivity and authentication fields on Jump Items. This includes, but is not limited to: Name, Hostname, Jumpoint, Port, Protocol, and URL.
+
+- `perm_edit_jump_policy` (Boolean) If true, users can edit the Jump Policy associated with Jump Items.
+- `perm_edit_session_policy` (Boolean) If true, users can edit the Session Policy associated with Jump Items.
+- `perm_edit_tag` (Boolean) If true, users can edit the Tag field on Jump Items.
+- `perm_remove` (Boolean) If true, users can delete Jump Items.
+- `perm_start` (Boolean) If true, users can start sessions with Jump Items.
+- `perm_view_jump_item_report` (Boolean) If true, users can view Jump Item Report events for Jump Groups they are assigned to using this role.
+
 
 Read-Only:
 
-- `id` (String)
+- `id` (String) The unique identifier assigned to this Jump Item Role.
 
 
