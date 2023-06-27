@@ -149,7 +149,7 @@ func (r *jumpointResource) Create(ctx context.Context, req resource.CreateReques
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	updateGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -160,12 +160,13 @@ func (r *jumpointResource) Create(ctx context.Context, req resource.CreateReques
 		}
 
 		var gpList []api.GroupPolicyJumpoint
-		if !tfGPList.IsNull() {
-			diags = tfGPList.ElementsAs(ctx, &gpList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+		if tfGPList.IsNull() {
+			return
+		}
+		diags = tfGPList.ElementsAs(ctx, &gpList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 
 		toAdd := mapset.NewSet(gpList...)
@@ -200,6 +201,8 @@ func (r *jumpointResource) Create(ctx context.Context, req resource.CreateReques
 			return
 		}
 	}
+
+	updateGP()
 }
 
 func (r *jumpointResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -274,7 +277,7 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
 	id, _ := strconv.Atoi(tfId.ValueString())
 
-	{
+	updateGP := func() {
 		// Group Policy Memberships
 
 		var tfGPList types.Set
@@ -285,12 +288,13 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 		}
 
 		var gpList []api.GroupPolicyJumpoint
-		if !tfGPList.IsNull() {
-			diags = tfGPList.ElementsAs(ctx, &gpList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+		if tfGPList.IsNull() {
+			return
+		}
+		diags = tfGPList.ElementsAs(ctx, &gpList, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 
 		var tfGPStateList types.Set
@@ -362,4 +366,6 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 			return
 		}
 	}
+
+	updateGP()
 }
