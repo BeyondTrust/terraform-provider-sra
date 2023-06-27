@@ -217,6 +217,7 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 		})
 
 		results := []api.GroupPolicyVaultAccount{}
+		needsProvision := mapset.NewSet[string]()
 		for m := range setGPList.Iterator().C {
 			m.AccountID = &id
 			item, err := api.CreateItem(r.ApiClient, m)
@@ -229,10 +230,16 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 				return
 			}
 
+			item.GroupPolicyID = m.GroupPolicyID
+			results = append(results, *item)
+			needsProvision.Add(*m.GroupPolicyID)
+		}
+
+		for id := range needsProvision.Iter() {
 			p := api.GroupPolicyProvision{
-				GroupPolicyID: m.GroupPolicyID,
+				GroupPolicyID: &id,
 			}
-			_, err = api.CreateItem(r.ApiClient, p)
+			_, err := api.CreateItem(r.ApiClient, p)
 
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -241,9 +248,6 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 				)
 				return
 			}
-
-			item.GroupPolicyID = m.GroupPolicyID
-			results = append(results, *item)
 		}
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
@@ -527,6 +531,7 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			"stateList": fmt.Sprintf("%+v", stateGPList),
 		})
 
+		needsProvision := mapset.NewSet[string]()
 		for m := range toRemove.Iterator().C {
 			m.AccountID = &id
 			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
@@ -544,6 +549,7 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 				)
 				return
 			}
+			needsProvision.Add(*m.GroupPolicyID)
 		}
 
 		results := noChange.ToSlice()
@@ -565,6 +571,22 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			}
 			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
+			needsProvision.Add(*m.GroupPolicyID)
+		}
+
+		for id := range needsProvision.Iter() {
+			p := api.GroupPolicyProvision{
+				GroupPolicyID: &id,
+			}
+			_, err := api.CreateItem(r.ApiClient, p)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error provisioning item's group policy memberships",
+					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
+				)
+				return
+			}
 		}
 
 		tflog.Trace(ctx, "🌈 Updating state with results", map[string]interface{}{

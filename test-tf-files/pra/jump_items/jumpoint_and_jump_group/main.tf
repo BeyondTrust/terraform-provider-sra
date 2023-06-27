@@ -15,7 +15,9 @@ locals {
 
 data "sra_group_policy_list" "gp" {}
 data "sra_jump_policy_list" "jp" {}
-data "sra_jump_item_role_list" "jir" {}
+data "sra_jump_item_role_list" "jir" {
+  name = "Administrator"
+}
 
 resource "sra_jumpoint" "example" {
   name                    = "Test JP ${var.random_bits}"
