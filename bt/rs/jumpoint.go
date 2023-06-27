@@ -179,6 +179,7 @@ func (r *jumpointResource) Create(ctx context.Context, req resource.CreateReques
 		})
 
 		results := []api.GroupPolicyJumpoint{}
+		needsProvision := mapset.NewSet[string]()
 		for m := range toAdd.Iterator().C {
 			m.JumpointID = &id
 			item, err := api.CreateItem(r.ApiClient, m)
@@ -193,6 +194,22 @@ func (r *jumpointResource) Create(ctx context.Context, req resource.CreateReques
 
 			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
+			needsProvision.Add(*m.GroupPolicyID)
+		}
+
+		for id := range needsProvision.Iter() {
+			p := api.GroupPolicyProvision{
+				GroupPolicyID: &id,
+			}
+			_, err := api.CreateItem(r.ApiClient, p)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error provisioning item's group policy memberships",
+					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
+				)
+				return
+			}
 		}
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
@@ -324,6 +341,7 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 			"state": stateGPList,
 		})
 
+		needsProvision := mapset.NewSet[string]()
 		for m := range toRemove.Iterator().C {
 			m.JumpointID = &id
 			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
@@ -341,6 +359,7 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 				)
 				return
 			}
+			needsProvision.Add(*m.GroupPolicyID)
 		}
 
 		results := noChange.ToSlice()
@@ -358,6 +377,22 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 
 			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
+			needsProvision.Add(*m.GroupPolicyID)
+		}
+
+		for id := range needsProvision.Iter() {
+			p := api.GroupPolicyProvision{
+				GroupPolicyID: &id,
+			}
+			_, err := api.CreateItem(r.ApiClient, p)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error provisioning item's group policy memberships",
+					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
+				)
+				return
+			}
 		}
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)

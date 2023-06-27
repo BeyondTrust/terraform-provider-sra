@@ -195,6 +195,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		})
 
 		results := []api.GroupPolicyVaultAccountGroup{}
+		needsProvision := mapset.NewSet[string]()
 		for m := range setGPList.Iterator().C {
 			m.AccountGroupID = &id
 			item, err := api.CreateItem(r.ApiClient, m)
@@ -208,6 +209,22 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 			}
 			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
+			needsProvision.Add(*m.GroupPolicyID)
+		}
+
+		for id := range needsProvision.Iter() {
+			p := api.GroupPolicyProvision{
+				GroupPolicyID: &id,
+			}
+			_, err := api.CreateItem(r.ApiClient, p)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error provisioning item's group policy memberships",
+					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
+				)
+				return
+			}
 		}
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
@@ -458,6 +475,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 			return
 		}
 
+		needsProvision := mapset.NewSet[string]()
 		for m := range toRemove.Iterator().C {
 			m.AccountGroupID = &id
 			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
@@ -475,13 +493,13 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 				)
 				return
 			}
+			needsProvision.Add(*m.GroupPolicyID)
 		}
 
 		results := noChange.ToSlice()
 		for m := range toAdd.Iterator().C {
 			m.AccountGroupID = &id
 			item, err := api.CreateItem(r.ApiClient, m)
-			item.GroupPolicyID = m.GroupPolicyID
 
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -490,7 +508,24 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 				)
 				return
 			}
+			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
+			needsProvision.Add(*m.GroupPolicyID)
+		}
+
+		for id := range needsProvision.Iter() {
+			p := api.GroupPolicyProvision{
+				GroupPolicyID: &id,
+			}
+			_, err := api.CreateItem(r.ApiClient, p)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error provisioning item's group policy memberships",
+					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
+				)
+				return
+			}
 		}
 
 		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
