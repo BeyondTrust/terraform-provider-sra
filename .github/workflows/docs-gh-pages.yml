@@ -31,7 +31,17 @@ jobs:
         uses: actions/configure-pages@v3
       - name: Customize theme and scss
         run: |
-          cp ./_config.yml ./docs/_config.yml
+          cat > ./docs/_config.yml << EOF
+          title: SRA Terraform Provider
+          author:
+            name: BeyondTrust
+            email: support@beyondtrust.com
+          description: >
+            Generated documentation for the SRA Terraform provider.
+          theme: minima
+          plugins: []
+
+          EOF
           mkdir -p ./docs/assets/css
           cat > ./docs/assets/css/style.scss <<EOF
           ---
