@@ -89,6 +89,7 @@ jobs:
           }
 
           EOF
+          cp ./docs/assets/css/style.scss ./docs/assets/main.scss
         shell: bash
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
