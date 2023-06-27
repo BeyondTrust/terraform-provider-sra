@@ -11,6 +11,7 @@ description: >
 # Build settings
 
 theme: minima
+source: ./docs
 
 plugins: []
 
