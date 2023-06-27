@@ -7,6 +7,7 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -129,6 +130,73 @@ func (r *jumpGroupResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	}
 
 	tflog.Debug(ctx, "Finished modification")
+}
+
+func (r *jumpGroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	r.apiResource.Create(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	var tfId types.String
+	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
+	id, _ := strconv.Atoi(tfId.ValueString())
+
+	{
+		// Group Policy Memberships
+
+		var tfGPList types.Set
+		diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var gpList []api.GroupPolicyJumpGroup
+		if !tfGPList.IsNull() {
+			diags = tfGPList.ElementsAs(ctx, &gpList, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		toAdd := mapset.NewSet(gpList...)
+
+		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+			"add": toAdd,
+
+			"tf":   tfGPList,
+			"list": gpList,
+		})
+
+		results := []api.GroupPolicyJumpGroup{}
+		for m := range toAdd.Iterator().C {
+			m.JumpGroupID = &id
+			tflog.Trace(ctx, "🌈 Adding item", map[string]interface{}{
+				"add":         fmt.Sprintf("%+v", m),
+				"gp":          m.GroupPolicyID,
+				"jump group":  m.JumpGroupID,
+				"jump policy": m.JumpPolicyID,
+			})
+			item, err := api.CreateItem(r.ApiClient, m)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error adding item's group policy memberships",
+					"Unexpected adding membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				)
+				return
+			}
+			item.GroupPolicyID = m.GroupPolicyID
+			results = append(results, *item)
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 }
 
 func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

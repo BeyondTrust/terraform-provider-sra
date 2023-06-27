@@ -7,6 +7,7 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -137,6 +138,68 @@ func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		return
 	}
 	tflog.Debug(ctx, "Finished modification")
+}
+
+func (r *jumpointResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	r.apiResource.Create(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	var tfId types.String
+	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
+	id, _ := strconv.Atoi(tfId.ValueString())
+
+	{
+		// Group Policy Memberships
+
+		var tfGPList types.Set
+		diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var gpList []api.GroupPolicyJumpoint
+		if !tfGPList.IsNull() {
+			diags = tfGPList.ElementsAs(ctx, &gpList, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		toAdd := mapset.NewSet(gpList...)
+
+		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
+			"add": toAdd,
+
+			"tf":   tfGPList,
+			"list": gpList,
+		})
+
+		results := []api.GroupPolicyJumpoint{}
+		for m := range toAdd.Iterator().C {
+			m.JumpointID = &id
+			item, err := api.CreateItem(r.ApiClient, m)
+
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error adding item's group policy memberships",
+					"Unexpected adding membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+				)
+				return
+			}
+
+			item.GroupPolicyID = m.GroupPolicyID
+			results = append(results, *item)
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 }
 
 func (r *jumpointResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -280,7 +343,6 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 		for m := range toAdd.Iterator().C {
 			m.JumpointID = &id
 			item, err := api.CreateItem(r.ApiClient, m)
-			item.GroupPolicyID = m.GroupPolicyID
 
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -289,6 +351,8 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 				)
 				return
 			}
+
+			item.GroupPolicyID = m.GroupPolicyID
 			results = append(results, *item)
 		}
 
