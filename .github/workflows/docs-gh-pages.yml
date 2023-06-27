@@ -32,7 +32,7 @@ jobs:
       - name: Customize theme scss
         run: |
         mkdir -p ./docs/assets/css
-        cat<<EOF
+        cat > ./docs/assets/css/style.scss <<EOF
 ---
 ---
 
@@ -77,7 +77,8 @@ jobs:
   margin-right: 0;
 }
 
-EOF > ./docs/assets/css/style.scss
+EOF
+        shell: bash
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
