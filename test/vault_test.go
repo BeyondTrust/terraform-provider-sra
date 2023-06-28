@@ -11,7 +11,7 @@ import (
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
 )
 
-func TestAccountGroupKey(t *testing.T) {
+func TestAccountGroup(t *testing.T) {
 	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
@@ -53,7 +53,7 @@ func TestAccountGroupKey(t *testing.T) {
 		assert.Equal(t, 0, len(list))
 	})
 
-	test_structure.RunTestStage(t, "Test finding the new SSH account with the datasource", func() {
+	test_structure.RunTestStage(t, "Test finding the new Account Group with the datasource", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 
 		// Need to re-run apply so that the datasource output finds the new item
@@ -65,6 +65,78 @@ func TestAccountGroupKey(t *testing.T) {
 		assert.Equal(t, 1, len(list))
 		if len(list) > 0 {
 			assert.Equal(t, group["id"], list[0]["id"])
+		}
+	})
+}
+
+func TestAccountPolicy(t *testing.T) {
+	// t.Parallel()
+
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_policy", productPath()))
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Name",
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "Test Vault Account Policy Creation", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		{
+			item := terraform.OutputMap(t, terraformOptions, "policy")
+			assert.Equal(t, randomBits, item["code_name"])
+			assert.Equal(t, "true", item["auto_rotate_credentials"])
+			assert.Equal(t, "true", item["allow_simultaneous_checkout"])
+			assert.Equal(t, "true", item["scheduled_password_rotation"])
+			assert.Equal(t, "10", item["maximum_password_age"])
+		}
+
+		{
+			item := terraform.OutputMap(t, terraformOptions, "policy_false")
+			assert.Equal(t, fmt.Sprintf("%s_false", randomBits), item["code_name"])
+			assert.Equal(t, "false", item["auto_rotate_credentials"])
+			assert.Equal(t, "false", item["allow_simultaneous_checkout"])
+			assert.Equal(t, "false", item["scheduled_password_rotation"])
+		}
+
+		{
+			item := terraform.OutputMap(t, terraformOptions, "policy_mixed")
+			assert.Equal(t, fmt.Sprintf("%s_mixed", randomBits), item["code_name"])
+			assert.Equal(t, "false", item["auto_rotate_credentials"])
+			assert.Equal(t, "true", item["allow_simultaneous_checkout"])
+			assert.Equal(t, "false", item["scheduled_password_rotation"])
+		}
+
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+		assert.Equal(t, 0, len(list))
+	})
+
+	test_structure.RunTestStage(t, "Test finding the new account policy with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
+		terraform.Apply(t, terraformOptions)
+
+		policy := terraform.OutputMap(t, terraformOptions, "policy")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 1, len(list))
+		if len(list) > 0 {
+			assert.Equal(t, policy["id"], list[0]["id"])
 		}
 	})
 }
