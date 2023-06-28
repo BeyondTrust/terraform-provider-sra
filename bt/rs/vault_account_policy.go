@@ -61,6 +61,7 @@ func (r *vaultAccountPolicyResource) Schema(_ context.Context, _ resource.Schema
 			},
 			"maximum_password_age": schema.Int64Attribute{
 				Optional: true,
+				Computed: true,
 			},
 		},
 	}

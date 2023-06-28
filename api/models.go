@@ -406,7 +406,7 @@ type VaultAccountPolicy struct {
 	AutoRotateCredentials     bool   `json:"auto_rotate_credentials"`
 	AllowSimultaneousCheckout bool   `json:"allow_simultaneous_checkout"`
 	ScheduledPasswordRotation bool   `json:"scheduled_password_rotation"`
-	MaximumPasswordAge        *int   `json:"maximum_password_age"`
+	MaximumPasswordAge        *int   `json:"maximum_password_age,omitempty"`
 }
 
 func (VaultAccountPolicy) Endpoint() string {
