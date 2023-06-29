@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -30,6 +31,13 @@ var (
 	_ resource.ResourceWithConfigure   = &vaultSSHAccountResource{}
 	_ resource.ResourceWithImportState = &vaultSSHAccountResource{}
 	// _ resource.ResourceWithModifyPlan  = &vaultSSHAccountResource{}
+
+	// Because of the way the PHP code handles changing memberships, those
+	// operations cannot be done in parallel. We use this mutex to ensure
+	// we deal with membership updates one at a time.
+	//
+	// This mutex is shared with vault_user_pass_account
+	accountMembershipMutex sync.Mutex
 )
 
 func newVaultSSHAccountResource() resource.Resource {
@@ -215,6 +223,9 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 			"tf":   tfGPList,
 			"list": gpList,
 		})
+
+		accountMembershipMutex.Lock()
+		defer accountMembershipMutex.Unlock()
 
 		results := []api.GroupPolicyVaultAccount{}
 		needsProvision := mapset.NewSet[string]()
@@ -530,6 +541,9 @@ func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.Updat
 			"planList":  fmt.Sprintf("%+v", gpList),
 			"stateList": fmt.Sprintf("%+v", stateGPList),
 		})
+
+		accountMembershipMutex.Lock()
+		defer accountMembershipMutex.Unlock()
 
 		needsProvision := mapset.NewSet[string]()
 		for m := range toRemove.Iterator().C {

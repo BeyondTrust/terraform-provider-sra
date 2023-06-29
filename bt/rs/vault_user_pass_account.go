@@ -204,6 +204,10 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 			"list": gpList,
 		})
 
+		// Shared with vault_ssh_account
+		accountMembershipMutex.Lock()
+		defer accountMembershipMutex.Unlock()
+
 		results := []api.GroupPolicyVaultAccount{}
 		needsProvision := mapset.NewSet[string]()
 		for m := range setGPList.Iterator().C {
@@ -516,6 +520,10 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 			"list":  gpList,
 			"state": stateGPList,
 		})
+
+		// Shared with vault_ssh_account
+		accountMembershipMutex.Lock()
+		defer accountMembershipMutex.Unlock()
 
 		needsProvision := mapset.NewSet[string]()
 		for m := range toRemove.Iterator().C {
