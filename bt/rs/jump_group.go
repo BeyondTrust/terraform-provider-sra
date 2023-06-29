@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -26,6 +27,11 @@ var (
 	_ resource.ResourceWithConfigure   = &jumpGroupResource{}
 	_ resource.ResourceWithImportState = &jumpGroupResource{}
 	_ resource.ResourceWithModifyPlan  = &jumpGroupResource{}
+
+	// Because of the way the PHP code handles changing memberships, those
+	// operations cannot be done in parallel. We use this mutex to ensure
+	// we deal with membership updates one at a time
+	jgMembershipMutex sync.Mutex
 )
 
 func newJumpGroupResource() resource.Resource {
@@ -169,6 +175,9 @@ func (r *jumpGroupResource) Create(ctx context.Context, req resource.CreateReque
 			"tf":   tfGPList,
 			"list": gpList,
 		})
+
+		jgMembershipMutex.Lock()
+		defer jgMembershipMutex.Unlock()
 
 		results := []api.GroupPolicyJumpGroup{}
 		needsProvision := mapset.NewSet[string]()
@@ -337,6 +346,9 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 			"list":  gpList,
 			"state": stateGPList,
 		})
+
+		jgMembershipMutex.Lock()
+		defer jgMembershipMutex.Unlock()
 
 		needsProvision := mapset.NewSet[string]()
 		for m := range toRemove.Iterator().C {
