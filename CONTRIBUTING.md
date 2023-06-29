@@ -49,6 +49,12 @@ This project includes end-to-end tests for all data source and resource types de
 
 **We do not recommend running these tests on a production appliance.**
 
+The E2E tests can be easily run with the `Makefile` shortcut, which builds the current snapshot into a release Terratest can use:
+
+```sh
+make teste2e
+```
+
 #### Running Unit Tests
 
 Unit tests can be run manually with the `go test` command by excluding the `./test` directory:
