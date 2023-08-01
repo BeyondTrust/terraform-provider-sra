@@ -3,7 +3,7 @@
 page_title: "sra_vault_secret Data Source - sra"
 subcategory: ""
 description: |-
-  Fetch a the secret data for any Vault Account given the account ID.
+  Fetch the secret data for any Vault Account given the account ID.
   NOTE: The API account being used must have permission to check out the account with the provided ID, and the account must be able to be checked out. If the account cannot be checked out, this data source will produce an error.
   This data source will check out and then check in the account with the given ID. It is not recommended to use this data source with accounts that rotate upon check in.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
@@ -11,7 +11,7 @@ description: |-
 
 # sra_vault_secret (Data Source)
 
-Fetch a the secret data for any Vault Account given the account ID.
+Fetch the secret data for any Vault Account given the account ID.
 
 NOTE: The API account being used must have permission to check out the account with the provided ID, and the account must be able to be checked out. If the account cannot be checked out, this data source will produce an error.
 
@@ -48,5 +48,3 @@ Read-Only:
 - `secret` (String, Sensitive) The secret data stored in Vault.
 - `type` (String) The type of the account that was retrieved
 - `username` (String) The data stored in the username field in Vault.
-
-

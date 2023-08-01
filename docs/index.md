@@ -3,12 +3,45 @@
 page_title: "sra Provider"
 subcategory: ""
 description: |-
-  Interact with the configuration API of your BeyondTrust SRA Appliance
+  BeyondTrust SRA Terraform Provider
+  The BeyondTrust SRA Provider https://registry.terraform.io/providers/beyondtrust/sra/latest/docs allows Terraform https://terraform.io to manage access to resources in the Secure Remote Access (SRA) https://www.beyondtrust.com/secure-remote-access products from BeyondTrust.  This module can be used with either the Remote Support and Privileged Remote Access products to interact with the Configuration API using appropriately configured API credentials.
+  See the SRA Provider documentation as well as the Configuration API documentation in your instance for more information on supported API endpoints and parameters.
+  This provider requires Remote Support or Privileged Remote Access version 23.2.1+. Using this provider with prior versions is not supported by BeyondTrust and could result in Terraform reporting errors.
+  Use Cases
+  The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjection with BeyondTrust Remote Support or BeyondTrust Priviliged Remote Access products.
+  As examples, this provider allows:
+  * Enabling Jump Item creation and deletion to match the provisioning and deprovisioning of assets within Terraform.
+  * Enabling Vault credential creation and deletion to match the credentials used within the assets within Terraform.
+  * Enabling Vault credential associations to Jump Items to enable passwordless authentication to assets.
+  * Enabling Vault credential policy management to control how credentials are handled and used.
+  * Enabling Jump Group creation, deletion, and asset membership to leverage existing SRA access controls.
+  * Enabling Group Policy associations to Jump Groups, Vault Accounts, Vault Account Groups to control overall user access to all Terraform assets.
+  Examples for all of these use cases can be found within the test-tf-files https://github.com/BeyondTrust/terraform-provider-sra/tree/main/test-tf-files section of our Github repo.
 ---
 
 # sra Provider
 
-Interact with the configuration API of your BeyondTrust SRA Appliance
+# BeyondTrust SRA Terraform Provider
+
+The [BeyondTrust SRA Provider](https://registry.terraform.io/providers/beyondtrust/sra/latest/docs) allows [Terraform](https://terraform.io) to manage access to resources in the [Secure Remote Access (SRA)](https://www.beyondtrust.com/secure-remote-access) products from BeyondTrust.  This module can be used with either the Remote Support and Privileged Remote Access products to interact with the Configuration API using appropriately configured API credentials.
+
+See the SRA Provider documentation as well as the Configuration API documentation in your instance for more information on supported API endpoints and parameters.
+
+This provider requires Remote Support or Privileged Remote Access version 23.2.1+. Using this provider with prior versions is not supported by BeyondTrust and could result in Terraform reporting errors.
+
+## Use Cases
+
+The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjection with BeyondTrust Remote Support or BeyondTrust Priviliged Remote Access products.
+
+As examples, this provider allows:
+* Enabling Jump Item creation and deletion to match the provisioning and deprovisioning of assets within Terraform.
+* Enabling Vault credential creation and deletion to match the credentials used within the assets within Terraform.
+* Enabling Vault credential associations to Jump Items to enable passwordless authentication to assets.
+* Enabling Vault credential policy management to control how credentials are handled and used.
+* Enabling Jump Group creation, deletion, and asset membership to leverage existing SRA access controls.
+* Enabling Group Policy associations to Jump Groups, Vault Accounts, Vault Account Groups to control overall user access to all Terraform assets.
+
+Examples for all of these use cases can be found within the [test-tf-files](https://github.com/BeyondTrust/terraform-provider-sra/tree/main/test-tf-files) section of our Github repo.
 
 ## Example Usage
 

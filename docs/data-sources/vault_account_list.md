@@ -58,5 +58,3 @@ Read-Only:
 - `id` (String) The unique identifier assigned to this Account by the system.
 - `personal` (Boolean) Indicates if this is a personal account.
 - `type` (String)
-
-

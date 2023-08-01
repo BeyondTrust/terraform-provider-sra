@@ -51,5 +51,3 @@ Read-Only:
 
 - `account_policy` (String) The code name of the Account Policy associated with the Account Group. When the value is `null`, the account policy is inherited from the global default.
 - `id` (String) The unique identifier assigned to this Account Group by the system.
-
-

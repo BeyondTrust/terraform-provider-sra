@@ -61,5 +61,3 @@ Read-Only:
 - `personal` (Boolean)
 - `public_key` (String)
 - `type` (String)
-
-

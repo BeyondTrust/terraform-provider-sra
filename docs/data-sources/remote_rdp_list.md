@@ -95,5 +95,3 @@ Read-Only:
 
 - `id` (String) The unique identifier assigned to this RDP Jump Item by Privileged Remote Access. Other Jump Item types, like Shell Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
 
-
-

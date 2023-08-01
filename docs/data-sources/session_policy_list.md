@@ -51,5 +51,3 @@ Optional:
 Read-Only:
 
 - `id` (String) The unique identifier assigned to this Session Policy by the appliance.
-
-

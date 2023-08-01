@@ -52,5 +52,3 @@ Optional:
 Read-Only:
 
 - `id` (String) The unique identifier assigned to this Jump Group by the appliance.
-
-
