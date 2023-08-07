@@ -6,9 +6,9 @@ Here is some information on how to get started and where to ask for help.
 
 ## Getting Started
 
-The SRA Terraform provider is a translation layer between Terraform and the SRA Configuration API. Thus, the documentation for the configuration API directly applies to the Terraform resources defined. All Terraform schemas should directly map to a configuration API endpoint. Not all endpoints in the configuration API have Terraform counterparts, and that is intentional.
+The SRA Terraform provider is a translation layer between Terraform and the SRA Configuration API. Thus, the documentation for the configuration API directly applies to the Terraform resources defined. All Terraform schemas should directly map to a configuration API endpoint. Not all endpoints in the configuration API have Terraform counterparts.
 
-The configuration API documentation can be viewed form /login of your appliance under **Management > Security**.
+The configuration API documentation can be viewed from the /login interface of your instance under **Management > Security**.  You must be logged in with administrator permissions to reach this section of the interface.
 
 ## How can I Contribute?
 
@@ -16,7 +16,7 @@ The configuration API documentation can be viewed form /login of your appliance 
 
 Bugs should be submitted through BeyondTrust Support. Any bugs should be submitted against either _Remote Support_ or _Privileged Remote Access_, depending on which product you're using. Our support team will ensure the escalation is raised to the proper team internally.
 
-If the bug is a security vulnerability, instead please refer to the [responsible disclosure section of our security policy](https://www.beyondtrust.com/security#disclosure)
+If the bug is a security vulnerability, instead please refer to the [responsible disclosure section of our security policy](https://www.beyondtrust.com/security#disclosure).
 
 ### Feature Requests
 

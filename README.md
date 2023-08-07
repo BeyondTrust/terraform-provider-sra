@@ -26,15 +26,15 @@ Examples for all of these use cases can be found within the [test-tf-files](http
 
 ## Configuration
 
-To function, the provider requires the hostname of your appliance as well as credentials for an API account. This API account must have permission to "Allow Access" to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the "Manage Vault Accounts" permission.
+To function, the provider requires the hostname of your instance as well as credentials for an API account configured in that instance. This API account must have permission to "Allow Access" to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the "Manage Vault Accounts" permission.
 
-To use the API Account within your Terraform scripts, the host, Client ID, and Client Secret values should be passed by setting the environment variables `BT_API_HOST`, `BT_CLIENT_ID`, and `BT_CLIENT_SECRET` which are the same environment settings used by the `btapi` CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.
+To use the API Account within your Terraform scripts, the hostname, Client ID, and Client Secret values should be passed by setting the environment "BT_API_HOST", "BT_CLIENT_ID", and "BT_CLIENT_SECRET" environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.
 
 ```terraform
 provider "sra" {
-  host          = "<Your SRA appliance hostname, such as mycompanyname.beyondtrustcloud.com>"
-  client_id     = "<Your SRA API Account OAuth Client ID>"
-  client_secret = "<Your Account Client Secret>"
+  host          = "<The SRA instance hostname, such as mycompanyname.beyondtrustcloud.com>"
+  client_id     = "<The SRA API Account OAuth Client ID>"
+  client_secret = "<The SRA API Account Client Secret>"
 }
 ```
 
