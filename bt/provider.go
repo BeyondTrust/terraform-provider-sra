@@ -69,16 +69,16 @@ To function, the provider requires the hostname of your instance as well as cred
 To use the API Account within your Terraform scripts, the hostname, Client ID, and Client Secret values should be passed by setting the \"BT_API_HOST\", \"BT_CLIENT_ID\", and \"BT_CLIENT_SECRET\" environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.`,
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Required:    true,
+				Optional:    true,
 				Description: "The SRA appliance hostname, such as mycompanyname.beyondtrustcloud.com",
 			},
 			"client_id": schema.StringAttribute{
 				Description: "The SRA API Account OAuth Client ID",
-				Required:    true,
+				Optional:    true,
 			},
 			"client_secret": schema.StringAttribute{
 				Description: "The SRA API Account Client Secret",
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 			},
 		},
