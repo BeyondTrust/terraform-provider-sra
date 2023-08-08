@@ -87,39 +87,10 @@ To use the API Account within your Terraform scripts, the hostname, Client ID, a
 
 func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	tflog.Info(ctx, "Configuring BeyondTrust SRA API client")
+
 	var config sraProviderModel
-	diags := req.Config.Get(ctx, &config)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
-	if config.Host.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("host"),
-			"Unknown BeyondTrust SRA Appliance Address",
-			"The provider cannot create the BeyondTrust SRA API client as there is an unknown configuration value for the BeyondTrust SRA Appliance Address. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the BT_API_HOST environment variable.",
-		)
-	}
-
-	if config.ClientId.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("client_id"),
-			"Unknown BeyondTrust SRA API Client ID",
-			"The provider cannot create the BeyondTrust SRA API client as there is an unknown configuration value for the BeyondTrust SRA API client_id. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the BT_CLIENT_ID environment variable.",
-		)
-	}
-
-	if config.ClientSecret.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("client_secret"),
-			"Unknown BeyondTrust SRA API Client Secret",
-			"The provider cannot create the BeyondTrust SRA API client as there is an unknown configuration value for the BeyondTrust SRA API password. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the BT_CLIENT_SECRET environment variable.",
-		)
-	}
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -129,15 +100,15 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	client_id := os.Getenv("BT_CLIENT_ID")
 	client_secret := os.Getenv("BT_CLIENT_SECRET")
 
-	if !config.Host.IsNull() {
+	if !config.Host.IsNull() && !config.Host.IsUnknown() {
 		host = config.Host.ValueString()
 	}
 
-	if !config.ClientId.IsNull() {
+	if !config.ClientId.IsNull() && !config.ClientId.IsUnknown() {
 		client_id = config.ClientId.ValueString()
 	}
 
-	if !config.ClientSecret.IsNull() {
+	if !config.ClientSecret.IsNull() && !config.ClientSecret.IsUnknown() {
 		client_secret = config.ClientSecret.ValueString()
 	}
 
