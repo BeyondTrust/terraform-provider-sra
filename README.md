@@ -4,7 +4,7 @@
 
 # BeyondTrust SRA Terraform Provider
 
-The [BeyondTrust SRA Provider](https://registry.terraform.io/providers/beyondtrust/sra/latest/docs) allows [Terraform](https://terraform.io) to manage access to resources in the [Secure Remote Access (SRA)](https://www.beyondtrust.com/secure-remote-access) products from BeyondTrust.  This module can be used with either the Remote Support and Privileged Remote Access products to interact with the Configuration API using appropriately configured API credentials.
+The [BeyondTrust SRA Provider](https://registry.terraform.io/providers/beyondtrust/sra/latest/docs) allows [Terraform](https://terraform.io) to manage access to resources in the [Secure Remote Access (SRA)](https://www.beyondtrust.com/secure-remote-access) products from BeyondTrust.  This module can be used with either the Remote Support or Privileged Remote Access products to interact with the Configuration API using appropriately configured API credentials.
 
 See the SRA Provider documentation as well as the Configuration API documentation in your instance for more information on supported API endpoints and parameters.
 
