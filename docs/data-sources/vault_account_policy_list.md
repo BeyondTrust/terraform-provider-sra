@@ -56,5 +56,3 @@ Read-Only:
 - `id` (String) The unique identifier assigned to this Account Policy by the system.
 - `maximum_password_age` (Number) The amount of time in days before the system automatically rotates an account password when `scheduled_password_rotation` is enabled. When creating a new account policy with `scheduled_password_rotation` as enabled, this value must be defined. If `scheduled_password_rotation` is null or false, this value is also null and not required.
 - `scheduled_password_rotation` (Boolean) If enabled, the system will automatically rotate an account password when it reaches the specified maximum age.
-
-

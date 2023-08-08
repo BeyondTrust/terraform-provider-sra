@@ -34,7 +34,7 @@ type vaultSecretDataSourceModel struct {
 
 func (d *vaultSecretDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: `Fetch a the secret data for any Vault Account given the account ID.
+		Description: `Fetch the secret data for any Vault Account given the account ID.
 
 NOTE: The API account being used must have permission to check out the account with the provided ID, and the account must be able to be checked out. If the account cannot be checked out, this data source will produce an error.
 

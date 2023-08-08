@@ -89,5 +89,3 @@ Optional:
 Read-Only:
 
 - `id` (String) The unique identifier assigned to this group policy by the system.
-
-

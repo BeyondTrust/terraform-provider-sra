@@ -1,5 +1,5 @@
 provider "sra" {
-  host          = "example.beyondtrust.com"
-  client_id     = "api account client id"
-  client_secret = "api account client secret"
+  host          = "mycompanyname.beyondtrustcloud.com"
+  client_id     = "<Client ID>"
+  client_secret = "<Client Secret>"
 }
