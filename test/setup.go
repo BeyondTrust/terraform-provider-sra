@@ -54,6 +54,9 @@ func withBaseTFOptions(t *testing.T, originalOptions *terraform.Options) *terraf
 	newOpts := terraform.WithDefaultRetryableErrors(t, originalOptions)
 	pluginPath, _ := filepath.Abs("../test-reg")
 	newOpts.PluginDir = pluginPath
+	newOpts.EnvVars["BT_API_HOST"] = os.Getenv("BT_API_HOST")
+	newOpts.EnvVars["BT_CLIENT_ID"] = os.Getenv("BT_CLIENT_ID")
+	newOpts.EnvVars["BT_CLIENT_SECRET"] = os.Getenv("BT_CLIENT_SECRET")
 	return newOpts
 }
 
