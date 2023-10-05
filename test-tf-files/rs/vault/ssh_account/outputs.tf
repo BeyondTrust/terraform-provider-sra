@@ -25,6 +25,18 @@ output "stand_alone" {
   sensitive   = true
 }
 
+output "stand_alone_ca_key" {
+  description = "The created ssh account"
+  value       = sra_vault_ssh_account.stand_alone_ca_key
+  sensitive   = true
+}
+
+output "stand_alone_ca" {
+  description = "The created ssh account"
+  value       = sra_vault_ssh_account.stand_alone_ca
+  sensitive   = true
+}
+
 output "stand_alone_gp" {
   description = "The created ssh account"
   value       = sra_vault_ssh_account.stand_alone_gp
