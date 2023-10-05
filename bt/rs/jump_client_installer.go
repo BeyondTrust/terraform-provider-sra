@@ -97,8 +97,8 @@ func (r jumpClientInstallerResource) ModifyPlan(ctx context.Context, req resourc
 		if plan.AllowOverrideUnattendedSessionPolicy.IsUnknown() {
 			plan.AllowOverrideUnattendedSessionPolicy = types.BoolValue(false)
 		}
-		if plan.IsQuiet.IsUnknown() {
-			plan.IsQuiet = types.BoolValue(false)
+		if plan.CustomerClientStartMode.IsUnknown() {
+			plan.CustomerClientStartMode = types.StringValue("normal")
 		}
 	}
 
