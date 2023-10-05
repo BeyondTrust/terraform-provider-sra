@@ -1,6 +1,14 @@
-<a name="unreleased"></a>
+<a name="v1.0.4"></a>
 
-## [Unreleased]
+## [v1.0.4] - 2023-10-05
+
+### Chore
+
+- update API reference for 23.3.1
+
+### Feat
+
+- updates for 23.3.1 compatibility
 
 <a name="v1.0.3"></a>
 
