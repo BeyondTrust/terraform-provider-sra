@@ -97,8 +97,8 @@ func (r jumpClientInstallerResource) ModifyPlan(ctx context.Context, req resourc
 		if plan.AllowOverrideUnattendedSessionPolicy.IsUnknown() {
 			plan.AllowOverrideUnattendedSessionPolicy = types.BoolValue(false)
 		}
-		if plan.IsQuiet.IsUnknown() {
-			plan.IsQuiet = types.BoolValue(false)
+		if plan.CustomerClientStartMode.IsUnknown() {
+			plan.CustomerClientStartMode = types.StringValue("normal")
 		}
 	}
 
@@ -241,8 +241,15 @@ var jciSchema = map[string]schema.Attribute{
 		Description: "This field only applies to RS",
 	},
 	"is_quiet": schema.BoolAttribute{
+		Computed:    true,
+		Description: "This field only applies to RS",
+	},
+	"customer_client_start_mode": schema.StringAttribute{
 		Optional:    true,
 		Computed:    true,
 		Description: "This field only applies to RS",
+		Validators: []validator.String{
+			stringvalidator.OneOf([]string{"normal", "minimized", "hidden"}...),
+		},
 	},
 }

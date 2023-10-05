@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  version: "1.7"
+  version: "1.8"
   title: "BeyondTrust Privileged Remote Access Configuration APIs"
   description: >
     <a id="__overview"></a>
@@ -484,6 +484,7 @@ paths:
               properties:
                 name:
                   type: string
+                  minLength: 0
                   maxLength: 128
                   description: The name for the Jump Clients deployed using this installer. If left blank, the Jump Client name will be set to the name of the computer on which the installer is deployed.
                 jump_group_id:
@@ -2525,6 +2526,52 @@ paths:
         "422":
           $ref: "#/components/responses/422UnprocessableEntity"
 
+  /user/{id}/group-policy-changes:
+    patch:
+      summary: Update the group policy associations for a local User.
+      description: >
+        Adds or removes a local user from the group policies with the IDs specified in the body.
+
+        IDs in the `added` field that the user is already a member of will be ignored. IDs in the `removed` field that the user is not a member of will be ignored.
+
+        Only local users are allowed.
+      operationId: api.config.user.group_policy_change
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        description: The IDs of the group policies to add or remove the user from.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                added:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  description: Array with the unique identifiers of the group policies to add the user to.
+                  default: []
+                removed:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  description: The unique identifier of the group policy to remove the user from.
+                  default: []
+        required: true
+      responses:
+        "200":
+          description: Indicates the user was added or removed successfully from the group policiess.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupPolicy"
+        "422":
+          $ref: "#/components/responses/422UnprocessableEntity"
+
   /session-policy:
     get:
       summary: Get a list of Session Policies.
@@ -3141,7 +3188,7 @@ paths:
           $ref: "#/components/responses/404NotFound"
     delete:
       summary: Removes a Vault Account group from a Group Policy.
-      description: Removes the Vault account with the given `{account_group_id}` from the group policy with the given `{id}`.
+      description: Removes the Vault account group with the given `{account_group_id}` from the group policy with the given `{id}`.
       operationId: api.config.group-policy.vault-account-group.destroy
       parameters:
         - $ref: "#/components/parameters/GroupPolicyIdParam"
@@ -3358,7 +3405,8 @@ paths:
           description: Filters results to include only accounts of a the given type.
           schema:
             type: string
-            enum: [username_password, ssh, windows_local, windows_domain]
+            enum:
+              [username_password, ssh, ssh_ca, windows_local, windows_domain]
         - in: query
           name: name
           description: Filters results to include only accounts that match the given name.
@@ -3375,6 +3423,13 @@ paths:
         - in: query
           name: account_group_id
           description: Filters results to include only accounts that match the given vault account group.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+        - in: query
+          name: endpoint_id
+          description: Filters results to include only Windows Local accounts with the given Endpoint.
           schema:
             type: integer
             minimum: 1
@@ -3445,6 +3500,8 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/VaultUsernamePasswordAccount"
                   - $ref: "#/components/schemas/VaultSSHAccount"
+                  - $ref: "#/components/schemas/VaultLocalAccount"
+                  - $ref: "#/components/schemas/VaultDomainAccount"
         "404":
           $ref: "#/components/responses/404NotFound"
         "422":
@@ -3528,8 +3585,8 @@ paths:
 
   /vault/account/{id}/force-check-in:
     post:
-      summary: Force check in a Vault Account's password or private key.
-      description: Forcefully checks in a Vault account's password or private key that was previously checked out by a different user or API account. This API supports all Vault account types, including Windows Local and Windows Domain accounts.
+      summary: Force check in a Vault Account's password.
+      description: Forcefully checks in a Vault account's password that was previously checked out by a different user or API account. This API supports all Vault account types, except `ssh` and `ssh_ca` accounts.
       operationId: api.config.vault.account.force-check-in
       parameters:
         - $ref: "#/components/parameters/IdParam"
@@ -5072,6 +5129,7 @@ components:
         jump_group_type:
           type: string
           enum: [shared, personal]
+          default: shared
           description: The type of Jump Group that owns this Jump Item.
         quality:
           type: string
@@ -5147,58 +5205,6 @@ components:
           minimum: 1
           maximum: 2147483647
           nullable: true
-
-        # To add in later release
-        #        secure_app_type:
-        #          type: string
-        #          enum:
-        #          - remote_app
-        #          - remote_desktop_agent
-        #          - remote_desktop_agent_credentials
-        #          description: >
-        #            One of the following:
-        #              * remote_app
-        #              * remote_desktop_agent
-        #              * remote_desktop_agent_credentials
-        #            If blank then SecureApp technology will not be used.
-        #        remote_app_name:
-        #          type: string
-        #          maxLength: 512
-        #          minLength: 0
-        #          description: >
-        #            Valid only when secure_app_type is "remote_app".
-        #            This is the name of the remote app that will be launched on the endpoint.
-        #        remote_app_params:
-        #          type: string
-        #          maxLength: 8000
-        #          minLength: 0
-        #          description: >
-        #            Valid only when secure_app_type is "remote_app".
-        #            The parameters to pass to the remote app.
-        #        remote_exe_path:
-        #          type: string
-        #          maxLength: 512
-        #          minLength: 0
-        #          description: >
-        #            Valid only when secure_app_type is "remote_desktop_agent" or "remote_desktop_agent_credentials".
-        #            The path to the executable that will be launched by the remote desktop agent.
-        #        remote_exe_params:
-        #          type: string
-        #          maxLength: 8000
-        #          minLength: 0
-        #          description: >
-        #            Valid only when secure_app_type is "remote_desktop_agent" or "remote_desktop_agent_credentials".
-        #            The parameters to pass to the executable.
-        #        target_system:
-        #          type: string
-        #          maxLength: 250
-        #          minLength: 0
-        #          description: Valid only when secure_app_type is "remote_desktop_agent_credentials".
-        #        credential_type:
-        #          type: string
-        #          maxLength: 250
-        #          minLength: 0
-        #          description: Valid only when secure_app_type is "remote_desktop_agent_credentials".
         secure_app_type:
           type: string
           enum:
@@ -5302,6 +5308,7 @@ components:
           type: string
           enum: [shared, personal]
           description: The type of Jump Group that owns this Jump Item.
+          default: shared
         tag:
           type: string
           minLength: 0
@@ -5383,6 +5390,7 @@ components:
           type: string
           enum: [shared, personal]
           description: The type of Jump Group that owns this Jump Item.
+          default: shared
         terminal:
           type: string
           enum:
@@ -5474,6 +5482,7 @@ components:
           type: string
           enum: [shared, personal]
           description: The type of Jump Group that owns this Jump Item.
+          default: shared
         tag:
           type: string
           minLength: 0
@@ -5500,10 +5509,14 @@ components:
           description: The unique identifier of the Session Policy used to control the user's capabilities in the session.
         tunnel_listen_address:
           type: string
+          minLength: 0
+          maxLength: 32
           default: "127.0.0.1"
-          description: The address on which the users should connect to start tunnels. The value must be within the 127.0.0.0/24 subnet.
+          description: The IPv4 address on which the users should connect to start tunnels. The value must be within the 127.0.0.0/24 subnet.
         tunnel_definitions:
           type: string
+          minLength: 0
+          maxLength: 5000
           description: |
             A description of the tunnels that should be created for the remote system, must be pairs of local and report ports.
 
@@ -5524,10 +5537,12 @@ components:
           default: tcp
         username:
           type: string
+          minLength: 0
           maxLength: 128
           description: An additional parameter for the username used by the different tunnel types. The username is required when `tunnel_type` is "mssql".
         database:
           type: string
+          minLength: 0
           maxLength: 128
           description: An additional database parameter for the database used by the different tunnel types.
       required:
@@ -5591,6 +5606,7 @@ components:
         jump_group_type:
           type: string
           enum: [shared, personal]
+          default: shared
           description: The type of Jump Group that owns this Jump Item.
         authentication_timeout:
           type: integer
@@ -5660,7 +5676,7 @@ components:
         comments:
           type: string
           maxLength: 4096
-          minLength: 1
+          minLength: 0
           description: Comments.
           readOnly: true
         enabled:
@@ -5766,12 +5782,12 @@ components:
         password:
           type: string
           format: password
-          maxLength: 255
-          minLength: 1
+          maxLength: 256
           writeOnly: true
           description: >
             The local user's password. This attribute is write-only for local users. It cannot be
             set in non-local user PATCH requests. It is not returned in GET requests.
+            The minimum length is configured in Management -> Security -> Passwords
         public_display_name:
           type: string
           minLength: 1
@@ -5838,6 +5854,20 @@ components:
             represent the time at which the user account was created in an external user store,
             such as an LDAP server.
           readOnly: true
+        two_factor_enabled:
+          type: boolean
+          readOnly: true
+          description: If true, this user has enabled two factor authentication.
+        fido2_credential_count:
+          type: integer
+          format: int32
+          readOnly: true
+          description: The number of FIDO2 credentials registered for this user. (This field is only available if "Enable Passwordless FIDO2 Authentication" is enabled under Management -> security)
+        fido2_last_used_date:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The date and time at which the user last used a FIDO2 credential to authenticate. (This field is only available if "Enable Passwordless FIDO2 Authentication" is enabled under Management -> security)
 
         perm_admin:
           type: boolean
@@ -6112,10 +6142,6 @@ components:
           readOnly: true
           description: "The mode in which the Jump Client service was installed on the endpoint. Service mode means the Jump Client is running in an elevated security context."
           enum: [unknown, user, service]
-        is_quiet:
-          type: boolean
-          default: false
-          description: If true, sessions started from this Jump Client will start with the UI minimized to avoid disrupting logged in users.
         connection_type:
           type: string
           default: active
@@ -6498,7 +6524,7 @@ components:
           type: string
           maxLength: 1024
           minLength: 0
-          description: This field is only applicable when the option 'Allow Search for External Jump Items.' is Enabled in Management -> Security. The value must be unique if it is not empty.
+          description: This field is only applicable when the option "Allow Search for External Jump Items." is Enabled in Management -> Security. The value must be unique if it is not empty.
         protocol_tunnel_enabled:
           type: boolean
           default: true
@@ -6741,7 +6767,7 @@ components:
           description: The unique identifier assigned to this Account by the system.
         type:
           type: string
-          enum: [username_password, ssh, windows_local, windows_domain]
+          enum: [username_password, ssh, ssh_ca, windows_local, windows_domain]
           readOnly: true
         name:
           type: string
@@ -6774,6 +6800,7 @@ components:
           type: string
           maxLength: 64
           minLength: 1
+          nullable: true
           description: The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
     VaultAccountGroup:
       type: object
@@ -6798,6 +6825,7 @@ components:
           type: string
           maxLength: 64
           minLength: 1
+          nullable: true
           description: The code name of the Account Policy associated with the Account Group. When the value is `null`, the account policy is inherited from the global default.
     AccountJumpItemAssociation:
       type: object
@@ -6954,6 +6982,8 @@ components:
 
     VaultAccountPolicy:
       type: object
+      required:
+        - name
       properties:
         id:
           type: integer
@@ -7012,8 +7042,9 @@ components:
           description: Allowed to access endpoints.
         access_perm_status:
           type: string
+          default: "not_defined"
           enum: ["not_defined", "defined", "final"]
-          description: This field indicates if this policy defines user permissions or not. A value of 'defined' means the policy defines values for user permissions. A value of 'final' is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any user permission fields; otherwise the default is "not_defined".
+          description: This field indicates if this policy defines user permissions or not. A value of "defined" means the policy defines values for user permissions. A value of "final" is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any user permission fields; otherwise the default is "not_defined".
         perm_share_other_team:
           type: boolean
           default: false
@@ -7128,7 +7159,7 @@ components:
           description: The unique identifier assigned to this Account by the system.
         type:
           type: string
-          enum: [username_password, ssh, windows_local, windows_domain]
+          enum: [username_password]
         name:
           type: string
           maxLength: 255
@@ -7176,6 +7207,7 @@ components:
           type: string
           maxLength: 64
           minLength: 1
+          nullable: true
           description: The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
       required:
         - type
@@ -7195,7 +7227,7 @@ components:
           description: The unique identifier assigned to this Account by the system.
         type:
           type: string
-          enum: [username_password, ssh, ssh_ca, windows_local, windows_domain]
+          enum: [ssh, ssh_ca]
         name:
           type: string
           maxLength: 255
@@ -7262,6 +7294,133 @@ components:
         - username
         - private_key
 
+    VaultDomainAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Account by the system.
+        type:
+          type: string
+          enum: [windows_domain]
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The name of the Account.
+        username:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The username that will be injected and/or checked out.
+        description:
+          type: string
+          maxLength: 4096
+          description: The Account's description.
+        last_checkout_timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the account was last checked out.
+        account_group_id:
+          type: integer
+          format: int32
+          default: 1
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
+        account_policy:
+          type: string
+          maxLength: 64
+          minLength: 1
+          description: The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
+        is_management:
+          type: boolean
+          description: Indicates this is a domain management acocunt.
+        unique_id:
+          type: string
+          description: The GUID of the Active Directory object that represents the domain account.
+        distinguished_name:
+          type: string
+          description: The distinguished name of the account.
+        sam_account_name:
+          type: string
+          description: The down level logon name of the account.
+        service_principal_name:
+          type: string
+          description: A unique identifier of a service instance used by Kerberos authentication to associate a service instance with a service logon account.
+        azure_ad_object_id:
+          type: string
+          description: GUID used to manage account in MS Graph. Empty if account not managed by MS Graph.
+      required:
+        - type
+        - name
+        - username
+
+    VaultLocalAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Account by the system.
+        type:
+          type: string
+          enum: [windows_local]
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The name of the Account.
+        username:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The username that will be injected and/or checked out.
+        description:
+          type: string
+          maxLength: 4096
+          description: The Account's description.
+        last_checkout_timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the account was last checked out.
+        account_group_id:
+          type: integer
+          format: int32
+          default: 1
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
+        account_policy:
+          type: string
+          maxLength: 64
+          minLength: 1
+          description: The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
+        sid:
+          type: string
+          maxLength: 128
+          minLength: 1
+          description: SID of the account.
+        endpoint_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: Id of the Endpoint.
+      required:
+        - type
+        - name
+        - username
+
     VaultAccountUser:
       type: object
       properties:
@@ -7289,7 +7448,7 @@ components:
           description: The username of the checked out account.
         type:
           type: string
-          enum: [username_password, ssh, windows_local, windows_domain]
+          enum: [username_password, ssh, ssh_ca, windows_local, windows_domain]
         password:
           type: string
           minLength: 1
@@ -7603,7 +7762,7 @@ components:
           default: false
           description: If enabled, approval by a Privileged Remote Access user is required to extend or reactivate users in the vendor group. ```user_approval_enabled``` must first be enabled.
         administrator_id:
-          type: number
+          $ref: "#/components/schemas/ObjectId"
           description: The id of the Privileged Remote Access user who is emailed if notifications are enabled or user approvals are required. The user must have a valid email and SMTP server configured to receive emails.
         network_restrictions:
           type: array
@@ -7700,6 +7859,20 @@ components:
           type: boolean
           readOnly: true
           description: If true, the vendor user is expired and must be reactivated. This attribute is read-only.
+        two_factor_enabled:
+          type: boolean
+          readOnly: true
+          description: If true, this vendor user has enabled two factor authentication.
+        fido2_credential_count:
+          type: integer
+          format: int32
+          readOnly: true
+          description: The number of FIDO2 credentials registered for this vendor user. (This field is only available if "Enable Passwordless FIDO2 Authentication" is enabled under Management -> security)
+        fido2_last_used_date:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The date and time at which the vendor user last used a FIDO2 credential to authenticate. (This field is only available if "Enable Passwordless FIDO2 Authentication" is enabled under Management -> security)
       required:
         - username
         - public_display_name
@@ -7922,6 +8095,10 @@ components:
                 type: string
               readOnly: true
               description: The attribute which the value matches the Display Name. Only valid if lookup_groups is 1.
+            sync_display_name:
+              type: boolean
+              readOnly: true
+              description: Keep display name synchronized with remote system.
     SAMLSecurityProvider:
       allOf:
         - $ref: "#/components/schemas/ExtendedSecurityProvider"

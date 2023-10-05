@@ -127,9 +127,10 @@ type JumpClientInstaller struct {
 	SessionPolicyID            types.Int64 `tfsdk:"session_policy_id" sraproduct:"pra"`
 	AllowOverrideSessionPolicy types.Bool  `tfsdk:"allow_override_session_policy" sraproduct:"pra"`
 
-	IsQuiet                              types.Bool  `tfsdk:"is_quiet"`
-	AttendedSessionPolicyID              types.Int64 `tfsdk:"attended_session_policy_id" sraproduct:"rs"`
-	UnattendedSessionPolicyID            types.Int64 `tfsdk:"unattended_session_policy_id" sraproduct:"rs"`
-	AllowOverrideAttendedSessionPolicy   types.Bool  `tfsdk:"allow_override_attended_session_policy" sraproduct:"rs"`
-	AllowOverrideUnattendedSessionPolicy types.Bool  `tfsdk:"allow_override_unattended_session_policy" sraproduct:"rs"`
+	IsQuiet                              types.Bool   `tfsdk:"is_quiet" sraproduct:"rs"`
+	CustomerClientStartMode              types.String `tfsdk:"customer_client_start_mode" sraproduct:"rs"`
+	AttendedSessionPolicyID              types.Int64  `tfsdk:"attended_session_policy_id" sraproduct:"rs"`
+	UnattendedSessionPolicyID            types.Int64  `tfsdk:"unattended_session_policy_id" sraproduct:"rs"`
+	AllowOverrideAttendedSessionPolicy   types.Bool   `tfsdk:"allow_override_attended_session_policy" sraproduct:"rs"`
+	AllowOverrideUnattendedSessionPolicy types.Bool   `tfsdk:"allow_override_unattended_session_policy" sraproduct:"rs"`
 }

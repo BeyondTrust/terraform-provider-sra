@@ -18,3 +18,17 @@ module "account" {
 data "sra_vault_secret" "secret" {
   id = module.account.item.id
 }
+
+module "ssh" {
+  source      = "../ssh_account"
+  random_bits = "${var.random_bits}2"
+  name        = "${var.name}2"
+}
+
+data "sra_vault_secret" "secret_ssh" {
+  id = module.ssh.item.id
+}
+
+data "sra_vault_secret" "secret_ssh_ca" {
+  id = module.ssh.stand_alone_ca.id
+}

@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -172,10 +173,11 @@ func TestVaultSSHKey(t *testing.T) {
 		shell := terraform.OutputMap(t, terraformOptions, "shell")
 
 		data := testData{
-			randomBits: randomBits,
-			groupID:    group["id"],
-			shellID:    shell["id"],
-			ssh:        true,
+			randomBits:    randomBits,
+			groupID:       group["id"],
+			shellID:       shell["id"],
+			ssh:           1,
+			testPublicKey: true,
 		}
 
 		assertAccount(t, terraformOptions, "item", data, false, false)
@@ -185,6 +187,11 @@ func TestVaultSSHKey(t *testing.T) {
 		assertAccount(t, terraformOptions, "stand_alone_gp", data, true, false)
 		assertAccount(t, terraformOptions, "stand_alone_ji", data, false, true)
 		assertAccount(t, terraformOptions, "stand_alone_both", data, true, true)
+
+		data.ssh = 2
+		assertAccount(t, terraformOptions, "stand_alone_ca_key", data, false, false)
+		data.testPublicKey = false
+		assertAccount(t, terraformOptions, "stand_alone_ca", data, false, false)
 
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 		assert.Equal(t, 0, len(list))
@@ -245,10 +252,11 @@ func TestVaultUserPass(t *testing.T) {
 		shell := terraform.OutputMap(t, terraformOptions, "shell")
 
 		data := testData{
-			randomBits: randomBits,
-			groupID:    group["id"],
-			shellID:    shell["id"],
-			ssh:        false,
+			randomBits:    randomBits,
+			groupID:       group["id"],
+			shellID:       shell["id"],
+			ssh:           0,
+			testPublicKey: false,
 		}
 
 		assertAccount(t, terraformOptions, "item", data, false, false)
@@ -317,10 +325,11 @@ func TestVaultSecret(t *testing.T) {
 }
 
 type testData struct {
-	randomBits string
-	groupID    string
-	shellID    string
-	ssh        bool
+	randomBits    string
+	groupID       string
+	shellID       string
+	ssh           int
+	testPublicKey bool
 }
 
 func assertAccountGroup(t *testing.T, options *terraform.Options, key string, data testData, assertGP bool, assertJI bool) {
@@ -334,6 +343,7 @@ func assertAccountGroup(t *testing.T, options *terraform.Options, key string, da
 }
 
 const testPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC8QhNX9O8WIN5XmF+Qyqwtc5kkTddgPh77FmDEers1e"
+const testPublicCAKey = "cert-authority " + testPublicKey
 
 func assertAccount(t *testing.T, options *terraform.Options, key string, data testData, assertGP bool, assertJI bool) {
 	item := terraform.OutputMap(t, options, key)
@@ -341,8 +351,12 @@ func assertAccount(t *testing.T, options *terraform.Options, key string, data te
 	parsed, err := gabs.ParseJSON([]byte(itemJson))
 	assert.Nil(t, err)
 	assertAccountCommonValues(t, item, data.randomBits, data.groupID)
-	if data.ssh {
-		assert.Equal(t, testPublicKey, item["public_key"])
+	if data.testPublicKey {
+		if data.ssh == 1 {
+			assert.Equal(t, testPublicKey, item["public_key"])
+		} else if data.ssh == 2 {
+			assert.True(t, strings.HasPrefix(item["public_key"], testPublicCAKey))
+		}
 	}
 
 	assertExtras(t, options, parsed, data, assertGP, assertJI)

@@ -32,6 +32,7 @@ type vaultAccountDataSourceModel struct {
 	Type            types.String          `tfsdk:"type" filter:"type"`
 	IncludePersonal types.Bool            `tfsdk:"include_personal" filter:"include_personal"`
 	AccountGroupID  types.Int64           `tfsdk:"account_group_id" filter:"account_group_id"`
+	EndpointID      types.Int64           `tfsdk:"endpoint_id" filter:"endpoint_id"`
 }
 
 func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
@@ -79,7 +80,7 @@ func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.Schema
 				Description: "Filter the list for items matching \"name\"",
 				Optional:    true,
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"username_password", "ssh", "windows_local", "windows_domain"}...),
+					stringvalidator.OneOf([]string{"username_password", "ssh", "ssh_ca", "windows_local", "windows_domain"}...),
 				},
 			},
 			"include_personal": schema.BoolAttribute{
@@ -88,6 +89,10 @@ func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.Schema
 			},
 			"account_group_id": schema.Int64Attribute{
 				Description: "Filter the list for items in account group with id \"account_group_id\"",
+				Optional:    true,
+			},
+			"endpoint_id": schema.Int64Attribute{
+				Description: "Filters results to include only Windows Local accounts with the given Endpoint",
 				Optional:    true,
 			},
 		},

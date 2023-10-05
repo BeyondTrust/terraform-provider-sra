@@ -146,6 +146,10 @@ func (d *jumpClientInstallerDataSource) Schema(ctx context.Context, _ datasource
 		Description: "This field only applies to RS",
 	}
 	installerAttributes["is_quiet"] = schema.BoolAttribute{
+		Computed:    true,
+		Description: "This field only applies to RS",
+	}
+	installerAttributes["customer_client_start_mode"] = schema.StringAttribute{
 		Optional:    true,
 		Computed:    true,
 		Description: "This field only applies to RS",

@@ -31,6 +31,7 @@ data "sra_vault_account_list" "filtered" {
 ### Optional
 
 - `account_group_id` (Number) Filter the list for items in account group with id "account_group_id"
+- `endpoint_id` (Number) Filters results to include only Windows Local accounts with the given Endpoint
 - `include_personal` (Boolean) Set to 'true' to allows results to include personal accounts
 - `name` (String) Filter the list for items matching "name"
 - `type` (String) Filter the list for items matching "name"

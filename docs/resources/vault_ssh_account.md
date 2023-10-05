@@ -57,8 +57,6 @@ output "pub_key" {
 ### Required
 
 - `name` (String) The name of the Account.
-- `private_key` (String, Sensitive)
-- `private_key_passphrase` (String, Sensitive)
 - `username` (String) The username that will be injected and/or checked out.
 
 ### Optional
@@ -68,7 +66,10 @@ output "pub_key" {
 - `description` (String) The Account's description.
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
+- `private_key` (String, Sensitive)
+- `private_key_passphrase` (String, Sensitive)
 - `private_key_public_cert` (String) The public certificate used for authentication.
+- `type` (String)
 
 ### Read-Only
 
@@ -77,7 +78,6 @@ output "pub_key" {
 - `owner_user_id` (Number) The unique identifier of a user who owns the personal account.
 - `personal` (Boolean) Indicates if this is a personal account.
 - `public_key` (String) The public SSH key for the stored private key.
-- `type` (String)
 
 <a id="nestedatt--group_policy_memberships"></a>
 ### Nested Schema for `group_policy_memberships`

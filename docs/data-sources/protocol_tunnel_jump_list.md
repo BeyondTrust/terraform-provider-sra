@@ -70,7 +70,7 @@ The local ports must be between 0 and 65535, inclusive and the remote ports must
 
 This is a required field when the tunnel type is tcp.
  _This field only applies to PRA_
-- `tunnel_listen_address` (String) The address on which the users should connect to start tunnels. The value must be within the 127.0.0.0/24 subnet. _This field only applies to PRA_
+- `tunnel_listen_address` (String) The IPv4 address on which the users should connect to start tunnels. The value must be within the 127.0.0.0/24 subnet. _This field only applies to PRA_
 - `tunnel_type` (String) One of the following:
   * tcp
   * mssql

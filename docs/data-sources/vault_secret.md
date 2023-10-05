@@ -46,5 +46,6 @@ Read-Only:
 
 - `id` (String)
 - `secret` (String, Sensitive) The secret data stored in Vault.
+- `signed_public_cert` (String) The signed public cert for a ssh or ssh_ca secret, if one exists.
 - `type` (String) The type of the account that was retrieved
 - `username` (String) The data stored in the username field in Vault.
