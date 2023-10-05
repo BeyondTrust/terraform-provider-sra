@@ -7,21 +7,21 @@ import (
 // Models should be named like ResourceName. This name is mapped to snake_case for the
 // name users will use in the terraform definitions for these resources
 type ShellJump struct {
-	ID              *int   `json:"id,omitempty"`
-	Name            string `json:"name"`
-	JumpointID      int    `json:"jumpoint_id"`
-	Hostname        string `json:"hostname"`
-	Protocol        string `json:"protocol"`
-	JumpGroupID     int    `json:"jump_group_id"`
-	JumpGroupType   string `json:"jump_group_type"`
-	Port            int    `json:"port"`
-	Terminal        string `json:"terminal"`
-	KeepAlive       int    `json:"keep_alive"`
-	Tag             string `json:"tag"`
-	Comments        string `json:"comments"`
-	Username        string `json:"username"`
-	JumpPolicyID    *int   `json:"jump_policy_id,omitempty"`
-	SessionPolicyID *int   `json:"session_policy_id,omitempty"`
+	ID              *int    `json:"id,omitempty"`
+	Name            string  `json:"name"`
+	JumpointID      int     `json:"jumpoint_id"`
+	Hostname        string  `json:"hostname"`
+	Protocol        string  `json:"protocol"`
+	JumpGroupID     int     `json:"jump_group_id"`
+	JumpGroupType   string  `json:"jump_group_type"`
+	Port            int     `json:"port"`
+	Terminal        string  `json:"terminal"`
+	KeepAlive       int     `json:"keep_alive"`
+	Tag             string  `json:"tag"`
+	Comments        string  `json:"comments"`
+	Username        *string `json:"username,omitempty"`
+	JumpPolicyID    *int    `json:"jump_policy_id,omitempty"`
+	SessionPolicyID *int    `json:"session_policy_id,omitempty"`
 }
 
 func (ShellJump) Endpoint() string {
@@ -157,7 +157,7 @@ type Jumpoint struct {
 	Name                      string  `json:"name"`
 	CodeName                  string  `json:"code_name"`
 	Platform                  string  `json:"platform"`
-	Comments                  string  `json:"comments"`
+	Comments                  *string `json:"comments,omitempty"`
 	Enabled                   bool    `json:"enabled"`
 	Connected                 bool    `json:"connected"`
 	Clustered                 bool    `json:"clustered"`
@@ -372,8 +372,8 @@ type VaultSSHAccount struct {
 
 	Username              string  `json:"username"`
 	PublicKey             *string `json:"public_key,omitempty"`
-	PrivateKey            string  `json:"private_key"`
-	PrivateKeyPassphrase  string  `json:"private_key_passphrase"`
+	PrivateKey            *string `json:"private_key,omitempty"`
+	PrivateKeyPassphrase  *string `json:"private_key_passphrase,omitempty"`
 	PrivateKeyPublicCert  string  `json:"private_key_public_cert"`
 	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
 

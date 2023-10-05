@@ -32,6 +32,20 @@ resource "sra_vault_ssh_account" "stand_alone" {
   private_key_passphrase = ""
 }
 
+resource "sra_vault_ssh_account" "stand_alone_ca_key" {
+  name                   = "Standalone CA Key ${var.name} ${var.random_bits}"
+  username               = var.random_bits
+  private_key            = var.private_key
+  private_key_passphrase = ""
+  type                   = "ssh_ca"
+}
+
+resource "sra_vault_ssh_account" "stand_alone_ca" {
+  name                   = "Standalone CA ${var.name} ${var.random_bits}"
+  username               = var.random_bits
+  type                   = "ssh_ca"
+}
+
 resource "sra_vault_ssh_account" "stand_alone_gp" {
   name                   = "Standalone Key GP ${var.name} ${var.random_bits}"
   username               = var.random_bits

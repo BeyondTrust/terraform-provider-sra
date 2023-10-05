@@ -248,7 +248,6 @@ var jciSchema = map[string]schema.Attribute{
 		Optional:    true,
 		Computed:    true,
 		Description: "This field only applies to RS",
-		Default:     stringdefault.StaticString("normal"),
 		Validators: []validator.String{
 			stringvalidator.OneOf([]string{"normal", "minimized", "hidden"}...),
 		},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -61,6 +62,11 @@ For descriptions of individual fields, please see the Configuration API document
 						Computed:    true,
 						Sensitive:   true,
 						Description: "The secret data stored in Vault.",
+					},
+					"signed_public_cert": schema.StringAttribute{
+						Computed:    true,
+						Sensitive:   true,
+						Description: "The signed public cert for a ssh or ssh_ca secret, if one exists.",
 					},
 				},
 			},
@@ -140,7 +146,8 @@ func (d *vaultSecretDataSource) Read(ctx context.Context, req datasource.ReadReq
 	state.Account = &account
 
 	_, err = api.Post(d.apiClient, "check-in", *item, true)
-	if err != nil {
+	// If checking it back in isn't allowed… just ignore that
+	if err != nil && !strings.HasPrefix(err.Error(), "status: 422") {
 		resp.Diagnostics.AddError(
 			"Error checking in account",
 			"Error checking in the account with id ID ["+strconv.Itoa(id)+"]. Please ensure the account can be checked in.\n"+err.Error(),

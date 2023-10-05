@@ -59,6 +59,7 @@ func (r *vaultSSHAccountResource) Schema(_ context.Context, _ resource.SchemaReq
 				},
 			},
 			"type": schema.StringAttribute{
+				Optional: true,
 				Computed: true,
 				Default:  stringdefault.StaticString("ssh"),
 				Validators: []validator.String{
@@ -94,11 +95,11 @@ func (r *vaultSSHAccountResource) Schema(_ context.Context, _ resource.SchemaReq
 				Computed: true,
 			},
 			"private_key": schema.StringAttribute{
-				Required:  true,
+				Optional:  true,
 				Sensitive: true,
 			},
 			"private_key_passphrase": schema.StringAttribute{
-				Required:  true,
+				Optional:  true,
 				Sensitive: true,
 			},
 			"private_key_public_cert": schema.StringAttribute{

@@ -116,7 +116,6 @@ func (r *shellJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"username": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  stringdefault.StaticString(""),
 			},
 			"jump_policy_id": schema.Int64Attribute{
 				Optional: true,
