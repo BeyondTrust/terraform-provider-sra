@@ -65,7 +65,6 @@ For descriptions of individual fields, please see the Configuration API document
 					},
 					"signed_public_cert": schema.StringAttribute{
 						Computed:    true,
-						Sensitive:   true,
 						Description: "The signed public cert for a ssh or ssh_ca secret, if one exists.",
 					},
 				},
