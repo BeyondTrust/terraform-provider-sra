@@ -68,9 +68,9 @@ output "client" {
 - `attended_session_policy_id` (Number) The session policy used when an end user is present on the Jump Client system. _This field only applies to RS_
 - `comments` (String) The Jump Client's comments.
 - `connection_type` (String) The type of connection maintained between the appliance and the Jump Client. Cloud deployments only allow active Jump Clients.
+- `customer_client_start_mode` (String) This setting determines how sessions are started from the deployed Jump Client. If normal, the customer client will start with the window visible. If minimized, it will start with the window minimized. If hidden, it will start with no visible customer window and will not appear in the taskbar. _This field only applies to RS_
 - `elevate_install` (Boolean) If true, the installer will attempt to elevate the Jump Client to make it run as a service.
 - `elevate_prompt` (Boolean) If true, the installer will prompt for elevation credentials if necessary. This parameter is ignored if elevate_install is false.
-- `is_quiet` (Boolean) If true, the customer client will start minimized when sessions are started from the deployed Jump Client. _This field only applies to RS_
 - `jump_group_type` (String) The type of Jump Group that owns this Jump Client.
 - `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
 - `max_offline_minutes` (Number) The maximum number of minutes the installed Jump Client can be offline before being uninstalled. If 0, the Jump Client will follow the global lost client settings.
@@ -85,6 +85,7 @@ output "client" {
 - `expiration_timestamp` (String) The date/time at which the Jump Client installer will no longer be valid.
 - `id` (String) The unique identifier assigned to this Jump Client Installer by the appliance.
 - `installer_id` (String) The unique installer identifier that can be used to download the installer for a specific platform.
+- `is_quiet` (Boolean) If true, the customer client will start minimized when sessions are started from the deployed Jump Client. _This field only applies to RS_
 - `key_info` (String) The information needed to deploy a Windows MSI installer. Only included in the response when creating a new installer.
 
 ## Import

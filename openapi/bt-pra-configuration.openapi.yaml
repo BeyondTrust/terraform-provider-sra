@@ -629,7 +629,18 @@ paths:
           description: "The platform for the mass deployment installer."
           schema:
             type: string
-            enum: [linux-64, linux-64-headless, raspberry-pi-32-headless, mac-dmg, mac-zip, windows-64, windows-64-msi, windows-32, windows-32-msi]
+            enum:
+              [
+                linux-64,
+                linux-64-headless,
+                raspberry-pi-32-headless,
+                mac-dmg,
+                mac-zip,
+                windows-64,
+                windows-64-msi,
+                windows-32,
+                windows-32-msi,
+              ]
       responses:
         "200":
           description: OK
@@ -1407,7 +1418,7 @@ paths:
           description: Filters results to include only the protocol tunnel jump items with the given Jump Group type.
           schema:
             type: string
-            enum: [ shared, personal ]
+            enum: [shared, personal]
         - in: query
           name: jumpoint_id
           description: Filters results to include only the protocol tunnel jump items with the given Jumpoint id.
@@ -3394,7 +3405,8 @@ paths:
           description: Filters results to include only accounts of a the given type.
           schema:
             type: string
-            enum: [username_password, ssh, ssh_ca, windows_local, windows_domain]
+            enum:
+              [username_password, ssh, ssh_ca, windows_local, windows_domain]
         - in: query
           name: name
           description: Filters results to include only accounts that match the given name.
@@ -5062,7 +5074,18 @@ components:
       properties:
         error:
           type: string
-          enum: ["access_denied", "invalid_client", "invalid_credentials", "invalid_grant", "invalid_request", "server_error", "unauthorized_client", "unsupported_grant_type", "unsupported_response_type"]
+          enum:
+            [
+              "access_denied",
+              "invalid_client",
+              "invalid_credentials",
+              "invalid_grant",
+              "invalid_request",
+              "server_error",
+              "unauthorized_client",
+              "unsupported_grant_type",
+              "unsupported_response_type",
+            ]
           description: An error type identifier.
         message:
           type: string
@@ -5185,10 +5208,10 @@ components:
         secure_app_type:
           type: string
           enum:
-          - none
-          - remote_app
-          - remote_desktop_agent
-          - remote_desktop_agent_credentials
+            - none
+            - remote_app
+            - remote_desktop_agent
+            - remote_desktop_agent_credentials
           description: >
             One of the following:
               * remote_app
@@ -5457,7 +5480,7 @@ components:
           description: The unique identifier of the Jump Group or user that owns this Jump Item.
         jump_group_type:
           type: string
-          enum: [ shared, personal ]
+          enum: [shared, personal]
           description: The type of Jump Group that owns this Jump Item.
           default: shared
         tag:
@@ -5582,7 +5605,7 @@ components:
           description: The unique identifier of the Jump Group or user that owns this Jump Item.
         jump_group_type:
           type: string
-          enum: [ shared, personal ]
+          enum: [shared, personal]
           default: shared
           description: The type of Jump Group that owns this Jump Item.
         authentication_timeout:
@@ -5687,7 +5710,7 @@ components:
           readOnly: true
         perm_command:
           type: string
-          enum: [ deny, read_only, full_access ]
+          enum: [deny, read_only, full_access]
           description: Command API.
           readOnly: true
         perm_reporting_support:
@@ -5860,12 +5883,19 @@ components:
           readOnly: true
         perm_view_support_reports:
           type: string
-          enum: [ "not_allowed", "user_sessions", "all_sessions", "team_sessions", "jump_group_sessions" ]
+          enum:
+            [
+              "not_allowed",
+              "user_sessions",
+              "all_sessions",
+              "team_sessions",
+              "jump_group_sessions",
+            ]
           description: Session Reporting Permissions.
           readOnly: true
         perm_view_vault_reports:
           type: string
-          enum: [ "not_allowed", "view_user_events", "view_all_events" ]
+          enum: ["not_allowed", "view_user_events", "view_all_events"]
           description: Allowed to View Vault Reports.
           readOnly: true
         perm_view_syslog_reports:
@@ -5894,7 +5924,7 @@ components:
           readOnly: true
         perm_access_allowed:
           type: string
-          enum: [ "not_allowed", "full_support" ]
+          enum: ["not_allowed", "full_support"]
           description: Allowed to access endpoints.
           readOnly: true
         perm_share_other_team:
@@ -6131,7 +6161,7 @@ components:
         is_lost:
           type: boolean
           readOnly: true
-          description: "For active Jump Clients, this is true when the Jump Client has been disconnected for longer than the number of days configured for the "lost" setting on the /login → Jump → Jump Clients page. For passive Jump Clients, this is true when the Jump Client has not checked in for longer than the number of days configured for the "lost" setting on the /login → Jump → Jump Clients page."
+          description: "For active Jump Clients, this is true when the Jump Client has been disconnected for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page. For passive Jump Clients, this is true when the Jump Client has not checked in for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page."
         needs_update:
           type: boolean
           readOnly: true
@@ -6296,7 +6326,6 @@ components:
           readOnly: true
           description: The information needed to deploy a Windows MSI installer. Only included in the response when creating a new installer.
 
-
     Team:
       type: object
       properties:
@@ -6321,7 +6350,7 @@ components:
           description: The team comments.
           nullable: true
       required:
-      - name
+        - name
     TeamUser:
       type: object
       properties:
@@ -6932,7 +6961,7 @@ components:
         type:
           type: string
           description: If you use the `protocol_tunnel` option, only SQL Server Tunnels are allowed.
-          enum: [ jump_client, remote_rdp, shell_jump, web_jump, protocol_tunnel ]
+          enum: [jump_client, remote_rdp, shell_jump, web_jump, protocol_tunnel]
       required:
         - id
         - type
@@ -7014,7 +7043,7 @@ components:
         access_perm_status:
           type: string
           default: "not_defined"
-          enum: [ "not_defined", "defined", "final" ]
+          enum: ["not_defined", "defined", "final"]
           description: This field indicates if this policy defines user permissions or not. A value of "defined" means the policy defines values for user permissions. A value of "final" is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any user permission fields; otherwise the default is "not_defined".
         perm_share_other_team:
           type: boolean
@@ -7850,7 +7879,6 @@ components:
         - password
         - email_address
 
-
     ExtendedSecurityProvider:
       allOf:
         - $ref: "#/components/schemas/SecurityProvider"
@@ -8329,7 +8357,6 @@ components:
       schema:
         type: integer
         minimum: 0
-
 
   responses:
     404NotFound:

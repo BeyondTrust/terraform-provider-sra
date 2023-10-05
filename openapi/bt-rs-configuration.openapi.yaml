@@ -643,7 +643,18 @@ paths:
           description: "The platform for the mass deployment installer."
           schema:
             type: string
-            enum: [linux-64, linux-64-headless, raspberry-pi-32-headless, mac-dmg, mac-zip, windows-64, windows-64-msi, windows-32, windows-32-msi]
+            enum:
+              [
+                linux-64,
+                linux-64-headless,
+                raspberry-pi-32-headless,
+                mac-dmg,
+                mac-zip,
+                windows-64,
+                windows-64-msi,
+                windows-32,
+                windows-32-msi,
+              ]
       responses:
         "200":
           description: OK
@@ -3100,7 +3111,8 @@ paths:
           description: Filters results to include only accounts of a the given type.
           schema:
             type: string
-            enum: [username_password, ssh, ssh_ca, windows_local, windows_domain]
+            enum:
+              [username_password, ssh, ssh_ca, windows_local, windows_domain]
         - in: query
           name: name
           description: Filters results to include only accounts that match the given name.
@@ -4641,7 +4653,18 @@ components:
       properties:
         error:
           type: string
-          enum: ["access_denied", "invalid_client", "invalid_credentials", "invalid_grant", "invalid_request", "server_error", "unauthorized_client", "unsupported_grant_type", "unsupported_response_type"]
+          enum:
+            [
+              "access_denied",
+              "invalid_client",
+              "invalid_credentials",
+              "invalid_grant",
+              "invalid_request",
+              "server_error",
+              "unauthorized_client",
+              "unsupported_grant_type",
+              "unsupported_response_type",
+            ]
           description: An error type identifier.
         message:
           type: string
@@ -4991,7 +5014,7 @@ components:
           readOnly: true
         perm_command:
           type: string
-          enum: [ deny, read_only, full_access ]
+          enum: [deny, read_only, full_access]
           description: Command API.
           readOnly: true
         perm_reporting_support:
@@ -5179,17 +5202,31 @@ components:
           readOnly: true
         perm_view_support_reports:
           type: string
-          enum: [ "not_allowed", "user_sessions", "all_sessions", "team_sessions", "jump_group_sessions" ]
+          enum:
+            [
+              "not_allowed",
+              "user_sessions",
+              "all_sessions",
+              "team_sessions",
+              "jump_group_sessions",
+            ]
           description: Session Reporting Permissions.
           readOnly: true
         perm_view_presentation_reports:
           type: string
-          enum: [ "not_allowed", "user_sessions", "all_sessions", "team_sessions", "jump_group_sessions" ]
+          enum:
+            [
+              "not_allowed",
+              "user_sessions",
+              "all_sessions",
+              "team_sessions",
+              "jump_group_sessions",
+            ]
           description: Allowed to View Presentation Session Reports.
           readOnly: true
         perm_view_vault_reports:
           type: string
-          enum: [ "not_allowed", "view_user_events", "view_all_events" ]
+          enum: ["not_allowed", "view_user_events", "view_all_events"]
           description: Allowed to View Vault Reports.
           readOnly: true
         perm_view_license_reports:
@@ -5266,7 +5303,7 @@ components:
           readOnly: true
         perm_support_allowed:
           type: string
-          enum: [ "not_allowed", "full_support", "chat_support" ]
+          enum: ["not_allowed", "full_support", "chat_support"]
           description: Allowed to provide remote support.
           readOnly: true
         perm_share_other_team:
@@ -5611,7 +5648,7 @@ components:
         is_lost:
           type: boolean
           readOnly: true
-          description: "For active Jump Clients, this is true when the Jump Client has been disconnected for longer than the number of days configured for the "lost" setting on the /login → Jump → Jump Clients page. For passive Jump Clients, this is true when the Jump Client has not checked in for longer than the number of days configured for the "lost" setting on the /login → Jump → Jump Clients page."
+          description: "For active Jump Clients, this is true when the Jump Client has been disconnected for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page. For passive Jump Clients, this is true when the Jump Client has not checked in for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page."
         needs_update:
           type: boolean
           readOnly: true
@@ -6390,7 +6427,7 @@ components:
           description: The unique identifier assigned to this Jump Item by the system.
         type:
           type: string
-          enum: [ jump_client, remote_rdp, shell_jump ]
+          enum: [jump_client, remote_rdp, shell_jump]
       required:
         - id
         - type
@@ -6468,11 +6505,11 @@ components:
         perm_support_allowed:
           type: string
           default: "not_allowed"
-          enum: [ "not_allowed", "full_support", "chat_support" ]
+          enum: ["not_allowed", "full_support", "chat_support"]
           description: Allowed to provide remote support.
         rep_perm_status:
           type: string
-          enum: [ "not_defined", "defined", "final" ]
+          enum: ["not_defined", "defined", "final"]
           description: This field indicates if this policy defines representative permissions or not. A value of "defined" means the policy defines values for representative permissions. A value of "final" is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any representative permission fields; otherwise the default is "not_defined".
         perm_generate_session_key:
           type: boolean
@@ -7689,7 +7726,6 @@ components:
       schema:
         type: integer
         minimum: 0
-
 
   responses:
     404NotFound:
