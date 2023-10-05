@@ -79,7 +79,7 @@ func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.Schema
 				Description: "Filter the list for items matching \"name\"",
 				Optional:    true,
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"username_password", "ssh", "windows_local", "windows_domain"}...),
+					stringvalidator.OneOf([]string{"username_password", "ssh", "ssh_ca", "windows_local", "windows_domain"}...),
 				},
 			},
 			"include_personal": schema.BoolAttribute{
@@ -88,6 +88,10 @@ func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.Schema
 			},
 			"account_group_id": schema.Int64Attribute{
 				Description: "Filter the list for items in account group with id \"account_group_id\"",
+				Optional:    true,
+			},
+			"endpoint_id": schema.Int64Attribute{
+				Description: "Filters results to include only Windows Local accounts with the given Endpoint",
 				Optional:    true,
 			},
 		},

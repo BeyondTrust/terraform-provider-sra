@@ -125,10 +125,16 @@ func (d *vaultSecretDataSource) Read(ctx context.Context, req datasource.ReadReq
 	account.Username = types.StringValue(item.Username)
 	account.Type = types.StringValue(item.Type)
 
-	if item.Type == "ssh" {
+	if item.Type == "ssh" || item.Type == "ssh_ca" {
 		account.Secret = types.StringValue(*item.PrivateKey)
 	} else {
 		account.Secret = types.StringValue(*item.Password)
+	}
+
+	if item.SignedPublicCert != nil {
+		account.SignedPublicCert = types.StringValue(*item.SignedPublicCert)
+	} else {
+		account.SignedPublicCert = types.StringNull()
 	}
 
 	state.Account = &account

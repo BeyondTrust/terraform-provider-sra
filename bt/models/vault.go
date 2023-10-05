@@ -99,8 +99,9 @@ type VaultAccountPolicy struct {
 }
 
 type VaultSecret struct {
-	ID       types.String `tfsdk:"id"`
-	Username types.String `tfsdk:"username"`
-	Type     types.String `tfsdk:"type"`
-	Secret   types.String `tfsdk:"secret"`
+	ID               types.String `tfsdk:"id"`
+	Username         types.String `tfsdk:"username"`
+	Type             types.String `tfsdk:"type"`
+	Secret           types.String `tfsdk:"secret"`
+	SignedPublicCert types.String `tfsdk:"signed_public_cert"`
 }

@@ -200,11 +200,12 @@ type JumpClientInstaller struct {
 	SessionPolicyID            *int  `json:"session_policy_id,omitempty" sraproduct:"pra"`
 	AllowOverrideSessionPolicy *bool `json:"allow_override_session_policy,omitempty" sraproduct:"pra"`
 
-	IsQuiet                              *bool `json:"is_quiet,omitempty" sraproduct:"rs"`
-	AttendedSessionPolicyID              *int  `json:"attended_session_policy_id,omitempty" sraproduct:"rs"`
-	UnattendedSessionPolicyID            *int  `json:"unattended_session_policy_id,omitempty" sraproduct:"rs"`
-	AllowOverrideAttendedSessionPolicy   *bool `json:"allow_override_attended_session_policy,omitempty" sraproduct:"rs"`
-	AllowOverrideUnattendedSessionPolicy *bool `json:"allow_override_unattended_session_policy,omitempty" sraproduct:"rs"`
+	IsQuiet                              *bool   `json:"is_quiet,omitempty" sraproduct:"rs"`
+	CustomerClientStartMode              *string `json:"customer_client_start_mode,omitempty" sraproduct:"rs"`
+	AttendedSessionPolicyID              *int    `json:"attended_session_policy_id,omitempty" sraproduct:"rs"`
+	UnattendedSessionPolicyID            *int    `json:"unattended_session_policy_id,omitempty" sraproduct:"rs"`
+	AllowOverrideAttendedSessionPolicy   *bool   `json:"allow_override_attended_session_policy,omitempty" sraproduct:"rs"`
+	AllowOverrideUnattendedSessionPolicy *bool   `json:"allow_override_unattended_session_policy,omitempty" sraproduct:"rs"`
 }
 
 func (JumpClientInstaller) Endpoint() string {
@@ -521,12 +522,13 @@ func (a *MechList) IsRS() bool {
 }
 
 type VaultSecret struct {
-	ID         *int    `json:"id,omitempty"`
-	Username   string  `json:"username"`
-	Type       string  `json:"type"`
-	Password   *string `json:"password,omitempty"`
-	PrivateKey *string `json:"private_key,omitempty"`
-	Secret     *string `json:"-"`
+	ID               *int    `json:"id,omitempty"`
+	Username         string  `json:"username"`
+	Type             string  `json:"type"`
+	Password         *string `json:"password,omitempty"`
+	PrivateKey       *string `json:"private_key,omitempty"`
+	SignedPublicCert *string `json:"signed_public_cert,omitempty"`
+	Secret           *string `json:"-"`
 }
 
 func (a VaultSecret) Endpoint() string {

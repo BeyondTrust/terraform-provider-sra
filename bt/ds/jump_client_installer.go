@@ -150,6 +150,11 @@ func (d *jumpClientInstallerDataSource) Schema(ctx context.Context, _ datasource
 		Computed:    true,
 		Description: "This field only applies to RS",
 	}
+	installerAttributes["customer_client_start_mode"] = schema.StringAttribute{
+		Optional:    true,
+		Computed:    true,
+		Description: "This field only applies to RS",
+	}
 
 	resp.Schema = schema.Schema{
 		Description: "Fetch a list of Jump Client Installers.\n\nFor descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance",

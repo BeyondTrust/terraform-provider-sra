@@ -61,6 +61,9 @@ func (r *vaultSSHAccountResource) Schema(_ context.Context, _ resource.SchemaReq
 			"type": schema.StringAttribute{
 				Computed: true,
 				Default:  stringdefault.StaticString("ssh"),
+				Validators: []validator.String{
+					stringvalidator.OneOf([]string{"ssh", "ssh_ca"}...),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required: true,

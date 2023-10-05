@@ -241,8 +241,16 @@ var jciSchema = map[string]schema.Attribute{
 		Description: "This field only applies to RS",
 	},
 	"is_quiet": schema.BoolAttribute{
+		Computed:    true,
+		Description: "This field only applies to RS",
+	},
+	"customer_client_start_mode": schema.StringAttribute{
 		Optional:    true,
 		Computed:    true,
 		Description: "This field only applies to RS",
+		Default:     stringdefault.StaticString("normal"),
+		Validators: []validator.String{
+			stringvalidator.OneOf([]string{"normal", "minimized", "hidden"}...),
+		},
 	},
 }
