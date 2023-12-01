@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/Jeffail/gabs v1.4.0
-	github.com/deckarep/golang-set/v2 v2.3.1
+	github.com/deckarep/golang-set/v2 v2.5.0
 	github.com/hashicorp/terraform-plugin-framework v1.4.2
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
