@@ -1,3 +1,22 @@
+<a name="v1.0.6"></a>
+## [v1.0.6] - 2024-02-05
+
+### Fix
+
+- Dependency/security updates
+
+### Pull Requests
+- Merge pull request [#89](https://github.com/beyondtrust/terraform-provider-sra/issues/89) from BeyondTrust/dependabot/go_modules/github.com/hashicorp/terraform-plugin-docs-0.18.0
+- Merge pull request [#86](https://github.com/beyondtrust/terraform-provider-sra/issues/86) from BeyondTrust/dependabot/github_actions/actions/deploy-pages-4
+- Merge pull request [#91](https://github.com/beyondtrust/terraform-provider-sra/issues/91) from BeyondTrust/dependabot/github_actions/actions/download-artifact-4.1.2
+- Merge pull request [#88](https://github.com/beyondtrust/terraform-provider-sra/issues/88) from BeyondTrust/dependabot/go_modules/golang.org/x/oauth2-0.16.0
+- Merge pull request [#90](https://github.com/beyondtrust/terraform-provider-sra/issues/90) from BeyondTrust/dependabot/go_modules/github.com/gruntwork-io/terratest-0.46.11
+- Merge pull request [#87](https://github.com/beyondtrust/terraform-provider-sra/issues/87) from BeyondTrust/dependabot/go_modules/github.com/hashicorp/terraform-plugin-framework-1.5.0
+- Merge pull request [#84](https://github.com/beyondtrust/terraform-provider-sra/issues/84) from BeyondTrust/dependabot/github_actions/peter-evans/create-pull-request-6
+- Merge pull request [#83](https://github.com/beyondtrust/terraform-provider-sra/issues/83) from BeyondTrust/dependabot/github_actions/actions/upload-artifact-4.3.0
+- Merge pull request [#82](https://github.com/beyondtrust/terraform-provider-sra/issues/82) from BeyondTrust/update-changelog
+
+
 <a name="v1.0.5"></a>
 
 ## [v1.0.5] - 2024-01-25
@@ -7,7 +26,6 @@
 - Release to update to terraform plugin framework 1.4.2 to work around [this bug](https://github.com/hashicorp/terraform-plugin-framework/issues/853)
 
 ### Pull Requests
-
 - Merge pull request [#73](https://github.com/beyondtrust/terraform-provider-sra/issues/73) from BeyondTrust/dependabot/go_modules/github.com/deckarep/golang-set/v2-2.6.0
 - Merge pull request [#74](https://github.com/beyondtrust/terraform-provider-sra/issues/74) from BeyondTrust/dependabot/github_actions/actions/configure-pages-4
 - Merge pull request [#75](https://github.com/beyondtrust/terraform-provider-sra/issues/75) from BeyondTrust/dependabot/github_actions/actions/upload-pages-artifact-3
@@ -26,20 +44,16 @@
 - Merge pull request [#63](https://github.com/beyondtrust/terraform-provider-sra/issues/63) from BeyondTrust/dependabot/go_modules/google.golang.org/grpc-1.57.1
 - Merge pull request [#62](https://github.com/beyondtrust/terraform-provider-sra/issues/62) from BeyondTrust/dependabot/go_modules/golang.org/x/net-0.17.0
 
+
 <a name="v1.0.4"></a>
-
 ## [v1.0.4] - 2023-10-05
-
 ### Chore
-
 - update API reference for 23.3.1
 
 ### Feat
-
 - updates for 23.3.1 compatibility
 
 ### Pull Requests
-
 - Merge pull request [#61](https://github.com/beyondtrust/terraform-provider-sra/issues/61) from BeyondTrust/update-changelog
 - Merge pull request [#60](https://github.com/beyondtrust/terraform-provider-sra/issues/60) from BeyondTrust/23.3.1-changes
 - Merge pull request [#59](https://github.com/beyondtrust/terraform-provider-sra/issues/59) from BeyondTrust/dependabot/go_modules/github.com/gruntwork-io/terratest-0.44.1
@@ -61,16 +75,13 @@
 - Merge pull request [#43](https://github.com/beyondtrust/terraform-provider-sra/issues/43) from BeyondTrust/update-changelog
 - Merge pull request [#42](https://github.com/beyondtrust/terraform-provider-sra/issues/42) from BeyondTrust/add-changelog-workflow
 
+
 <a name="v1.0.3"></a>
-
 ## [v1.0.3] - 2023-08-08
-
 ### Chore
-
 - Try to work around dependabot's inability to read ENV values
 
 ### Pull Requests
-
 - Merge pull request [#39](https://github.com/beyondtrust/terraform-provider-sra/issues/39) from BeyondTrust/doc-updates
 - Merge pull request [#41](https://github.com/beyondtrust/terraform-provider-sra/issues/41) from BeyondTrust/fix-terratest-terraform-env
 - Merge pull request [#40](https://github.com/beyondtrust/terraform-provider-sra/issues/40) from BeyondTrust/tweak-config-and-workflows
@@ -86,11 +97,12 @@
 - Merge pull request [#29](https://github.com/beyondtrust/terraform-provider-sra/issues/29) from BeyondTrust/dependabot/go_modules/github.com/gruntwork-io/terratest-0.43.6
 - Merge pull request [#28](https://github.com/beyondtrust/terraform-provider-sra/issues/28) from BeyondTrust/dependabot/go_modules/github.com/hashicorp/terraform-plugin-framework-1.3.2
 
-<a name="v1.0.2"></a>
 
+<a name="v1.0.2"></a>
 ## [v1.0.2] - 2023-07-05
 
-[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.6...HEAD
+[v1.0.6]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.5...v1.0.6
 [v1.0.5]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.4...v1.0.5
 [v1.0.4]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.3...v1.0.4
 [v1.0.3]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.2...v1.0.3
