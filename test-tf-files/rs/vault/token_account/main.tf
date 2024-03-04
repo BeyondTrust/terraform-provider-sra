@@ -17,19 +17,19 @@ module "account_group" {
 
 data "sra_group_policy_list" "gp" {}
 
-resource "sra_vault_token_account" "new_up" {
-  name             = "Group UP ${var.name} ${var.random_bits}"
+resource "sra_vault_token_account" "new_token" {
+  name             = "Group TOKEN ${var.name} ${var.random_bits}"
   token         = "${var.random_bits}${var.random_bits}"
   account_group_id = module.account_group.group.id
 }
 
 resource "sra_vault_token_account" "stand_alone" {
-  name     = "Standalone UP ${var.name} ${var.random_bits}"
+  name     = "Standalone TOKEN ${var.name} ${var.random_bits}"
   token = "${var.random_bits}${var.random_bits}"
 }
 
 resource "sra_vault_token_account" "stand_alone_gp" {
-  name     = "Standalone UP GP ${var.name} ${var.random_bits}"
+  name     = "Standalone TOKEN GP ${var.name} ${var.random_bits}"
   token = "${var.random_bits}${var.random_bits}"
 
   group_policy_memberships = [
@@ -38,7 +38,7 @@ resource "sra_vault_token_account" "stand_alone_gp" {
 }
 
 resource "sra_vault_token_account" "stand_alone_ji" {
-  name     = "Standalone UP JIA ${var.name} ${var.random_bits}"
+  name     = "Standalone TOKEN JIA ${var.name} ${var.random_bits}"
   token = "${var.random_bits}${var.random_bits}"
 
   jump_item_association = {
@@ -53,7 +53,7 @@ resource "sra_vault_token_account" "stand_alone_ji" {
 }
 
 resource "sra_vault_token_account" "stand_alone_both" {
-  name     = "Standalone UP Both ${var.name} ${var.random_bits}"
+  name     = "Standalone TOKEN Both ${var.name} ${var.random_bits}"
   token = "${var.random_bits}${var.random_bits}"
 
   group_policy_memberships = [
