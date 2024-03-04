@@ -68,7 +68,7 @@ jobs:
         run: tar -xvf test-reg.tar
 
       - name: "Setup Terraform"
-        uses: autero1/action-terraform@v1.1.1
+        uses: autero1/action-terraform@v3.0.1
         with:
           terraform_version: 1.7.1
 
@@ -102,7 +102,7 @@ jobs:
         run: tar -xvf test-reg.tar
 
       - name: "Setup Terraform"
-        uses: autero1/action-terraform@v1.1.1
+        uses: autero1/action-terraform@v3.0.1
         with:
           terraform_version: 1.7.1
 
