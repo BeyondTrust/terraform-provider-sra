@@ -287,6 +287,72 @@ func TestVaultUserPass(t *testing.T) {
 	})
 }
 
+func TestVaultToken(t *testing.T) {
+	// t.Parallel()
+
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/token_account", productPath()))
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Name",
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraform.InitAndApply(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "Test Vault Token Accounts", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		group := terraform.OutputMap(t, terraformOptions, "group")
+		shell := terraform.OutputMap(t, terraformOptions, "shell")
+
+		data := testData{
+			randomBits:    randomBits,
+			groupID:       group["id"],
+			shellID:       shell["id"],
+			ssh:           0,
+			testPublicKey: false,
+		}
+
+		assertAccount(t, terraformOptions, "item", data, false, false)
+
+		data.groupID = "1"
+		assertAccount(t, terraformOptions, "stand_alone", data, false, false)
+		assertAccount(t, terraformOptions, "stand_alone_gp", data, true, false)
+		assertAccount(t, terraformOptions, "stand_alone_ji", data, false, true)
+		assertAccount(t, terraformOptions, "stand_alone_both", data, true, true)
+
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+		assert.Equal(t, 0, len(list))
+	})
+
+	test_structure.RunTestStage(t, "Test finding the new Token account with the datasource", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
+		terraform.Apply(t, terraformOptions)
+
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 1, len(list))
+		if len(list) > 0 {
+			assert.Equal(t, item["id"], list[0]["id"])
+		}
+	})
+}
+
 func TestVaultSecret(t *testing.T) {
 	// t.Parallel()
 
@@ -376,7 +442,9 @@ func assertExtras(t *testing.T, options *terraform.Options, parsed *gabs.Contain
 }
 
 func assertAccountCommonValues(t *testing.T, item map[string]string, randomBits string, accountGroupID string) {
-	assert.Equal(t, randomBits, item["username"])
+	if item["type"] != "opaque_token" {
+		assert.Equal(t, randomBits, item["username"])
+	}
 	assert.Equal(t, accountGroupID, item["account_group_id"])
 }
 

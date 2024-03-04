@@ -128,6 +128,11 @@ func (d *jumpPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaRe
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
+						"approval_approver_scope": schema.StringAttribute{
+							Optional:    true,
+							Computed:    true,
+							Description: "This field only applies to PRA",
+						},
 						"recordings_disabled": schema.BoolAttribute{
 							Optional:    true,
 							Computed:    true,

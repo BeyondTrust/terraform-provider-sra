@@ -68,7 +68,7 @@ output "client" {
 - `attended_session_policy_id` (Number) The session policy used when an end user is present on the Jump Client system. _This field only applies to RS_
 - `comments` (String) The Jump Client's comments.
 - `connection_type` (String) The type of connection maintained between the appliance and the Jump Client. Cloud deployments only allow active Jump Clients.
-- `customer_client_start_mode` (String) This setting determines how sessions are started from the deployed Jump Client. If normal, the customer client will start with the window visible. If minimized, it will start with the window minimized. If hidden, it will start with no visible customer window and will not appear in the taskbar. _This field only applies to RS_
+- `customer_client_start_mode` (String) This setting determines how sessions are started from the deployed Jump Client. If normal, the customer client will start with the window visible. If minimized, it will start with the window minimized. If hidden, it will start with no visible customer window and will not appear in the taskbar. Hidden mode requires additional permission. _This field only applies to RS_
 - `elevate_install` (Boolean) If true, the installer will attempt to elevate the Jump Client to make it run as a service.
 - `elevate_prompt` (Boolean) If true, the installer will prompt for elevation credentials if necessary. This parameter is ignored if elevate_install is false.
 - `jump_group_type` (String) The type of Jump Group that owns this Jump Client.

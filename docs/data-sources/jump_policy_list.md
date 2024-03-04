@@ -45,6 +45,7 @@ Required:
 
 Optional:
 
+- `approval_approver_scope` (String) The scope of approval granted to approvers. If "not_requestor", then the approver cannot approve their own requests. If "anyone", anyone who is permitted to approve, can approve requests, including their own. _This field only applies to PRA_
 - `approval_display_name` (String) The display name of the approvers that requestors will see. It is required only if approvals are enabled. _This field only applies to PRA_
 - `approval_email_addresses` (Set of String) This field only applies to PRA
 - `approval_email_language` (String) The language in which approval emails will be sent. Must be the locale code for one of the locales listed on the Localization → Languages page. _This field only applies to PRA_

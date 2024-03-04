@@ -132,6 +132,8 @@ func (d *vaultSecretDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	if item.Type == "ssh" || item.Type == "ssh_ca" {
 		account.Secret = types.StringValue(*item.PrivateKey)
+	} else if item.Type == "opaque_token" {
+		account.Secret = types.StringValue(*item.Token)
 	} else {
 		account.Secret = types.StringValue(*item.Password)
 	}

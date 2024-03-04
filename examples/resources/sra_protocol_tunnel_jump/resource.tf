@@ -15,3 +15,12 @@ resource "sra_protocol_tunnel_jump" "mssql" {
   tunnel_type   = "mssql"
   useranme      = "db_user"
 }
+
+resource "sra_k8s_tunnel_jump" "k8s" {
+  name          = "Example Kubernetes Tunnel"
+  url      = "example.cluster"
+  jumpoint_id   = 1
+  jump_group_id = 1
+  tunnel_type   = "k8s"
+  ca_certificates = "**PEM CA certificate**"
+}
