@@ -8,7 +8,7 @@ description: |-
   See the SRA Provider documentation as well as the Configuration API documentation in your instance for more information on supported API endpoints and parameters.
   This provider requires Remote Support or Privileged Remote Access version 23.2.1+. Using this provider with prior versions is not supported by BeyondTrust and could result in Terraform reporting errors.
   Use Cases
-  The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjection with BeyondTrust Remote Support or BeyondTrust Priviliged Remote Access products.
+  The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjunction with BeyondTrust Remote Support or BeyondTrust Privileged Remote Access products.
   As examples, this provider allows:
   * Enabling Jump Item creation and deletion to match the provisioning and deprovisioning of assets within Terraform.
   * Enabling Vault credential creation and deletion to match the credentials used within the assets within Terraform.
@@ -35,7 +35,7 @@ This provider requires Remote Support or Privileged Remote Access version 23.2.1
 
 ## Use Cases
 
-The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjection with BeyondTrust Remote Support or BeyondTrust Priviliged Remote Access products.
+The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjunction with BeyondTrust Remote Support or BeyondTrust Privileged Remote Access products.
 
 As examples, this provider allows:
 * Enabling Jump Item creation and deletion to match the provisioning and deprovisioning of assets within Terraform.

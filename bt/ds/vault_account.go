@@ -80,7 +80,7 @@ func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.Schema
 				Description: "Filter the list for items matching \"name\"",
 				Optional:    true,
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"username_password", "ssh", "ssh_ca", "windows_local", "windows_domain"}...),
+					stringvalidator.OneOf([]string{"username_password", "ssh", "ssh_ca", "windows_local", "windows_domain", "opaque_token"}...),
 				},
 			},
 			"include_personal": schema.BoolAttribute{

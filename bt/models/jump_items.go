@@ -80,6 +80,8 @@ type ProtocolTunnelJump struct {
 	TunnelType          types.String `tfsdk:"tunnel_type"`
 	Username            types.String `tfsdk:"username"`
 	Database            types.String `tfsdk:"database"`
+	URL                 types.String `tfsdk:"url"`
+	CACertificates      types.String `tfsdk:"ca_certificates"`
 }
 
 type WebJump struct {

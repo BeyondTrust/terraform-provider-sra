@@ -42,7 +42,7 @@ resource "sra_jumpoint" "example" {
 - `clustered` (Boolean) If true, the Jumpoint can have more than one node. This attribute cannot be modified after the Jumpoint is created.
 - `comments` (String) The Jumpoint's comments.
 - `enabled` (Boolean) If true, the Jumpoint is enabled.
-- `external_jump_item_network_id` (String) This field is only applicable when the option "Allow Search for External Jump Items." is Enabled in Management -> Security. The value must be unique if it is not empty.
+- `external_jump_item_network_id` (String) This field is only applicable when the option 'Allow Search for External Jump Items.' is Enabled in Management -> Security. The value must be unique if it is not empty.
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `protocol_tunnel_enabled` (Boolean) If true, users are allowed to start Protocol Tunnel sessions with the Jumpoint. _This field only applies to PRA_
 - `rdp_service_account_id` (Number) The unique identifier of the Vault account through which RDP sessions can also receive additional audit capabilities. It must be an generic account or a domain account. _This field only applies to PRA_

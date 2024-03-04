@@ -149,5 +149,6 @@ type JumpPolicy struct {
 	ApprovalUserIds            types.Set    `tfsdk:"approval_user_ids" sraproduct:"pra"`
 	ApprovalDisplayName        types.String `tfsdk:"approval_display_name" sraproduct:"pra"`
 	ApprovalEmailLanguage      types.String `tfsdk:"approval_email_language" sraproduct:"pra"`
+	ApprovalApproverScope      types.String `tfsdk:"approval_approver_scope" sraproduct:"pra"`
 	RecordingsDisabled         types.Bool   `tfsdk:"recordings_disabled" sraproduct:"pra"`
 }
