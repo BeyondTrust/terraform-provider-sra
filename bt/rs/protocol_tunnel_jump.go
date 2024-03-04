@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -84,12 +85,10 @@ For descriptions of individual fields, please see the Configuration API document
 			"tunnel_listen_address": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  stringdefault.StaticString("127.0.0.1"),
 			},
 			"tunnel_definitions": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  stringdefault.StaticString(""),
 			},
 			"tunnel_type": schema.StringAttribute{
 				Optional: true,
@@ -145,6 +144,10 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 	if plan.Username.IsNull() && plan.TunnelType.ValueString() == "mssql" {
 		resp.Diagnostics.Append(diag.NewErrorDiagnostic("Username is required", "You must supply a Username when TunnelType is \"mssql\"."))
 		return
+	}
+
+	if plan.TunnelType.ValueString() == "tcp" && plan.TunnelListenAddress.IsNull() {
+		plan.TunnelListenAddress = types.StringValue("127.0.0.1")
 	}
 
 	diags = resp.Plan.Set(ctx, &plan)
