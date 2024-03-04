@@ -1,10 +1,15 @@
+<a name="unreleased"></a>
+## [Unreleased]
+
+### Chore
+- fix a couple of typos in the description
+
+### Feat
+- Changes for SRA 24.1 releases
+
+
 <a name="v1.0.6"></a>
 ## [v1.0.6] - 2024-02-05
-
-### Fix
-
-- Dependency/security updates
-
 ### Pull Requests
 - Merge pull request [#89](https://github.com/beyondtrust/terraform-provider-sra/issues/89) from BeyondTrust/dependabot/go_modules/github.com/hashicorp/terraform-plugin-docs-0.18.0
 - Merge pull request [#86](https://github.com/beyondtrust/terraform-provider-sra/issues/86) from BeyondTrust/dependabot/github_actions/actions/deploy-pages-4
@@ -18,12 +23,9 @@
 
 
 <a name="v1.0.5"></a>
-
 ## [v1.0.5] - 2024-01-25
-
 ### Fix
-
-- Release to update to terraform plugin framework 1.4.2 to work around [this bug](https://github.com/hashicorp/terraform-plugin-framework/issues/853)
+- workflow dispatch test trigger
 
 ### Pull Requests
 - Merge pull request [#73](https://github.com/beyondtrust/terraform-provider-sra/issues/73) from BeyondTrust/dependabot/go_modules/github.com/deckarep/golang-set/v2-2.6.0
