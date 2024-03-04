@@ -59,6 +59,7 @@ var typeMap = map[string]string{
 	"docs/resources/vault_account_policy.md":            "VaultAccountPolicy",
 	"docs/resources/vault_ssh_account.md":               "VaultSSHAccount",
 	"docs/resources/vault_username_password_account.md": "VaultUsernamePasswordAccount",
+	"docs/resources/vault_token_account.md":             "VaultTokenAccount",
 	"docs/resources/web_jump.md":                        "WebJumpItem",
 }
 

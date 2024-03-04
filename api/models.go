@@ -94,6 +94,8 @@ type ProtocolTunnelJump struct {
 	TunnelType          string `json:"tunnel_type"`
 	Username            string `json:"username,omitempty"`
 	Database            string `json:"database,omitempty"`
+	URL                 string `json:"url,omitempty"`
+	CACertificates      string `json:"ca_certificates,omitempty"`
 }
 
 func (ProtocolTunnelJump) Endpoint() string {
@@ -254,6 +256,7 @@ type JumpPolicy struct {
 	ApprovalUserIds            *[]string `json:"approval_user_ids,omitempty" sraproduct:"pra"`
 	ApprovalDisplayName        *string   `json:"approval_display_name,omitempty" sraproduct:"pra"`
 	ApprovalEmailLanguage      *string   `json:"approval_email_language,omitempty" sraproduct:"pra"`
+	ApprovalApproverScope      *string   `json:"approval_approver_scope,omitempty" sraproduct:"pra"`
 	RecordingsDisabled         *bool     `json:"recordings_disabled,omitempty" sraproduct:"pra"`
 }
 
@@ -382,6 +385,27 @@ type VaultSSHAccount struct {
 }
 
 func (VaultSSHAccount) Endpoint() string {
+	return "vault/account"
+}
+
+type VaultTokenAccount struct {
+	ID             *int    `json:"id,omitempty"`
+	Type           string  `json:"type"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Personal       *bool   `json:"personal,omitempty"`
+	OwnerUserID    *int    `json:"owner_user_id,omitempty"`
+	AccountGroupID int     `json:"account_group_id"`
+	AccountPolicy  *string `json:"account_policy"`
+
+	Token                 string  `json:"token,omitempty"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+
+	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
+	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
+}
+
+func (VaultTokenAccount) Endpoint() string {
 	return "vault/account"
 }
 
@@ -527,6 +551,7 @@ type VaultSecret struct {
 	Type             string  `json:"type"`
 	Password         *string `json:"password,omitempty"`
 	PrivateKey       *string `json:"private_key,omitempty"`
+	Token            *string `json:"token,omitempty"`
 	SignedPublicCert *string `json:"signed_public_cert,omitempty"`
 	Secret           *string `json:"-"`
 }

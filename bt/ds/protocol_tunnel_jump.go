@@ -101,6 +101,14 @@ For descriptions of individual fields, please see the Configuration API document
 							Optional: true,
 							Computed: true,
 						},
+						"url": schema.StringAttribute{
+							Optional: true,
+							Computed: true,
+						},
+						"ca_certificates": schema.StringAttribute{
+							Optional: true,
+							Computed: true,
+						},
 					},
 				},
 			},

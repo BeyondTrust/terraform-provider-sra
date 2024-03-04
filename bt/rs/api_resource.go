@@ -38,6 +38,7 @@ func ResourceList() []func() resource.Resource {
 		newVaultAccountPolicyResource,
 		newVaultSSHAccountResource,
 		newVaultUsernamePasswordAccountResource,
+		newVaultTokenAccountResource,
 	}
 }
 

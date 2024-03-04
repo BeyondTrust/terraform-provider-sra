@@ -109,6 +109,16 @@ For descriptions of individual fields, please see the Configuration API document
 				Computed: true,
 				Default:  stringdefault.StaticString(""),
 			},
+			"url": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString(""),
+			},
+			"ca_certificates": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString(""),
+			},
 		},
 	}
 }
