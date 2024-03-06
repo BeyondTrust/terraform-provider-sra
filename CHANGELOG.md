@@ -1,10 +1,29 @@
+<a name="unreleased"></a>
+## [Unreleased]
+
+
+<a name="v1.1.0"></a>
+## [v1.1.0] - 2024-03-04
+### Chore
+- fix a couple of typos in the description
+
+### Feat
+- Changes for SRA 24.1 releases
+
+### Pull Requests
+- Merge pull request [#102](https://github.com/beyondtrust/terraform-provider-sra/issues/102) from BeyondTrust/chore/update-to-fix-depbot-changes
+- Merge pull request [#101](https://github.com/beyondtrust/terraform-provider-sra/issues/101) from BeyondTrust/dependabot/github_actions/actions/download-artifact-4.1.4
+- Merge pull request [#99](https://github.com/beyondtrust/terraform-provider-sra/issues/99) from BeyondTrust/dependabot/go_modules/golang.org/x/oauth2-0.17.0
+- Merge pull request [#100](https://github.com/beyondtrust/terraform-provider-sra/issues/100) from BeyondTrust/chore/24.1-updates
+- Merge pull request [#98](https://github.com/beyondtrust/terraform-provider-sra/issues/98) from BeyondTrust/dependabot/go_modules/github.com/hashicorp/terraform-plugin-framework-1.6.0
+- Merge pull request [#96](https://github.com/beyondtrust/terraform-provider-sra/issues/96) from BeyondTrust/dependabot/github_actions/actions/upload-artifact-4.3.1
+- Merge pull request [#95](https://github.com/beyondtrust/terraform-provider-sra/issues/95) from BeyondTrust/dependabot/github_actions/autero1/action-terraform-3.0.1
+- Merge pull request [#94](https://github.com/beyondtrust/terraform-provider-sra/issues/94) from BeyondTrust/dependabot/github_actions/golangci/golangci-lint-action-4
+- Merge pull request [#93](https://github.com/beyondtrust/terraform-provider-sra/issues/93) from BeyondTrust/update-changelog
+
+
 <a name="v1.0.6"></a>
 ## [v1.0.6] - 2024-02-05
-
-### Fix
-
-- Dependency/security updates
-
 ### Pull Requests
 - Merge pull request [#89](https://github.com/beyondtrust/terraform-provider-sra/issues/89) from BeyondTrust/dependabot/go_modules/github.com/hashicorp/terraform-plugin-docs-0.18.0
 - Merge pull request [#86](https://github.com/beyondtrust/terraform-provider-sra/issues/86) from BeyondTrust/dependabot/github_actions/actions/deploy-pages-4
@@ -18,12 +37,9 @@
 
 
 <a name="v1.0.5"></a>
-
 ## [v1.0.5] - 2024-01-25
-
 ### Fix
-
-- Release to update to terraform plugin framework 1.4.2 to work around [this bug](https://github.com/hashicorp/terraform-plugin-framework/issues/853)
+- workflow dispatch test trigger
 
 ### Pull Requests
 - Merge pull request [#73](https://github.com/beyondtrust/terraform-provider-sra/issues/73) from BeyondTrust/dependabot/go_modules/github.com/deckarep/golang-set/v2-2.6.0
@@ -101,7 +117,8 @@
 <a name="v1.0.2"></a>
 ## [v1.0.2] - 2023-07-05
 
-[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.6...HEAD
+[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.1.0...HEAD
+[v1.1.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.6...v1.1.0
 [v1.0.6]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.5...v1.0.6
 [v1.0.5]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.4...v1.0.5
 [v1.0.4]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.3...v1.0.4
