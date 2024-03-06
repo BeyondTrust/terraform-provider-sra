@@ -1,14 +1,12 @@
-<a name="unreleased"></a>
-## [Unreleased]
-
-
 <a name="v1.1.0"></a>
 ## [v1.1.0] - 2024-03-04
-### Chore
-- fix a couple of typos in the description
 
 ### Feat
 - Changes for SRA 24.1 releases
+  - Includes new "Token" Vault account type
+
+### Chore
+- fix a couple of typos in the description
 
 ### Pull Requests
 - Merge pull request [#102](https://github.com/beyondtrust/terraform-provider-sra/issues/102) from BeyondTrust/chore/update-to-fix-depbot-changes
