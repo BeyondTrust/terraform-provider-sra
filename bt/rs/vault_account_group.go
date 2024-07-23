@@ -48,14 +48,40 @@ type vaultAccountGroupResource struct {
 	apiResource[api.VaultAccountGroup, models.VaultAccountGroup]
 }
 
-func (r *vaultAccountGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *vaultAccountGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	jiaSchema := accountJumpItemAssociationSchema()
 
-	var tfDefault types.Object
-	tfDefault, _ = types.ObjectValue(
-		map[string]attr.Type{"filter_type": types.StringType, "criteria": types.ObjectType{}},
-		map[string]attr.Value{"filter_type": types.StringValue("any_jump_items"), "criteria": types.ObjectNull(map[string]attr.Type{})},
+	criteriaDefaultType := types.ObjectType{}.WithAttributeTypes(map[string]attr.Type{
+		"shared_jump_groups": types.SetType{}.WithElementType(types.Int64Type),
+		"host":               types.SetType{}.WithElementType(types.StringType),
+		"name":               types.SetType{}.WithElementType(types.StringType),
+		"tag":                types.SetType{}.WithElementType(types.StringType),
+		"comment":            types.SetType{}.WithElementType(types.StringType)})
+
+	jiDefaultType := types.SetType{}.WithElementType(types.ObjectType{}.WithAttributeTypes(map[string]attr.Type{
+		"id":   types.Int64Type,
+		"type": types.StringType,
+	}))
+
+	jiDefault := types.SetValueMust(jiDefaultType.ElementType(), []attr.Value{})
+
+	// var tfDefault types.Object
+	tfDefault := types.ObjectValueMust(
+		map[string]attr.Type{"filter_type": types.StringType, "criteria": criteriaDefaultType, "jump_items": jiDefaultType},
+		map[string]attr.Value{
+			"filter_type": types.StringValue("any_jump_items"),
+			// "criteria": types.ObjectValueMust(criteriaDefaultType.AttributeTypes(), map[string]attr.Value{
+			// 	"shared_jump_groups": types.SetNull(types.Int64Type),
+			// 	"host":               types.SetNull(types.StringType),
+			// 	"name":               types.SetNull(types.StringType),
+			// 	"tag":                types.SetNull(types.StringType),
+			// 	"comment":            types.SetNull(types.StringType),
+			// }),
+			"criteria":   types.ObjectNull(criteriaDefaultType.AttributeTypes()),
+			"jump_items": jiDefault},
 	)
+
+	// tfDefault, _ = types.ObjectValueFrom(ctx, map[string]attr.Type{"filter_type": types.StringType, "criteria": criteriaDefaultType, "jump_items": jiDefaultType}, map[string]any{})
 
 	jiaSchema.Default = objectdefault.StaticValue(tfDefault)
 
@@ -144,6 +170,10 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
+		}
+
+		if apiSub.Criteria == nil {
+			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
 		}
 
 		var item *api.AccountGroupJumpItemAssociation
@@ -401,6 +431,10 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
+		}
+
+		if apiSub.Criteria == nil {
+			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
 		}
 
 		var item *api.AccountGroupJumpItemAssociation

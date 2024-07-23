@@ -483,5 +483,18 @@ func assertJumpItemAssociations(t *testing.T, parsed *gabs.Container, randomBits
 func assertNoJumpItemAssociations(t *testing.T, parsed *gabs.Container) {
 	membership, err := parsed.JSONPointer("/jump_item_association")
 	assert.Nil(t, err)
-	assert.Nil(t, membership.Data())
+	data, ok := membership.Data().(map[string]interface{})
+	if ok {
+		if criteria, ok := data["criteria"]; ok {
+			assert.Nil(t, criteria)
+		}
+		if filter, ok := data["filter_type"]; ok {
+			assert.Equal(t, "any_jump_items", filter)
+		}
+		if items, ok := data["jump_items"]; ok {
+			assert.Equal(t, 0, len(items.([]interface{})))
+		}
+	} else {
+		assert.Nil(t, membership.Data())
+	}
 }

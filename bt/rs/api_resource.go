@@ -352,7 +352,7 @@ func accountJumpItemAssociationSchema() schema.SingleNestedAttribute {
 			"jump_items": schema.SetNestedAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  setdefault.StaticValue(types.SetValueMust(types.ObjectType{}, []attr.Value{})),
+				Default:  setdefault.StaticValue(types.SetValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"id": types.Int64Type, "type": types.StringType}}, []attr.Value{})),
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
