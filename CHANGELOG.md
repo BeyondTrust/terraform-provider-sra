@@ -9,7 +9,7 @@
 
 ### Feat
 - Changes for SRA 24.1 releases
-- Includes new "Token" Vault account type
+  - Includes new "Token" Vault account type
 
 ### Chore
 - fix a couple of typos in the description
