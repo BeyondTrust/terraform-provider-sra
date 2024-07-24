@@ -1,5 +1,7 @@
-<a name="unreleased"></a>
-## [Unreleased]
+<a name="v1.2.0"></a>
+## [v1.2.0] - 2024-06-24
+
+- Changes for SRA 24.2 releases
 
 
 <a name="v1.1.0"></a>
