@@ -39,7 +39,7 @@ jobs:
         run: tar -cvf test-reg.tar ./test-reg
 
       - name: "Save build for testing"
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: test-build
           path: ./test-reg.tar
