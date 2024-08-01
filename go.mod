@@ -5,7 +5,7 @@ go 1.22.1
 require (
 	github.com/Jeffail/gabs v1.4.0
 	github.com/deckarep/golang-set/v2 v2.6.0
-	github.com/hashicorp/terraform-plugin-framework v1.9.0
+	github.com/hashicorp/terraform-plugin-framework v1.10.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 )
