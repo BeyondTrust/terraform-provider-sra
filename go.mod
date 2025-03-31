@@ -1,7 +1,7 @@
 module terraform-provider-sra
 
 go 1.22.1
-toolchain go1.22.9
+toolchain go1.24.1
 
 require (
 	github.com/Jeffail/gabs v1.4.0
@@ -169,7 +169,7 @@ require (
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/oauth2 v0.25.0
+	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/grpc v1.69.4 // indirect
