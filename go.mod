@@ -1,7 +1,7 @@
 module terraform-provider-sra
 
 go 1.22.1
-toolchain go1.22.9
+toolchain go1.24.1
 
 require (
 	github.com/Jeffail/gabs v1.4.0
@@ -158,7 +158,7 @@ require (
 	github.com/hashicorp/go-plugin v1.6.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/terraform-plugin-docs v0.20.1
-	github.com/hashicorp/terraform-plugin-framework-validators v0.16.0
+	github.com/hashicorp/terraform-plugin-framework-validators v0.17.0
 	github.com/hashicorp/terraform-plugin-go v0.26.0 // indirect
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-registry-address v0.2.4 // indirect
