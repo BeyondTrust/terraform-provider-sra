@@ -5,7 +5,7 @@ toolchain go1.24.1
 
 require (
 	github.com/Jeffail/gabs v1.4.0
-	github.com/deckarep/golang-set/v2 v2.7.0
+	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/hashicorp/terraform-plugin-framework v1.14.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
