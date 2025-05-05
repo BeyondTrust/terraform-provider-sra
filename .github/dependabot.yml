@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Go modules updates
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    # Set to true to trigger an immediate check after the file is created
+    labels:
+      - "dependencies"
+      - "go"
+    
+  # GitHub Actions updates (if you use GitHub Actions)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions" 
