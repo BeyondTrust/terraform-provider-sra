@@ -17,7 +17,7 @@ description: |-
   * Enabling Jump Group creation, deletion, and asset membership to leverage existing SRA access controls.
   * Enabling Group Policy associations to Jump Groups, Vault Accounts, Vault Account Groups to control overall user access to all Terraform assets.
   Examples for all of these use cases can be found within the test-tf-files https://github.com/BeyondTrust/terraform-provider-sra/tree/main/test-tf-files section of our Github repo.
-  q
+
   Configuration
   To function, the provider requires the hostname of your instance as well as credentials for an API account configured in that instance. This API account must have permission to "Allow Access" to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the "Manage Vault Accounts" permission.
   To use the API Account within your Terraform scripts, the hostname, Client ID, and Client Secret values should be passed by setting the \"BTAPIHOST\", \"BTCLIENTID\", and \"BTCLIENTSECRET\" environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.
