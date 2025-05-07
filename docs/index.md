@@ -49,8 +49,8 @@ Examples for all of these use cases can be found within the [test-tf-files](http
 q
 ## Configuration
 
-To function, the provider requires the hostname of your instance as well as credentials for an API account configured in that instance. This API account must have permission to "Allow Access" to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the "Manage Vault Accounts" permission.
-To use the API Account within your Terraform scripts, the hostname, Client ID, and Client Secret values should be passed by setting the \"BT_API_HOST\", \"BT_CLIENT_ID\", and \"BT_CLIENT_SECRET\" environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.
+To function, the provider requires the `hostname` of your instance as well as credentials for an API account configured in that instance. This API account must have permission to `Allow Access` to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the `Manage Vault Accounts` permission.
+To use the API account within Terraform, the `hostname`, `Client ID`, and `Client Secret` values should be passed by setting the `BT_API_HOST`, `BT_CLIENT_ID`, and `BT_CLIENT_SECRET` environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.
 
 ## Example Usage
 
