@@ -311,6 +311,216 @@ func TestProtocolTunnel(t *testing.T) {
 	})
 }
 
+func TestPostgresTunnel(t *testing.T) {
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/postgresql_tunnel_jump", productPath()))
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Name",
+				"hostname":    "this.host",
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		if mechs.IsPRA() {
+			terraform.InitAndApply(t, terraformOptions)
+		} else {
+			// Expect non-PRA to error on PRA-only resources
+			_, err := terraform.InitAndApplyE(t, terraformOptions)
+			assert.NotNil(t, err)
+		}
+	})
+
+	test_structure.RunTestStage(t, "Create new Postgres Tunnel items", func() {
+		if !mechs.IsPRA() {
+			return
+		}
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, randomBits, item["tag"])
+		assert.Equal(t, randomBits, item2["tag"])
+		assert.Equal(t, 0, len(list))
+	})
+
+	test_structure.RunTestStage(t, "Find the new Postgres Tunnel items with the datasource", func() {
+		if !mechs.IsPRA() {
+			return
+		}
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		// Need to re-run apply so that the datasource output finds the new item
+		terraform.Apply(t, terraformOptions)
+
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 2, len(list))
+		if len(list) > 0 {
+			// Ensure both items are present by comparing ids
+			ids := map[string]bool{item["id"]: true, item2["id"]: true}
+			found := 0
+			for _, v := range list {
+				if _, ok := ids[v["id"].(string)]; ok {
+					found++
+				}
+			}
+			assert.Equal(t, 2, found)
+		}
+	})
+}
+
+func TestMySQLTunnel(t *testing.T) {
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/mysql_tunnel_jump", productPath()))
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Name",
+				"hostname":    "this.host",
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		if mechs.IsPRA() {
+			terraform.InitAndApply(t, terraformOptions)
+		} else {
+			_, err := terraform.InitAndApplyE(t, terraformOptions)
+			assert.NotNil(t, err)
+		}
+	})
+
+	test_structure.RunTestStage(t, "Create new MySQL Tunnel items", func() {
+		if !mechs.IsPRA() {
+			return
+		}
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, randomBits, item["tag"])
+		assert.Equal(t, randomBits, item2["tag"])
+		assert.Equal(t, 0, len(list))
+	})
+
+	test_structure.RunTestStage(t, "Find the new MySQL Tunnel items with the datasource", func() {
+		if !mechs.IsPRA() {
+			return
+		}
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		terraform.Apply(t, terraformOptions)
+
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 2, len(list))
+		if len(list) > 0 {
+			ids := map[string]bool{item["id"]: true, item2["id"]: true}
+			found := 0
+			for _, v := range list {
+				if _, ok := ids[v["id"].(string)]; ok {
+					found++
+				}
+			}
+			assert.Equal(t, 2, found)
+		}
+	})
+}
+
+func TestNetworkTunnel(t *testing.T) {
+	randomBits := setEnvAndGetRandom(t)
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/network_tunnel_jump", productPath()))
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Name",
+				"hostname":    "this.host",
+			},
+		})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		if mechs.IsPRA() {
+			terraform.InitAndApply(t, terraformOptions)
+		} else {
+			_, err := terraform.InitAndApplyE(t, terraformOptions)
+			assert.NotNil(t, err)
+		}
+	})
+
+	test_structure.RunTestStage(t, "Create new Network Tunnel items", func() {
+		if !mechs.IsPRA() {
+			return
+		}
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, randomBits, item["tag"])
+		assert.Equal(t, randomBits, item2["tag"])
+		assert.Equal(t, 0, len(list))
+	})
+
+	test_structure.RunTestStage(t, "Find the new Network Tunnel items with the datasource", func() {
+		if !mechs.IsPRA() {
+			return
+		}
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		terraform.Apply(t, terraformOptions)
+
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 2, len(list))
+		if len(list) > 0 {
+			ids := map[string]bool{item["id"]: true, item2["id"]: true}
+			found := 0
+			for _, v := range list {
+				if _, ok := ids[v["id"].(string)]; ok {
+					found++
+				}
+			}
+			assert.Equal(t, 2, found)
+		}
+	})
+}
+
 func TestWebJump(t *testing.T) {
 	// t.Parallel()
 

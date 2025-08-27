@@ -26,3 +26,4 @@ terraform.rc
 terraform
 .test-data/
 test-reg/
+.env

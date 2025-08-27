@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -109,6 +110,63 @@ func (ProtocolTunnelJump) AllowPRA() bool {
 func (ProtocolTunnelJump) AllowRS() bool {
 	return false
 }
+
+type PostgreSQLTunnelJump struct {
+	ID                  *int    `json:"id,omitempty"`
+	Name                string  `json:"name"`
+	JumpointID          int     `json:"jumpoint_id"`
+	Hostname            string  `json:"hostname"`
+	JumpGroupID         int     `json:"jump_group_id"`
+	JumpGroupType       string  `json:"jump_group_type"`
+	Tag                 string  `json:"tag"`
+	Comments            string  `json:"comments"`
+	JumpPolicyID        *int    `json:"jump_policy_id,omitempty"`
+	SessionPolicyID     *int    `json:"session_policy_id,omitempty"`
+	TunnelListenAddress *string `json:"tunnel_listen_address,omitempty"`
+	Username            *string `json:"username,omitempty"`
+	Database            *string `json:"database,omitempty"`
+}
+
+func (PostgreSQLTunnelJump) Endpoint() string { return "jump-item/psql-tunnel-jump" }
+func (PostgreSQLTunnelJump) AllowPRA() bool   { return true }
+func (PostgreSQLTunnelJump) AllowRS() bool    { return false }
+
+type MySQLTunnelJump struct {
+	ID                  *int    `json:"id,omitempty"`
+	Name                string  `json:"name"`
+	JumpointID          int     `json:"jumpoint_id"`
+	Hostname            string  `json:"hostname"`
+	JumpGroupID         int     `json:"jump_group_id"`
+	JumpGroupType       string  `json:"jump_group_type"`
+	Tag                 string  `json:"tag"`
+	Comments            string  `json:"comments"`
+	JumpPolicyID        *int    `json:"jump_policy_id,omitempty"`
+	SessionPolicyID     *int    `json:"session_policy_id,omitempty"`
+	TunnelListenAddress *string `json:"tunnel_listen_address,omitempty"`
+	Username            *string `json:"username,omitempty"`
+	Database            *string `json:"database,omitempty"`
+}
+
+func (MySQLTunnelJump) Endpoint() string { return "jump-item/mysql-tunnel-jump" }
+func (MySQLTunnelJump) AllowPRA() bool   { return true }
+func (MySQLTunnelJump) AllowRS() bool    { return false }
+
+type NetworkTunnelJump struct {
+	ID              *int             `json:"id,omitempty"`
+	Name            string           `json:"name"`
+	JumpointID      int              `json:"jumpoint_id"`
+	JumpGroupID     int              `json:"jump_group_id"`
+	JumpGroupType   string           `json:"jump_group_type"`
+	Tag             string           `json:"tag"`
+	Comments        string           `json:"comments"`
+	JumpPolicyID    *int             `json:"jump_policy_id,omitempty"`
+	SessionPolicyID *int             `json:"session_policy_id,omitempty"`
+	FilterRules     *json.RawMessage `json:"filter_rules,omitempty"`
+}
+
+func (NetworkTunnelJump) Endpoint() string { return "jump-item/network-tunnel-jump" }
+func (NetworkTunnelJump) AllowPRA() bool   { return true }
+func (NetworkTunnelJump) AllowRS() bool    { return false }
 
 type WebJump struct {
 	ID                    *int   `json:"id,omitempty"`

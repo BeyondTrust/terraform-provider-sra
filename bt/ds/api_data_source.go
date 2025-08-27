@@ -29,6 +29,9 @@ func DatasourceList() []func() datasource.DataSource {
 		newSessionPolicyDataSource,
 		newShellJumpDataSource,
 		newWebJumpDataSource,
+		newPostgreSQLTunnelJumpDataSource,
+		newMySQLTunnelJumpDataSource,
+		newNetworkTunnelJumpDataSource,
 
 		newVaultAccountDataSource,
 		newVaultSSHAccountDataSource,

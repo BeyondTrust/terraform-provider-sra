@@ -67,9 +67,9 @@ func (r *remoteRDPResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"quality": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  stringdefault.StaticString("video"),
+				Default:  stringdefault.StaticString("best_performance"),
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"low", "performance", "performance_quality", "quality", "video", "lossless"}...),
+					stringvalidator.OneOf([]string{"low", "performance", "performance_quality", "quality", "best_performance", "lossless"}...),
 				},
 			},
 			"console": schema.BoolAttribute{
