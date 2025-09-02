@@ -15,11 +15,10 @@ module "jump_resources" {
 
 resource "sra_network_tunnel_jump" "test" {
   name          = var.name
-  hostname      = var.hostname
   jumpoint_id   = module.jump_resources.jumpoint.id
   jump_group_id = module.jump_resources.jump_group.id
   tag           = var.random_bits
-  filter_rules  = var.filter_rules
+  filter_rules  = [ { ip_addresses = { list = ["10.0.0.5"] } } ]
 }
 
 data "sra_network_tunnel_jump_list" "list" {
@@ -28,20 +27,19 @@ data "sra_network_tunnel_jump_list" "list" {
 
 resource "sra_network_tunnel_jump" "test_secondary" {
   name          = "${var.name}-secondary"
-  hostname      = var.hostname
   jumpoint_id   = module.jump_resources.jumpoint.id
   jump_group_id = module.jump_resources.jump_group.id
   tag           = var.random_bits
   filter_rules = [
     {
-      ip_addresses = ["10.0.0.0/24", "10.0.1.0/24"]
-      ports        = { start = 1000, end = 2000 }
-      protocol     = "tcp"
+      ip_addresses = { list = ["10.0.0.1", "10.0.1.1"] }
+      ports        = { range = { start = 1000, end = 2000 } }
+      protocol     = "TCP"
     },
     {
-      ip_addresses = ["192.168.0.0/24"]
-      ports        = [80, 443]
-      protocol     = "tcp"
+      ip_addresses = { cidr = "192.168.0.0/24" }
+      ports        = { list = [80, 443] }
+      protocol     = "TCP"
     }
   ]
 }

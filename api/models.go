@@ -235,27 +235,27 @@ func (Jumpoint) Endpoint() string {
 }
 
 type JumpClientInstaller struct {
-	ID                             *int      `json:"id,omitempty"`
-	JumpGroupID                    int       `json:"jump_group_id"`
-	Name                           string    `json:"name"`
-	Tag                            string    `json:"tag"`
-	Comments                       string    `json:"comments"`
-	ConnectionType                 string    `json:"connection_type"`
-	JumpGroupType                  string    `json:"jump_group_type"`
-	JumpPolicyID                   *int      `json:"jump_policy_id,omitempty"`
-	MaxOfflineMinutes              int       `json:"max_offline_minutes"`
-	InstallerID                    string    `json:"installer_id,omitempty"`
-	KeyInfo                        string    `json:"key_info,omitempty"`
-	ElevateInstall                 bool      `json:"elevate_install"`
-	ElevatePrompt                  bool      `json:"elevate_prompt"`
-	ExpirationTimestamp            Timestamp `json:"expiration_timestamp,omitempty"`
-	AllowOverrideJumpGroup         bool      `json:"allow_override_jump_group"`
-	AllowOverrideJumpPolicy        bool      `json:"allow_override_jump_policy"`
-	AllowOverrideName              bool      `json:"allow_override_name"`
-	AllowOverrideTag               bool      `json:"allow_override_tag"`
-	AllowOverrideComments          bool      `json:"allow_override_comments"`
-	AllowOverrideMaxOfflineMinutes bool      `json:"allow_override_max_offline_minutes"`
-	ValidDuration                  *int      `json:"valid_duration,omitempty"`
+	ID                             *int                        `json:"id,omitempty"`
+	JumpGroupID                    int                         `json:"jump_group_id"`
+	Name                           string                      `json:"name"`
+	Tag                            string                      `json:"tag"`
+	Comments                       string                      `json:"comments"`
+	ConnectionType                 string                      `json:"connection_type"`
+	JumpGroupType                  string                      `json:"jump_group_type"`
+	JumpPolicyID                   *int                        `json:"jump_policy_id,omitempty"`
+	MaxOfflineMinutes              int                         `json:"max_offline_minutes"`
+	InstallerID                    string                      `json:"installer_id,omitempty"`
+	KeyInfo                        *JumpClientInstallerKeyInfo `json:"key_info,omitempty"`
+	ElevateInstall                 bool                        `json:"elevate_install"`
+	ElevatePrompt                  bool                        `json:"elevate_prompt"`
+	ExpirationTimestamp            Timestamp                   `json:"expiration_timestamp,omitempty"`
+	AllowOverrideJumpGroup         bool                        `json:"allow_override_jump_group"`
+	AllowOverrideJumpPolicy        bool                        `json:"allow_override_jump_policy"`
+	AllowOverrideName              bool                        `json:"allow_override_name"`
+	AllowOverrideTag               bool                        `json:"allow_override_tag"`
+	AllowOverrideComments          bool                        `json:"allow_override_comments"`
+	AllowOverrideMaxOfflineMinutes bool                        `json:"allow_override_max_offline_minutes"`
+	ValidDuration                  *int                        `json:"valid_duration,omitempty"`
 
 	SessionPolicyID            *int  `json:"session_policy_id,omitempty" sraproduct:"pra"`
 	AllowOverrideSessionPolicy *bool `json:"allow_override_session_policy,omitempty" sraproduct:"pra"`
@@ -270,6 +270,14 @@ type JumpClientInstaller struct {
 
 func (JumpClientInstaller) Endpoint() string {
 	return "jump-client/installer"
+}
+
+// JumpClientInstallerKeyInfo represents the immutable key_info object returned
+// when creating a new installer. All fields are read-only.
+type JumpClientInstallerKeyInfo struct {
+	EncodedInfo   string `json:"encodedInfo"`
+	Filename      string `json:"filename"`
+	InstallerPath string `json:"installerPath"`
 }
 
 type JumpItemRole struct {
@@ -435,7 +443,7 @@ type VaultSSHAccount struct {
 	PublicKey             *string `json:"public_key,omitempty"`
 	PrivateKey            *string `json:"private_key,omitempty"`
 	PrivateKeyPassphrase  *string `json:"private_key_passphrase,omitempty"`
-	PrivateKeyPublicCert  string  `json:"private_key_public_cert"`
+	PrivateKeyPublicCert  *string `json:"private_key_public_cert,omitempty"`
 	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`

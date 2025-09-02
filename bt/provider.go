@@ -153,6 +153,7 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 
 	tflog.Debug(ctx, "Creating BT API Client")
 	c, err := api.NewClient(host, &client_id, &client_secret)
+	c.SetLogContext(&ctx)
 
 	if err != nil {
 		resp.Diagnostics.AddError(

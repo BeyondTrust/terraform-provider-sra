@@ -114,7 +114,7 @@ type JumpClientInstaller struct {
 	JumpGroupType                  types.String `tfsdk:"jump_group_type"`
 	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
 	InstallerID                    types.String `tfsdk:"installer_id"`
-	KeyInfo                        types.String `tfsdk:"key_info"`
+	KeyInfo                        types.Object `tfsdk:"key_info"`
 	ElevateInstall                 types.Bool   `tfsdk:"elevate_install"`
 	ElevatePrompt                  types.Bool   `tfsdk:"elevate_prompt"`
 	ExpirationTimestamp            types.String `tfsdk:"expiration_timestamp"`
@@ -173,7 +173,6 @@ type MySQLTunnelJump struct {
 type NetworkTunnelJump struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
-	Hostname        types.String `tfsdk:"hostname"`
 	JumpointID      types.Int64  `tfsdk:"jumpoint_id"`
 	JumpGroupID     types.Int64  `tfsdk:"jump_group_id"`
 	JumpGroupType   types.String `tfsdk:"jump_group_type"`
@@ -186,7 +185,7 @@ type NetworkTunnelJump struct {
 
 // Structured types for filter_rules (Option C)
 type FilterRule struct {
-	IPAddresses types.List `tfsdk:"ip_addresses"` // list of strings (CIDRs) or a nested object in the future
+	IPAddresses types.Object `tfsdk:"ip_addresses"` // nested object: oneOf { cidr string | range {start,end} | list []string }
 	// Ports is now a nested object that may contain either a `list` of integers
 	// or a `range` object with `start` and `end` integers. This matches the
 	// API which accepts oneOf { PortList | PortRange }.

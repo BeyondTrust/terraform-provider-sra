@@ -468,7 +468,6 @@ func TestNetworkTunnel(t *testing.T) {
 			Vars: map[string]interface{}{
 				"random_bits": randomBits,
 				"name":        "This is a Name",
-				"hostname":    "this.host",
 			},
 		})
 

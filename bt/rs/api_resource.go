@@ -132,7 +132,7 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating item",
-			"Unexpected error: "+err.Error(),
+			fmt.Sprintf("Unexpected error: [%s][%s]", err.Error(), string(rb)),
 		)
 		return
 	}

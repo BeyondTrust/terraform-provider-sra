@@ -68,25 +68,7 @@ func (m filterRulesPlanModifier) PlanModifyString(ctx context.Context, req planm
 		if v, ok := item["ip_addresses"]; ok {
 			switch vv := v.(type) {
 			case []interface{}:
-				var cidrs []string
-				var plain []interface{}
-				for _, e := range vv {
-					if s, ok := e.(string); ok && strings.Contains(s, "/") {
-						cidrs = append(cidrs, s)
-					} else {
-						plain = append(plain, e)
-					}
-				}
-				// Preserve ip_addresses as an array when the user provided an array.
-				// API expects objects for CIDR vs list, but we keep the plan-friendly
-				// array form here to avoid plan vs config mismatches. The request-side
-				// transform will convert to the API shape.
-				item["ip_addresses"] = map[string]interface{}{"list": vv}
-				if len(cidrs) > 0 && len(plain) > 0 {
-					// Mixed values: preserve a single rule with ip_addresses list containing
-					// both values to match user expectations.
-					item["ip_addresses"] = map[string]interface{}{"list": vv}
-				}
+				// user provided bare array -> preserve as nested object with list
 				item["ip_addresses"] = map[string]interface{}{"list": vv}
 			case string:
 				if strings.Contains(vv, "/") {
@@ -95,7 +77,7 @@ func (m filterRulesPlanModifier) PlanModifyString(ctx context.Context, req planm
 					item["ip_addresses"] = map[string]interface{}{"list": []interface{}{vv}}
 				}
 			case map[string]interface{}:
-				// ok
+				// already in expected format
 			}
 		}
 		outList = append(outList, normalize(item))

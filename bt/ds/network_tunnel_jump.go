@@ -46,9 +46,22 @@ func (d *networkTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.S
 				"jump_policy_id":    schema.Int64Attribute{Optional: true},
 				"session_policy_id": schema.Int64Attribute{Optional: true},
 				"filter_rules": schema.ListNestedAttribute{Optional: true, Computed: true, NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
-					"ip_addresses": schema.ListAttribute{ElementType: types.StringType, Required: true},
-					"ports":        schema.ListAttribute{ElementType: types.StringType, Optional: true, Computed: true},
-					"protocol":     schema.StringAttribute{Optional: true, Computed: true},
+					"ip_addresses": schema.SingleNestedAttribute{Required: true, Attributes: map[string]schema.Attribute{
+						"cidr": schema.StringAttribute{Optional: true},
+						"range": schema.SingleNestedAttribute{Optional: true, Attributes: map[string]schema.Attribute{
+							"start": schema.StringAttribute{Required: true},
+							"end":   schema.StringAttribute{Required: true},
+						}},
+						"list": schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					}},
+					"ports": schema.SingleNestedAttribute{Optional: true, Computed: true, Attributes: map[string]schema.Attribute{
+						"list": schema.ListAttribute{ElementType: types.Int64Type, Optional: true, Computed: true},
+						"range": schema.SingleNestedAttribute{Optional: true, Attributes: map[string]schema.Attribute{
+							"start": schema.Int64Attribute{Required: true},
+							"end":   schema.Int64Attribute{Required: true},
+						}},
+					}},
+					"protocol": schema.StringAttribute{Optional: true, Computed: true},
 				}}},
 			}}},
 			"name":            schema.StringAttribute{Optional: true, Description: "Filter by name"},

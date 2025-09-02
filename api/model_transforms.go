@@ -10,9 +10,47 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/exp/slices"
 )
+
+type NetworkConfig struct {
+	IPAddresses IPAddressConfig `json:"ip_addresses" tfsdk:"ip_addresses"`
+	Ports       types.Object    `json:"ports,omitempty" tfsdk:"ports"`
+	Protocol    types.String    `json:"protocol" tfsdk:"protocol"`
+}
+
+type IPAddressConfig struct {
+	CIDR  types.String `json:"cidr,omitempty" tfsdk:"cidr"`
+	List  types.List   `json:"list,omitempty" tfsdk:"list"`
+	Range types.Object `json:"range,omitempty" tfsdk:"range"`
+}
+
+type PortConfig struct {
+	List  types.List   `json:"list,omitempty" tfsdk:"list"`
+	Range types.Object `json:"range,omitempty" tfsdk:"range"`
+}
+
+type IPRange struct {
+	Start types.String `json:"start" tfsdk:"start"`
+	End   types.String `json:"end" tfsdk:"end"`
+}
+
+type PortRange struct {
+	Start types.Int64 `json:"start" tfsdk:"start"`
+	End   types.Int64 `json:"end" tfsdk:"end"`
+}
+
+// Then convert using proper struct
+// func convertToStruct(obj tftypes.Value) (*NetworkConfig, error) {
+// 	var config NetworkConfig
+// 	err := tftypes.ValueAs(obj, &config)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &config, nil
+// }
 
 /*
 These functions do the actual copying from TF -> API and API -> TF. They take a context parameter first
@@ -61,155 +99,99 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			// tfField should be a types.List
 			m := tfField.MethodByName("IsNull")
 			mCallable := m.Interface().(func() bool)
-			if mCallable() {
-				continue
-			}
+			isNull := mCallable()
 			m = tfField.MethodByName("IsUnknown")
 			mCallable = m.Interface().(func() bool)
-			if mCallable() {
+			isUnknown := mCallable()
+			tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI FilterRules IsNull=%v IsUnknown=%v", isNull, isUnknown))
+			if isNull || isUnknown {
+				tflog.Debug(ctx, "🍻 copyTFtoAPI skipping FilterRules because it is null or unknown")
 				continue
 			}
 
 			listVal := tfField.Interface().(types.List)
-			var rawList []map[string]interface{}
-			// ElementsAs will convert the TF nested objects into Go maps/slices
-			_ = listVal.ElementsAs(ctx, &rawList, false)
-			// reuse existing normalization logic from the string-based path
-			var outList []map[string]interface{}
-			for _, item := range rawList {
-				if v, ok := item["ip_addresses"]; ok {
-					switch vv := v.(type) {
-					case []interface{}:
-						var cidrs []string
-						var plain []interface{}
-						for _, elem := range vv {
-							if s, ok := elem.(string); ok && strings.Contains(s, "/") {
-								cidrs = append(cidrs, s)
-							} else {
-								plain = append(plain, elem)
-							}
-						}
-						if len(cidrs) > 0 && len(plain) == 0 {
-							for _, c := range cidrs {
-								ni := make(map[string]interface{}, len(item))
-								for k, v := range item {
-									if k == "ip_addresses" {
-										continue
-									}
-									ni[k] = v
-								}
-								ni["ip_addresses"] = map[string]interface{}{"cidr": c}
-								if p, ok := ni["protocol"]; ok {
-									if ps, ok := p.(string); ok {
-										ni["protocol"] = strings.ToUpper(ps)
-									}
-								} else {
-									ni["protocol"] = "ANY"
-								}
-								if pp, ok := ni["ports"]; ok {
-									switch pvv := pp.(type) {
-									case []interface{}:
-										ni["ports"] = map[string]interface{}{"list": pvv}
-									case map[string]interface{}:
-										// ok
-									default:
-										ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-									}
-								} else {
-									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-								}
-								outList = append(outList, ni)
-							}
-							continue
-						}
-						if len(cidrs) > 0 && len(plain) > 0 {
-							ni := make(map[string]interface{}, len(item))
-							for k, v := range item {
-								if k == "ip_addresses" {
-									continue
-								}
-								ni[k] = v
-							}
-							ni["ip_addresses"] = map[string]interface{}{"list": plain}
-							if p, ok := ni["protocol"]; ok {
-								if ps, ok := p.(string); ok {
-									ni["protocol"] = strings.ToUpper(ps)
-								}
-							} else {
-								ni["protocol"] = "ANY"
-							}
-							if pp, ok := ni["ports"]; ok {
-								switch pvv := pp.(type) {
-								case []interface{}:
-									ni["ports"] = map[string]interface{}{"list": pvv}
-								case map[string]interface{}:
-									// ok
-								default:
-									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-								}
-							} else {
-								ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-							}
-							outList = append(outList, ni)
-							for _, c := range cidrs {
-								ci := make(map[string]interface{}, len(item))
-								for k, v := range item {
-									if k == "ip_addresses" {
-										continue
-									}
-									ci[k] = v
-								}
-								ci["ip_addresses"] = map[string]interface{}{"cidr": c}
-								if p, ok := ci["protocol"]; ok {
-									if ps, ok := p.(string); ok {
-										ci["protocol"] = strings.ToUpper(ps)
-									}
-								} else {
-									ci["protocol"] = "ANY"
-								}
-								if pp, ok := ci["ports"]; ok {
-									switch pvv := pp.(type) {
-									case []interface{}:
-										ci["ports"] = map[string]interface{}{"list": pvv}
-									case map[string]interface{}:
-										// ok
-									default:
-										ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-									}
-								} else {
-									ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-								}
-								outList = append(outList, ci)
-							}
-							continue
-						}
-						item["ip_addresses"] = map[string]interface{}{"list": vv}
-					case string:
-						if strings.Contains(vv, "/") {
-							item["ip_addresses"] = map[string]interface{}{"cidr": vv}
-						} else {
-							item["ip_addresses"] = map[string]interface{}{"list": []interface{}{vv}}
-						}
-					case map[string]interface{}:
-						// already in expected format
-					}
-				}
-				if v, ok := item["ports"]; ok {
-					switch vv := v.(type) {
-					case []interface{}:
-						item["ports"] = map[string]interface{}{"list": vv}
-					case map[string]interface{}:
-						// ok
-					}
-				}
-				if v, ok := item["protocol"]; ok {
-					if s, ok := v.(string); ok {
-						item["protocol"] = strings.ToUpper(s)
-					}
-				}
-				outList = append(outList, item)
+			tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI FilterRules raw list type: %+v", listVal))
+
+			var config []NetworkConfig
+
+			diag := listVal.ElementsAs(ctx, &config, true)
+			if diag.HasError() {
+				tflog.Debug(ctx, fmt.Sprintf("💥 copyTFtoAPI FilterRules ValueAs error: %v", diag))
+				continue
 			}
-			newBytes, _ := json.Marshal(outList)
+
+			tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI using %+v", config))
+			outList := make([]map[string]interface{}, 0, len(config))
+			for _, c := range config {
+				m := make(map[string]interface{})
+
+				// ip_addresses: check CIDR, list, range (all are terraform types)
+				if !(c.IPAddresses.CIDR.IsNull() || c.IPAddresses.CIDR.IsUnknown()) && c.IPAddresses.CIDR.ValueString() != "" {
+					m["ip_addresses"] = map[string]interface{}{"cidr": c.IPAddresses.CIDR.ValueString()}
+				} else if !(c.IPAddresses.List.IsNull() || c.IPAddresses.List.IsUnknown()) {
+					var ips []string
+					if err := c.IPAddresses.List.ElementsAs(ctx, &ips, false); err == nil {
+						arr := make([]interface{}, 0, len(ips))
+						for _, s := range ips {
+							arr = append(arr, s)
+						}
+						m["ip_addresses"] = map[string]interface{}{"list": arr}
+					}
+				} else if !(c.IPAddresses.Range.IsNull() || c.IPAddresses.Range.IsUnknown()) {
+					var rng struct {
+						Start types.String `tfsdk:"start"`
+						End   types.String `tfsdk:"end"`
+					}
+					_ = c.IPAddresses.Range.As(ctx, &rng, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+					if !(rng.Start.IsNull() || rng.Start.IsUnknown()) && !(rng.End.IsNull() || rng.End.IsUnknown()) {
+						m["ip_addresses"] = map[string]interface{}{"range": map[string]interface{}{"start": rng.Start.ValueString(), "end": rng.End.ValueString()}}
+					}
+				}
+
+				// ports
+				if !(c.Ports.IsNull() || c.Ports.IsUnknown()) {
+					var ports struct {
+						List  types.List   `tfsdk:"list"`
+						Range types.Object `tfsdk:"range"`
+					}
+					_ = c.Ports.As(ctx, &ports, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+					if !(ports.List.IsNull() || ports.List.IsUnknown()) {
+						var pvals []int64
+						if err := ports.List.ElementsAs(ctx, &pvals, false); err == nil {
+							parr := make([]interface{}, 0, len(pvals))
+							for _, p := range pvals {
+								parr = append(parr, p)
+							}
+							m["ports"] = map[string]interface{}{"list": parr}
+						}
+					} else if !(ports.Range.IsNull() || ports.Range.IsUnknown()) {
+						var pr struct {
+							Start types.Int64 `tfsdk:"start"`
+							End   types.Int64 `tfsdk:"end"`
+						}
+						_ = ports.Range.As(ctx, &pr, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+						if !(pr.Start.IsNull() || pr.Start.IsUnknown()) && !(pr.End.IsNull() || pr.End.IsUnknown()) {
+							m["ports"] = map[string]interface{}{"range": map[string]interface{}{"start": pr.Start.ValueInt64(), "end": pr.End.ValueInt64()}}
+						}
+					}
+				}
+
+				// protocol
+				if !(c.Protocol.IsNull() || c.Protocol.IsUnknown()) && c.Protocol.ValueString() != "" {
+					m["protocol"] = strings.ToUpper(c.Protocol.ValueString())
+				} else {
+					m["protocol"] = "ANY"
+				}
+
+				outList = append(outList, m)
+			}
+
+			newBytes, err := json.Marshal(outList)
+			if err != nil {
+				tflog.Debug(ctx, fmt.Sprintf("💥 copyTFtoAPI marshalled filter_rules JSON error: %v", err))
+				continue
+			}
+			tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI marshalled filter_rules JSON len=%d, [%s]", len(newBytes), newBytes))
 			var raw json.RawMessage = newBytes
 			field.Set(reflect.ValueOf(&raw))
 			continue
@@ -247,6 +229,15 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 				continue
 			}
 
+			// If destination is pointer to string and TF value is empty string, skip setting so field is omitted (omitempty) instead of sending "" (API may reject empty string as invalid).
+			if apiTypeField.Type.Elem().Kind() == reflect.String && tfObjField.Type.String() == "types.String" {
+				val := tfField.Interface().(types.String)
+				if val.ValueString() == "" {
+					tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI skipping empty string pointer field %s", fieldName))
+					continue
+				}
+			}
+
 			if field.IsNil() {
 				nestedKind := apiTypeField.Type.Elem()
 				field.Set(reflect.New(nestedKind))
@@ -257,173 +248,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 		switch field.Kind() {
 		case reflect.String:
 			val := tfField.Interface().(types.String)
-			// Special case: filter_rules is stored as JSON on the API side as a raw message
-			if tfObjField.Name == "FilterRules" {
-				// If null/unknown/empty, leave API nil
-				if val.IsNull() || val.IsUnknown() || val.ValueString() == "" {
-					// leave as nil
-				} else {
-					// Parse the user-provided JSON and massage it into the API-expected shape.
-					var list []map[string]interface{}
-					if err := json.Unmarshal([]byte(val.ValueString()), &list); err == nil {
-						var outList []map[string]interface{}
-						for _, item := range list {
-							// ip_addresses can be a bare array or string in TF examples; API expects an object
-							if v, ok := item["ip_addresses"]; ok {
-								switch vv := v.(type) {
-								case []interface{}:
-									// Partition elements into cidrs and plain IPs
-									var cidrs []string
-									var plain []interface{}
-									for _, elem := range vv {
-										if s, ok := elem.(string); ok && strings.Contains(s, "/") {
-											cidrs = append(cidrs, s)
-										} else {
-											plain = append(plain, elem)
-										}
-									}
-									if len(cidrs) > 0 && len(plain) == 0 {
-										// all cidrs -> create one rule per cidr
-										for _, c := range cidrs {
-											ni := make(map[string]interface{}, len(item))
-											for k, v := range item {
-												if k == "ip_addresses" {
-													continue
-												}
-												ni[k] = v
-											}
-											ni["ip_addresses"] = map[string]interface{}{"cidr": c}
-											// normalize protocol
-											if p, ok := ni["protocol"]; ok {
-												if ps, ok := p.(string); ok {
-													ni["protocol"] = strings.ToUpper(ps)
-												}
-											} else {
-												ni["protocol"] = "ANY"
-											}
-											// normalize ports
-											if pp, ok := ni["ports"]; ok {
-												switch pvv := pp.(type) {
-												case []interface{}:
-													ni["ports"] = map[string]interface{}{"list": pvv}
-												case map[string]interface{}:
-													// ok
-												default:
-													ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-												}
-											} else {
-												ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-											}
-											outList = append(outList, ni)
-										}
-										// continue to next original item
-										continue
-									}
-									if len(cidrs) > 0 && len(plain) > 0 {
-										// mixed -> keep a rule for plain list and separate rules for each cidr
-										ni := make(map[string]interface{}, len(item))
-										for k, v := range item {
-											if k == "ip_addresses" {
-												continue
-											}
-											ni[k] = v
-										}
-										ni["ip_addresses"] = map[string]interface{}{"list": plain}
-										// normalize protocol and ports for ni
-										if p, ok := ni["protocol"]; ok {
-											if ps, ok := p.(string); ok {
-												ni["protocol"] = strings.ToUpper(ps)
-											}
-										} else {
-											ni["protocol"] = "ANY"
-										}
-										if pp, ok := ni["ports"]; ok {
-											switch pvv := pp.(type) {
-											case []interface{}:
-												ni["ports"] = map[string]interface{}{"list": pvv}
-											case map[string]interface{}:
-												// ok
-											default:
-												ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-											}
-										} else {
-											ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-										}
-										outList = append(outList, ni)
-										for _, c := range cidrs {
-											ci := make(map[string]interface{}, len(item))
-											for k, v := range item {
-												if k == "ip_addresses" {
-													continue
-												}
-												ci[k] = v
-											}
-											ci["ip_addresses"] = map[string]interface{}{"cidr": c}
-											// normalize protocol and ports for ci
-											if p, ok := ci["protocol"]; ok {
-												if ps, ok := p.(string); ok {
-													ci["protocol"] = strings.ToUpper(ps)
-												}
-											} else {
-												ci["protocol"] = "ANY"
-											}
-											if pp, ok := ci["ports"]; ok {
-												switch pvv := pp.(type) {
-												case []interface{}:
-													ci["ports"] = map[string]interface{}{"list": pvv}
-												case map[string]interface{}:
-													// ok
-												default:
-													ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-												}
-											} else {
-												ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-											}
-											outList = append(outList, ci)
-										}
-										continue
-									}
-									// no cidrs -> treat as list
-									item["ip_addresses"] = map[string]interface{}{"list": vv}
-								case string:
-									if strings.Contains(vv, "/") {
-										item["ip_addresses"] = map[string]interface{}{"cidr": vv}
-									} else {
-										item["ip_addresses"] = map[string]interface{}{"list": []interface{}{vv}}
-									}
-								case map[string]interface{}:
-									// already in expected format
-								}
-							}
-							// ports can be array or object
-							if v, ok := item["ports"]; ok {
-								switch vv := v.(type) {
-								case []interface{}:
-									item["ports"] = map[string]interface{}{"list": vv}
-								case map[string]interface{}:
-									// ok
-								}
-							}
-							// protocol should be uppercased to match enum values
-							if v, ok := item["protocol"]; ok {
-								if s, ok := v.(string); ok {
-									item["protocol"] = strings.ToUpper(s)
-								}
-							}
-							outList = append(outList, item)
-						}
-						newBytes, _ := json.Marshal(outList)
-						var raw json.RawMessage = newBytes
-						field.Set(reflect.ValueOf(&raw))
-					} else {
-						// if invalid JSON, set empty to cause server-side error later
-						empty := json.RawMessage([]byte("null"))
-						field.Set(reflect.ValueOf(&empty))
-					}
-				}
-			} else {
-				field.SetString(val.ValueString())
-			}
+			field.SetString(val.ValueString())
 		case reflect.Int:
 			val := tfField.Interface().(types.Int64)
 			field.SetInt(val.ValueInt64())
@@ -433,150 +258,150 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 
 		case reflect.Slice:
 			// Special-case for json.RawMessage on the API model (backed by []byte)
-			if tfObjField.Name == "FilterRules" {
-				val := tfField.Interface().(types.String)
-				// If null/unknown/empty, leave API nil/empty
-				if val.IsNull() || val.IsUnknown() || val.ValueString() == "" {
-					// leave as nil/empty
-				} else {
-					var list []map[string]interface{}
-					if err := json.Unmarshal([]byte(val.ValueString()), &list); err == nil {
-						var outList []map[string]interface{}
-						for _, item := range list {
-							if v, ok := item["ip_addresses"]; ok {
-								switch vv := v.(type) {
-								case []interface{}:
-									var cidrs []string
-									var plain []interface{}
-									for _, elem := range vv {
-										if s, ok := elem.(string); ok && strings.Contains(s, "/") {
-											cidrs = append(cidrs, s)
-										} else {
-											plain = append(plain, elem)
-										}
-									}
-									if len(cidrs) > 0 && len(plain) == 0 {
-										for _, c := range cidrs {
-											ni := make(map[string]interface{}, len(item))
-											for k, v := range item {
-												if k == "ip_addresses" {
-													continue
-												}
-												ni[k] = v
-											}
-											ni["ip_addresses"] = map[string]interface{}{"cidr": c}
-											if p, ok := ni["protocol"]; ok {
-												if ps, ok := p.(string); ok {
-													ni["protocol"] = strings.ToUpper(ps)
-												}
-											} else {
-												ni["protocol"] = "ANY"
-											}
-											if pp, ok := ni["ports"]; ok {
-												switch pvv := pp.(type) {
-												case []interface{}:
-													ni["ports"] = map[string]interface{}{"list": pvv}
-												case map[string]interface{}:
-												default:
-													ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-												}
-											} else {
-												ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-											}
-											outList = append(outList, ni)
-										}
-										continue
-									}
-									if len(cidrs) > 0 && len(plain) > 0 {
-										ni := make(map[string]interface{}, len(item))
-										for k, v := range item {
-											if k == "ip_addresses" {
-												continue
-											}
-											ni[k] = v
-										}
-										ni["ip_addresses"] = map[string]interface{}{"list": plain}
-										if p, ok := ni["protocol"]; ok {
-											if ps, ok := p.(string); ok {
-												ni["protocol"] = strings.ToUpper(ps)
-											}
-										} else {
-											ni["protocol"] = "ANY"
-										}
-										if pp, ok := ni["ports"]; ok {
-											switch pvv := pp.(type) {
-											case []interface{}:
-												ni["ports"] = map[string]interface{}{"list": pvv}
-											case map[string]interface{}:
-											default:
-												ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-											}
-										} else {
-											ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-										}
-										outList = append(outList, ni)
-										for _, c := range cidrs {
-											ci := make(map[string]interface{}, len(item))
-											for k, v := range item {
-												if k == "ip_addresses" {
-													continue
-												}
-												ci[k] = v
-											}
-											ci["ip_addresses"] = map[string]interface{}{"cidr": c}
-											if p, ok := ci["protocol"]; ok {
-												if ps, ok := p.(string); ok {
-													ci["protocol"] = strings.ToUpper(ps)
-												}
-											} else {
-												ci["protocol"] = "ANY"
-											}
-											if pp, ok := ci["ports"]; ok {
-												switch pvv := pp.(type) {
-												case []interface{}:
-													ci["ports"] = map[string]interface{}{"list": pvv}
-												case map[string]interface{}:
-												default:
-													ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-												}
-											} else {
-												ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-											}
-											outList = append(outList, ci)
-										}
-										continue
-									}
-									item["ip_addresses"] = map[string]interface{}{"list": vv}
-								case string:
-									if strings.Contains(vv, "/") {
-										item["ip_addresses"] = map[string]interface{}{"cidr": vv}
-									} else {
-										item["ip_addresses"] = map[string]interface{}{"list": []interface{}{vv}}
-									}
-								case map[string]interface{}:
-								}
-							}
-							if v, ok := item["ports"]; ok {
-								switch vv := v.(type) {
-								case []interface{}:
-									item["ports"] = map[string]interface{}{"list": vv}
-								case map[string]interface{}:
-								}
-							}
-							if v, ok := item["protocol"]; ok {
-								if s, ok := v.(string); ok {
-									item["protocol"] = strings.ToUpper(s)
-								}
-							}
-							outList = append(outList, item)
-						}
-						newBytes, _ := json.Marshal(outList)
-						field.Set(reflect.ValueOf([]byte(newBytes)))
-					} else {
-						field.Set(reflect.ValueOf([]byte("null")))
-					}
-				}
-			}
+			// if tfObjField.Name == "FilterRules" {
+			// 	val := tfField.Interface().(types.String)
+			// 	// If null/unknown/empty, leave API nil/empty
+			// 	if val.IsNull() || val.IsUnknown() || val.ValueString() == "" {
+			// 		// leave as nil/empty
+			// 	} else {
+			// 		var list []map[string]interface{}
+			// 		if err := json.Unmarshal([]byte(val.ValueString()), &list); err == nil {
+			// 			var outList []map[string]interface{}
+			// 			for _, item := range list {
+			// 				if v, ok := item["ip_addresses"]; ok {
+			// 					switch vv := v.(type) {
+			// 					case []interface{}:
+			// 						var cidrs []string
+			// 						var plain []interface{}
+			// 						for _, elem := range vv {
+			// 							if s, ok := elem.(string); ok && strings.Contains(s, "/") {
+			// 								cidrs = append(cidrs, s)
+			// 							} else {
+			// 								plain = append(plain, elem)
+			// 							}
+			// 						}
+			// 						if len(cidrs) > 0 && len(plain) == 0 {
+			// 							for _, c := range cidrs {
+			// 								ni := make(map[string]interface{}, len(item))
+			// 								for k, v := range item {
+			// 									if k == "ip_addresses" {
+			// 										continue
+			// 									}
+			// 									ni[k] = v
+			// 								}
+			// 								ni["ip_addresses"] = map[string]interface{}{"cidr": c}
+			// 								if p, ok := ni["protocol"]; ok {
+			// 									if ps, ok := p.(string); ok {
+			// 										ni["protocol"] = strings.ToUpper(ps)
+			// 									}
+			// 								} else {
+			// 									ni["protocol"] = "ANY"
+			// 								}
+			// 								if pp, ok := ni["ports"]; ok {
+			// 									switch pvv := pp.(type) {
+			// 									case []interface{}:
+			// 										ni["ports"] = map[string]interface{}{"list": pvv}
+			// 									case map[string]interface{}:
+			// 									default:
+			// 										ni["ports"] = map[string]interface{}{"list": []interface{}{}}
+			// 									}
+			// 								} else {
+			// 									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
+			// 								}
+			// 								outList = append(outList, ni)
+			// 							}
+			// 							continue
+			// 						}
+			// 						if len(cidrs) > 0 && len(plain) > 0 {
+			// 							ni := make(map[string]interface{}, len(item))
+			// 							for k, v := range item {
+			// 								if k == "ip_addresses" {
+			// 									continue
+			// 								}
+			// 								ni[k] = v
+			// 							}
+			// 							ni["ip_addresses"] = map[string]interface{}{"list": plain}
+			// 							if p, ok := ni["protocol"]; ok {
+			// 								if ps, ok := p.(string); ok {
+			// 									ni["protocol"] = strings.ToUpper(ps)
+			// 								}
+			// 							} else {
+			// 								ni["protocol"] = "ANY"
+			// 							}
+			// 							if pp, ok := ni["ports"]; ok {
+			// 								switch pvv := pp.(type) {
+			// 								case []interface{}:
+			// 									ni["ports"] = map[string]interface{}{"list": pvv}
+			// 								case map[string]interface{}:
+			// 								default:
+			// 									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
+			// 								}
+			// 							} else {
+			// 								ni["ports"] = map[string]interface{}{"list": []interface{}{}}
+			// 							}
+			// 							outList = append(outList, ni)
+			// 							for _, c := range cidrs {
+			// 								ci := make(map[string]interface{}, len(item))
+			// 								for k, v := range item {
+			// 									if k == "ip_addresses" {
+			// 										continue
+			// 									}
+			// 									ci[k] = v
+			// 								}
+			// 								ci["ip_addresses"] = map[string]interface{}{"cidr": c}
+			// 								if p, ok := ci["protocol"]; ok {
+			// 									if ps, ok := p.(string); ok {
+			// 										ci["protocol"] = strings.ToUpper(ps)
+			// 									}
+			// 								} else {
+			// 									ci["protocol"] = "ANY"
+			// 								}
+			// 								if pp, ok := ci["ports"]; ok {
+			// 									switch pvv := pp.(type) {
+			// 									case []interface{}:
+			// 										ci["ports"] = map[string]interface{}{"list": pvv}
+			// 									case map[string]interface{}:
+			// 									default:
+			// 										ci["ports"] = map[string]interface{}{"list": []interface{}{}}
+			// 									}
+			// 								} else {
+			// 									ci["ports"] = map[string]interface{}{"list": []interface{}{}}
+			// 								}
+			// 								outList = append(outList, ci)
+			// 							}
+			// 							continue
+			// 						}
+			// 						item["ip_addresses"] = map[string]interface{}{"list": vv}
+			// 					case string:
+			// 						if strings.Contains(vv, "/") {
+			// 							item["ip_addresses"] = map[string]interface{}{"cidr": vv}
+			// 						} else {
+			// 							item["ip_addresses"] = map[string]interface{}{"list": []interface{}{vv}}
+			// 						}
+			// 					case map[string]interface{}:
+			// 					}
+			// 				}
+			// 				if v, ok := item["ports"]; ok {
+			// 					switch vv := v.(type) {
+			// 					case []interface{}:
+			// 						item["ports"] = map[string]interface{}{"list": vv}
+			// 					case map[string]interface{}:
+			// 					}
+			// 				}
+			// 				if v, ok := item["protocol"]; ok {
+			// 					if s, ok := v.(string); ok {
+			// 						item["protocol"] = strings.ToUpper(s)
+			// 					}
+			// 				}
+			// 				outList = append(outList, item)
+			// 			}
+			// 			newBytes, _ := json.Marshal(outList)
+			// 			field.Set(reflect.ValueOf([]byte(newBytes)))
+			// 		} else {
+			// 			field.Set(reflect.ValueOf([]byte("null")))
+			// 		}
+			// 	}
+			// }
 
 		default:
 			// Log detailed runtime information instead of panicking so we can
@@ -658,6 +483,40 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 					*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(field.String())
 				}
 			}
+		case reflect.Struct:
+			if tfObjField.Name == "KeyInfo" {
+				attrTypes := map[string]attr.Type{
+					"encoded_info":   types.StringType,
+					"filename":       types.StringType,
+					"installer_path": types.StringType,
+				}
+				if setToNil {
+					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = types.ObjectNull(attrTypes)
+					break
+				}
+				vals := map[string]attr.Value{
+					"encoded_info":   types.StringNull(),
+					"filename":       types.StringNull(),
+					"installer_path": types.StringNull(),
+				}
+				if f := field.FieldByName("EncodedInfo"); f.IsValid() && f.Kind() == reflect.String && f.Len() > 0 {
+					vals["encoded_info"] = types.StringValue(f.String())
+				}
+				if f := field.FieldByName("Filename"); f.IsValid() && f.Kind() == reflect.String && f.Len() > 0 {
+					vals["filename"] = types.StringValue(f.String())
+				}
+				if f := field.FieldByName("InstallerPath"); f.IsValid() && f.Kind() == reflect.String && f.Len() > 0 {
+					vals["installer_path"] = types.StringValue(f.String())
+				}
+				ov, diag := types.ObjectValue(attrTypes, vals)
+				if diag.HasError() {
+					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = types.ObjectNull(attrTypes)
+				} else {
+					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = ov
+				}
+				break
+			}
+			// Unhandled struct types will be ignored here.
 		case reflect.Int:
 			if setToNil {
 				*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Null()
@@ -682,139 +541,192 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 					if len(rawBytes) == 0 {
 						*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
 					} else {
-						// Try to unmarshal the API-returned JSON into a list and convert into TF nested objects
-						var apiList []map[string]interface{}
-						if err := json.Unmarshal(rawBytes, &apiList); err == nil {
-							var elems []attr.Value
-							for _, it := range apiList {
-								// build attribute map for TF object
-								attrMap := map[string]attr.Value{}
-								// ip_addresses -> []string
-								var ips []attr.Value
-								if v, ok := it["ip_addresses"]; ok {
-									switch vv := v.(type) {
-									case map[string]interface{}:
-										if cidr, ok := vv["cidr"]; ok {
-											ips = append(ips, types.StringValue(fmt.Sprintf("%v", cidr)))
-										} else if lst, ok := vv["list"]; ok {
-											if arr, ok := lst.([]interface{}); ok {
-												for _, e := range arr {
-													ips = append(ips, types.StringValue(fmt.Sprintf("%v", e)))
-												}
-											}
-										}
-									case []interface{}:
-										for _, e := range vv {
-											ips = append(ips, types.StringValue(fmt.Sprintf("%v", e)))
-										}
-									case string:
-										ips = append(ips, types.StringValue(vv))
-									}
-								}
-								attrMap["ip_addresses"] = types.ListValueMust(types.StringType, ips)
-								// ports -> nested object. API may return either {"list": [...]} or {"range": {"start": N, "end": M}}
-								if v, ok := it["ports"]; ok {
-									switch pv := v.(type) {
-									case map[string]interface{}:
-										// If it has a "list" key, convert elements to Int64 list
-										if lst, ok := pv["list"]; ok {
-											if arr, ok := lst.([]interface{}); ok {
-												var pvals []attr.Value
-												for _, e := range arr {
-													// JSON numbers may unmarshal as float64
-													switch vnum := e.(type) {
-													case float64:
-														pvals = append(pvals, types.Int64Value(int64(vnum)))
-													case int:
-														pvals = append(pvals, types.Int64Value(int64(vnum)))
-													case int64:
-														pvals = append(pvals, types.Int64Value(vnum))
-													case string:
-														// try parse
-														i64, _ := strconv.ParseInt(vnum, 10, 64)
-														pvals = append(pvals, types.Int64Value(i64))
-													default:
-														pvals = append(pvals, types.Int64Value(0))
-													}
-												}
-												portsObj := types.ObjectValueMust(map[string]attr.Type{"list": types.ListType{ElemType: types.Int64Type}, "range": types.ObjectType{AttrTypes: map[string]attr.Type{"start": types.Int64Type, "end": types.Int64Type}}}, map[string]attr.Value{"list": types.ListValueMust(types.Int64Type, pvals)})
-												attrMap["ports"] = portsObj
-											}
-										} else if rng, ok := pv["range"]; ok {
-											// Expect object with start and end
-											if rmap, ok := rng.(map[string]interface{}); ok {
-												var startVal, endVal attr.Value = types.Int64Null(), types.Int64Null()
-												if s, ok := rmap["start"]; ok {
-													switch sv := s.(type) {
-													case float64:
-														startVal = types.Int64Value(int64(sv))
-													case int64:
-														startVal = types.Int64Value(sv)
-													case string:
-														i64, _ := strconv.ParseInt(sv, 10, 64)
-														startVal = types.Int64Value(i64)
-													}
-												}
-												if e, ok := rmap["end"]; ok {
-													switch ev := e.(type) {
-													case float64:
-														endVal = types.Int64Value(int64(ev))
-													case int64:
-														endVal = types.Int64Value(ev)
-													case string:
-														i64, _ := strconv.ParseInt(ev, 10, 64)
-														endVal = types.Int64Value(i64)
-													}
-												}
-												rangeObj := types.ObjectValueMust(map[string]attr.Type{"start": types.Int64Type, "end": types.Int64Type}, map[string]attr.Value{"start": startVal, "end": endVal})
-												portsObj := types.ObjectValueMust(map[string]attr.Type{"list": types.ListType{ElemType: types.Int64Type}, "range": types.ObjectType{AttrTypes: map[string]attr.Type{"start": types.Int64Type, "end": types.Int64Type}}}, map[string]attr.Value{"range": rangeObj})
-												attrMap["ports"] = portsObj
-											}
-										}
-									case []interface{}:
-										var pvals []attr.Value
-										for _, e := range pv {
-											switch vnum := e.(type) {
-											case float64:
-												pvals = append(pvals, types.Int64Value(int64(vnum)))
-											case int:
-												pvals = append(pvals, types.Int64Value(int64(vnum)))
-											case int64:
-												pvals = append(pvals, types.Int64Value(vnum))
-											case string:
-												i64, _ := strconv.ParseInt(vnum, 10, 64)
-												pvals = append(pvals, types.Int64Value(i64))
-											default:
-												pvals = append(pvals, types.Int64Value(0))
-											}
-										}
-										portsObj := types.ObjectValueMust(map[string]attr.Type{"list": types.ListType{ElemType: types.Int64Type}, "range": types.ObjectType{AttrTypes: map[string]attr.Type{"start": types.Int64Type, "end": types.Int64Type}}}, map[string]attr.Value{"list": types.ListValueMust(types.Int64Type, pvals)})
-										attrMap["ports"] = portsObj
-
-									case string:
-										// single value string -> try parse as int
-										i64, _ := strconv.ParseInt(pv, 10, 64)
-										portsObj := types.ObjectValueMust(map[string]attr.Type{"list": types.ListType{ElemType: types.Int64Type}, "range": types.ObjectType{AttrTypes: map[string]attr.Type{"start": types.Int64Type, "end": types.Int64Type}}}, map[string]attr.Value{"list": types.ListValueMust(types.Int64Type, []attr.Value{types.Int64Value(i64)})})
-										attrMap["ports"] = portsObj
-									}
-								}
-								// protocol
-								if v, ok := it["protocol"]; ok {
-									if s, ok := v.(string); ok {
-										attrMap["protocol"] = types.StringValue(s)
-									}
-								}
-								// create object
-								obj := types.ObjectValueMust(map[string]attr.Type{"ip_addresses": types.ListType{ElemType: types.StringType}, "ports": types.ListType{ElemType: types.StringType}, "protocol": types.StringType}, attrMap)
-								elems = append(elems, obj)
-							}
-							// set the TF list
-							listVal := types.ListValueMust(types.ObjectType{}, elems)
-							// write into TF field
-							*(*types.List)(tfObj.Field(i).Addr().UnsafePointer()) = listVal
-						} else {
-							// fallback: preserve raw API bytes as a string
+						// Unmarshal into primitive maps so json.Unmarshal decodes strings/numbers
+						// rather than trying to decode into Terraform framework types.
+						var apiConfig []map[string]interface{}
+						if err := json.Unmarshal(rawBytes, &apiConfig); err != nil {
+							tflog.Warn(ctx, fmt.Sprintf("Failed to unmarshal FilterRules JSON into primitive maps: %v", err))
+							// Fallback: keep raw JSON as string in TF state so user can inspect it
 							*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(string(rawBytes))
+						} else {
+							// Create the TF list value and set it
+							elemType := types.ObjectType{
+								AttrTypes: map[string]attr.Type{
+									"ip_addresses": types.ObjectType{
+										AttrTypes: map[string]attr.Type{
+											"list": types.ListType{ElemType: types.StringType},
+											"cidr": types.StringType,
+											"range": types.ObjectType{
+												AttrTypes: map[string]attr.Type{
+													"start": types.StringType,
+													"end":   types.StringType,
+												},
+											},
+										},
+									},
+									"ports": types.ObjectType{
+										AttrTypes: map[string]attr.Type{
+											"list": types.ListType{ElemType: types.Int64Type},
+											"range": types.ObjectType{
+												AttrTypes: map[string]attr.Type{
+													"start": types.Int64Type,
+													"end":   types.Int64Type,
+												},
+											},
+										},
+									},
+									"protocol": types.StringType,
+								},
+							}
+							tflog.Debug(ctx, fmt.Sprintf("🎯 copyAPItoTF creating FilterRules list with primitive value %+v", apiConfig))
+							elems := make([]attr.Value, 0, len(apiConfig))
+							for idx, itm := range apiConfig {
+								// Build attr.Values explicitly to avoid framework trying to coerce map[string]interface{} -> ObjectType
+								// ip_addresses
+								ipObjType := elemType.AttrTypes["ip_addresses"].(types.ObjectType)
+								ipAttrTypes := ipObjType.AttrTypes
+								ipVals := make(map[string]attr.Value, len(ipAttrTypes))
+
+								// defaults null
+								ipVals["cidr"] = types.StringNull()
+								ipVals["list"] = types.ListNull(types.StringType)
+								rangeType := ipAttrTypes["range"].(types.ObjectType)
+								ipVals["range"] = types.ObjectNull(rangeType.AttrTypes)
+
+								if rawIP, ok := itm["ip_addresses"]; ok {
+									if ipMap, ok := rawIP.(map[string]interface{}); ok {
+										if cidrRaw, ok := ipMap["cidr"].(string); ok && cidrRaw != "" {
+											ipVals["cidr"] = types.StringValue(cidrRaw)
+										}
+										if listRaw, ok := ipMap["list"].([]interface{}); ok {
+											strs := make([]string, 0, len(listRaw))
+											for _, v := range listRaw {
+												if s, ok := v.(string); ok {
+													strs = append(strs, s)
+												}
+											}
+											if len(strs) > 0 {
+												if lv, ld := types.ListValueFrom(ctx, types.StringType, strs); !ld.HasError() {
+													ipVals["list"] = lv
+												}
+											}
+										}
+										if rangeRaw, ok := ipMap["range"].(map[string]interface{}); ok {
+											startStr, _ := rangeRaw["start"].(string)
+											endStr, _ := rangeRaw["end"].(string)
+											if startStr != "" && endStr != "" {
+												rVals := map[string]attr.Value{"start": types.StringValue(startStr), "end": types.StringValue(endStr)}
+												if rObj, rDiag := types.ObjectValue(rangeType.AttrTypes, rVals); !rDiag.HasError() {
+													ipVals["range"] = rObj
+												}
+											}
+										}
+									}
+								}
+								ipObj, ipDiag := types.ObjectValue(ipAttrTypes, ipVals)
+								if ipDiag.HasError() {
+									tflog.Warn(ctx, fmt.Sprintf("Failed to create ip_addresses object for FilterRules[%d]: %v", idx, ipDiag))
+									continue
+								}
+
+								// ports (optional)
+								portsObjType := elemType.AttrTypes["ports"].(types.ObjectType)
+								portsAttrTypes := portsObjType.AttrTypes
+								portsVals := make(map[string]attr.Value, len(portsAttrTypes))
+								portsVals["list"] = types.ListNull(types.Int64Type)
+								portRangeType := portsAttrTypes["range"].(types.ObjectType)
+								portsVals["range"] = types.ObjectNull(portRangeType.AttrTypes)
+								portsPresent := false
+								if rawPorts, ok := itm["ports"]; ok {
+									if pMap, ok := rawPorts.(map[string]interface{}); ok {
+										if listRaw, ok := pMap["list"].([]interface{}); ok {
+											ints := make([]int64, 0, len(listRaw))
+											for _, v := range listRaw {
+												switch x := v.(type) {
+												case float64:
+													ints = append(ints, int64(x))
+												case int:
+													ints = append(ints, int64(x))
+												case int64:
+													ints = append(ints, x)
+												}
+											}
+											if len(ints) > 0 {
+												if lv, ld := types.ListValueFrom(ctx, types.Int64Type, ints); !ld.HasError() {
+													portsVals["list"] = lv
+													portsPresent = true
+												}
+											}
+										}
+										if rangeRaw, ok := pMap["range"].(map[string]interface{}); ok {
+											var startI, endI *int64
+											if v, ok := rangeRaw["start"]; ok {
+												switch x := v.(type) {
+												case float64:
+													v2 := int64(x)
+													startI = &v2
+												case int:
+													v2 := int64(x)
+													startI = &v2
+												case int64:
+													v2 := x
+													startI = &v2
+												}
+											}
+											if v, ok := rangeRaw["end"]; ok {
+												switch x := v.(type) {
+												case float64:
+													v2 := int64(x)
+													endI = &v2
+												case int:
+													v2 := int64(x)
+													endI = &v2
+												case int64:
+													v2 := x
+													endI = &v2
+												}
+											}
+											if startI != nil && endI != nil {
+												rVals := map[string]attr.Value{"start": types.Int64Value(*startI), "end": types.Int64Value(*endI)}
+												if rObj, rDiag := types.ObjectValue(portRangeType.AttrTypes, rVals); !rDiag.HasError() {
+													portsVals["range"] = rObj
+													portsPresent = true
+												}
+											}
+										}
+									}
+								}
+								var portsObj attr.Value
+								if portsPresent {
+									if pObj, pDiag := types.ObjectValue(portsAttrTypes, portsVals); !pDiag.HasError() {
+										portsObj = pObj
+									} else {
+										portsObj = types.ObjectNull(portsAttrTypes)
+									}
+								} else {
+									portsObj = types.ObjectNull(portsAttrTypes)
+								}
+
+								// protocol
+								prot := "ANY"
+								if pRaw, ok := itm["protocol"].(string); ok && pRaw != "" {
+									prot = strings.ToUpper(pRaw)
+								}
+								protocolVal := types.StringValue(prot)
+
+								valMap := map[string]attr.Value{"ip_addresses": ipObj, "ports": portsObj, "protocol": protocolVal}
+								objVal, objDiag := types.ObjectValue(elemType.AttributeTypes(), valMap)
+								if objDiag.HasError() {
+									tflog.Warn(ctx, fmt.Sprintf("Failed to create ObjectValue for FilterRules[%d]: %v", idx, objDiag))
+									continue
+								}
+								elems = append(elems, objVal)
+							}
+							listVal, listDiags := types.ListValueFrom(ctx, elemType, elems)
+							if listDiags.HasError() {
+								tflog.Warn(ctx, fmt.Sprintf("Failed to create FilterRules list value: %v", listDiags))
+							}
+							*(*types.List)(tfObj.Field(i).Addr().UnsafePointer()) = listVal
 						}
 					}
 				} else {
