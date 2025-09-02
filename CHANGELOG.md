@@ -1,3 +1,26 @@
+<a name="Unreleased"></a>
+## [Unreleased]
+
+### Feat
+- 25.2 API support: updated models and resources for new / changed Jump / Tunnel types (PostgreSQL / MySQL / Network / Protocol) and Jump Client Installer adjustments.
+
+### Fix
+- Compatibility fixes for network tunnel and jump client installer resources against 25.2 API changes.
+
+### Chore / Deps
+- Bump terraform-plugin-framework to 1.15.x and validators to 0.18.x.
+- Bump terraform-plugin-docs to 0.22.x.
+- Bump terratest to 0.50.x.
+- Dependency updates: oauth2, net, crypto, circl, xz, deckarep/golang-set, testify and others.
+- GitHub Actions updates: checkout 5.x, download-artifact 5.x, upload-pages-artifact 4.x, upload-artifact 5.x/4.x, setup-go 5.5.0, goreleaser-action 6.4.0, golangci-lint-action 8.x, codeql-action 3.29.x, create-pull-request 7, ghaction-import-gpg 6.3.0.
+- go mod tidy & routine maintenance.
+
+### CI / QA
+- Added Semgrep workflow & pinned GitHub Action SHAs for improved supply-chain security.
+- Narrowed CODEOWNERS.
+
+---
+
 <a name="v1.2.0"></a>
 ## [v1.2.0] - 2024-06-24
 
@@ -121,7 +144,8 @@
 <a name="v1.0.2"></a>
 ## [v1.0.2] - 2023-07-05
 
-[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.2.0...HEAD
+[v1.2.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.6...v1.1.0
 [v1.0.6]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.5...v1.0.6
 [v1.0.5]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.4...v1.0.5
