@@ -46,7 +46,7 @@ data "sra_jumpoint_list" "filtered" {
 Required:
 
 - `code_name` (String)
-- `name` (String) The display name of the Jumpoint.
+- `name` (String) The display name of the Jumpoint. This value must be unique.
 - `platform` (String) The platform of the Jumpoint. This attribute cannot be modified after the Jumpoint is created.
 
 Optional:
@@ -62,4 +62,4 @@ Optional:
 
 Read-Only:
 
-- `id` (String) The unique identifier assigned to this Jumpoint by the appliance.
+- `id` (String) The unique identifier assigned to this Jumpoint by the appliance. This value must be unique.

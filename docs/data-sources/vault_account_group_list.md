@@ -41,7 +41,7 @@ data "sra_vault_account_group_list" "filtered" {
 
 Required:
 
-- `name` (String) The name of the Account Group.
+- `name` (String) The name of the Account Group. This value must be unique.
 
 Optional:
 

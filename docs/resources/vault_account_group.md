@@ -44,7 +44,7 @@ resource "sra_vault_account_group" "new_account_group" {
 
 ### Required
 
-- `name` (String) The name of the Account Group.
+- `name` (String) The name of the Account Group. This value must be unique.
 
 ### Optional
 
@@ -101,6 +101,8 @@ Required:
 ## Import
 
 Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/usr/bin/env bash

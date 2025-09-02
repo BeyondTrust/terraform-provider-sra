@@ -34,8 +34,8 @@ resource "sra_vault_account_policy" "new_account_policy" {
 
 - `allow_simultaneous_checkout` (Boolean) If enabled, the vault account can be checked out and used by multiple users or sessions at the same time.
 - `auto_rotate_credentials` (Boolean) If enabled, the system will change the account's password after it is checked in.
-- `code_name` (String) The code name of the Account Policy.
-- `name` (String) The name of the Account Policy.
+- `code_name` (String) The code name of the Account Policy. This value must be unique.
+- `name` (String) The name of the Account Policy. This value must be unique.
 - `scheduled_password_rotation` (Boolean) If enabled, the system will automatically rotate an account password when it reaches the specified maximum age.
 
 ### Optional
@@ -50,6 +50,8 @@ resource "sra_vault_account_policy" "new_account_policy" {
 ## Import
 
 Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/usr/bin/env bash

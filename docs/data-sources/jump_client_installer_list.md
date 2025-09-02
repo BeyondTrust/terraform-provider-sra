@@ -79,4 +79,13 @@ Read-Only:
 - `id` (String) The unique identifier assigned to this Jump Client Installer by the appliance.
 - `installer_id` (String) The unique installer identifier that can be used to download the installer for a specific platform.
 - `is_quiet` (Boolean) If true, the customer client will start minimized when sessions are started from the deployed Jump Client. _This field only applies to RS_
-- `key_info` (String) The information needed to deploy a Windows MSI installer. Only included in the response when creating a new installer.
+- `key_info` (Attributes) (see [below for nested schema](#nestedatt--items--key_info))
+
+<a id="nestedatt--items--key_info"></a>
+### Nested Schema for `items.key_info`
+
+Read-Only:
+
+- `encoded_info` (String)
+- `filename` (String)
+- `installer_path` (String)

@@ -54,7 +54,7 @@ Optional:
 
 Read-Only:
 
-- `account_group_id` (Number) The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
+- `account_group_id` (Number) The unique identifier of the Vault Account Group. For most account types, the `account_group_id` defaults to `1`, which is the default Account Group. If the `type` is `x509_ca`, or the account is personal, account_group_id will not be present.
 - `account_policy` (String) The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
 - `id` (String) The unique identifier assigned to this Account by the system.
 - `personal` (Boolean) Indicates if this is a personal account.

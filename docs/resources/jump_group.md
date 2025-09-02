@@ -33,7 +33,7 @@ resource "sra_jump_group" "example" {
 ### Required
 
 - `code_name` (String)
-- `name` (String) The display name of the Jump Group.
+- `name` (String) The display name of the Jump Group. This value must be unique.
 
 ### Optional
 
@@ -61,6 +61,8 @@ This field only applies to PRA
 ## Import
 
 Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/usr/bin/env bash
