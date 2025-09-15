@@ -2,6 +2,7 @@ package rs
 
 import (
 	"context"
+	"net"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -118,9 +119,15 @@ func applyPostgresDefaultsAndValidate(plan *models.PostgreSQLTunnelJump) diag.Di
 		if len(addr) > 32 {
 			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address length", "tunnel_listen_address must be at most 32 characters"))
 		}
-		// simple subnet check: must start with "127." (covers 127.0.0.0/24 and others in 127/8 conservatively)
-		if !(len(addr) >= 4 && addr[:4] == "127.") {
-			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address subnet", "tunnel_listen_address must be in the 127.0.0.0/24 subnet"))
+		// precise subnet check: must be valid IP and within 127.0.0.0/24
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address invalid", "tunnel_listen_address must be a valid IP address"))
+		} else {
+			_, cidr, _ := net.ParseCIDR("127.0.0.0/24")
+			if !cidr.Contains(ip) {
+				diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address subnet", "tunnel_listen_address must be within the 127.0.0.0/24 subnet"))
+			}
 		}
 	}
 	return diags

@@ -2,6 +2,7 @@ package rs
 
 import (
 	"context"
+	"net"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -95,8 +96,14 @@ func applyMySQLDefaultsAndValidate(plan *models.MySQLTunnelJump) diag.Diagnostic
 		if len(addr) > 32 {
 			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address length", "tunnel_listen_address must be at most 32 characters"))
 		}
-		if !(len(addr) >= 4 && addr[:4] == "127.") {
-			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address subnet", "tunnel_listen_address must be in the 127.0.0.0/24 subnet"))
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address invalid", "tunnel_listen_address must be a valid IP address"))
+		} else {
+			_, cidr, _ := net.ParseCIDR("127.0.0.0/24")
+			if !cidr.Contains(ip) {
+				diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address subnet", "tunnel_listen_address must be within the 127.0.0.0/24 subnet"))
+			}
 		}
 	}
 	return diags

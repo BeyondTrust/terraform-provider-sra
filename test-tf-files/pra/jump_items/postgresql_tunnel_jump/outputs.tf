@@ -5,17 +5,17 @@ output "bits" {
 
 output "item" {
   description = "The created postgresql tunnel jump item"
-  value       = sra_postgre_sql_tunnel_jump.test
+  value       = sra_postgres_sql_tunnel_jump.test
 }
 
 output "item_secondary" {
   description = "The secondary postgresql tunnel jump item"
-  value       = sra_postgre_sql_tunnel_jump.test_secondary
+  value       = sra_postgres_sql_tunnel_jump.test_secondary
 }
 
 output "list" {
   description = "The datasource query result"
-  value       = data.sra_postgre_sql_tunnel_jump_list.list.items
+  value       = data.sra_postgres_sql_tunnel_jump_list.list.items
 }
 
 
