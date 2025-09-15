@@ -37,16 +37,19 @@ func TestNewClient(t *testing.T) {
 
 	{
 		c, err := NewClient("https://{}.com", &testClientID, &testClientSecret)
+		c.SetTest(t)
 		assert.NotNil(t, err)
 		assert.Nil(t, c)
 	}
 	{
 		c, err := NewClient("", &testClientID, &testClientSecret)
+		c.SetTest(t)
 		assert.NotNil(t, err)
 		assert.Nil(t, c)
 	}
 	{
 		c, err := NewClient(ts.URL, &testClientID, &testClientSecret)
+		c.SetTest(t)
 		assert.Nil(t, err)
 		assert.Equal(t, ts.URL, c.RootURL)
 		assert.Equal(t, ts.URL+"/api/config/v1", c.BaseURL)
@@ -55,6 +58,7 @@ func TestNewClient(t *testing.T) {
 	{
 		wrongSecret := "🤬"
 		c, err := NewClient(ts.URL, &testClientID, &wrongSecret)
+		c.SetTest(t)
 		assert.Nil(t, c)
 		assert.NotNil(t, err)
 		oauthErr := err.(*oauth2.RetrieveError)
@@ -98,6 +102,7 @@ func TestDoRequest(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{

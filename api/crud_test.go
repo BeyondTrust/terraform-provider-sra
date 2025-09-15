@@ -47,6 +47,7 @@ func TestGet(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -88,6 +89,7 @@ func TestPost(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -144,6 +146,7 @@ func TestListItems(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -192,6 +195,7 @@ func TestGetItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -240,6 +244,7 @@ func TestGetItemEndpoint(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -291,6 +296,7 @@ func TestCreateItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -347,6 +353,7 @@ func TestUpdateItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -398,6 +405,7 @@ func TestUpdateItemEndpoint(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -450,6 +458,7 @@ func TestDeleteItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{
@@ -501,6 +510,7 @@ func TestDeleteItemEndpoint(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTest(t)
 	assert.Nil(t, err)
 
 	{

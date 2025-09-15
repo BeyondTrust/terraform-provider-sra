@@ -42,8 +42,8 @@ data "sra_vault_account_policy_list" "filtered" {
 
 Required:
 
-- `code_name` (String) The code name of the Account Policy.
-- `name` (String) The name of the Account Policy.
+- `code_name` (String) The code name of the Account Policy. This value must be unique.
+- `name` (String) The name of the Account Policy. This value must be unique.
 
 Optional:
 

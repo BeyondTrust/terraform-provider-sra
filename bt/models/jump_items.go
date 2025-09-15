@@ -114,7 +114,7 @@ type JumpClientInstaller struct {
 	JumpGroupType                  types.String `tfsdk:"jump_group_type"`
 	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
 	InstallerID                    types.String `tfsdk:"installer_id"`
-	KeyInfo                        types.String `tfsdk:"key_info"`
+	KeyInfo                        types.Object `tfsdk:"key_info"`
 	ElevateInstall                 types.Bool   `tfsdk:"elevate_install"`
 	ElevatePrompt                  types.Bool   `tfsdk:"elevate_prompt"`
 	ExpirationTimestamp            types.String `tfsdk:"expiration_timestamp"`
@@ -136,3 +136,63 @@ type JumpClientInstaller struct {
 	AllowOverrideAttendedSessionPolicy   types.Bool   `tfsdk:"allow_override_attended_session_policy" sraproduct:"rs"`
 	AllowOverrideUnattendedSessionPolicy types.Bool   `tfsdk:"allow_override_unattended_session_policy" sraproduct:"rs"`
 }
+
+// PRA-only tunnel jump item types
+type PostgreSQLTunnelJump struct {
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	JumpointID          types.Int64  `tfsdk:"jumpoint_id"`
+	Hostname            types.String `tfsdk:"hostname"`
+	JumpGroupID         types.Int64  `tfsdk:"jump_group_id"`
+	JumpGroupType       types.String `tfsdk:"jump_group_type"`
+	Tag                 types.String `tfsdk:"tag"`
+	Comments            types.String `tfsdk:"comments"`
+	JumpPolicyID        types.Int64  `tfsdk:"jump_policy_id"`
+	SessionPolicyID     types.Int64  `tfsdk:"session_policy_id"`
+	TunnelListenAddress types.String `tfsdk:"tunnel_listen_address"`
+	Username            types.String `tfsdk:"username"`
+	Database            types.String `tfsdk:"database"`
+}
+
+type MySQLTunnelJump struct {
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	JumpointID          types.Int64  `tfsdk:"jumpoint_id"`
+	Hostname            types.String `tfsdk:"hostname"`
+	JumpGroupID         types.Int64  `tfsdk:"jump_group_id"`
+	JumpGroupType       types.String `tfsdk:"jump_group_type"`
+	Tag                 types.String `tfsdk:"tag"`
+	Comments            types.String `tfsdk:"comments"`
+	JumpPolicyID        types.Int64  `tfsdk:"jump_policy_id"`
+	SessionPolicyID     types.Int64  `tfsdk:"session_policy_id"`
+	TunnelListenAddress types.String `tfsdk:"tunnel_listen_address"`
+	Username            types.String `tfsdk:"username"`
+	Database            types.String `tfsdk:"database"`
+}
+
+type NetworkTunnelJump struct {
+	ID              types.String `tfsdk:"id"`
+	Name            types.String `tfsdk:"name"`
+	JumpointID      types.Int64  `tfsdk:"jumpoint_id"`
+	JumpGroupID     types.Int64  `tfsdk:"jump_group_id"`
+	JumpGroupType   types.String `tfsdk:"jump_group_type"`
+	Tag             types.String `tfsdk:"tag"`
+	Comments        types.String `tfsdk:"comments"`
+	JumpPolicyID    types.Int64  `tfsdk:"jump_policy_id"`
+	SessionPolicyID types.Int64  `tfsdk:"session_policy_id"`
+	FilterRules     types.List   `tfsdk:"filter_rules"`
+}
+
+// Structured types for filter_rules (Option C)
+type FilterRule struct {
+	IPAddresses types.Object `tfsdk:"ip_addresses"` // nested object: oneOf { cidr string | range {start,end} | list []string }
+	// Ports is now a nested object that may contain either a `list` of integers
+	// or a `range` object with `start` and `end` integers. This matches the
+	// API which accepts oneOf { PortList | PortRange }.
+	Ports    types.Object `tfsdk:"ports"`
+	Protocol types.String `tfsdk:"protocol"`
+}
+
+// Note: We keep simple list-of-strings representations for ip_addresses and ports
+// in the TF model for now to keep the schema straightforward. More elaborate
+// nested oneOf shapes can be added later if required.

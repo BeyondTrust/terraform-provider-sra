@@ -2,6 +2,9 @@ package rs
 
 import (
 	"context"
+	"net"
+	"strconv"
+	"strings"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -137,17 +140,11 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 		return
 	}
 
-	if plan.TunnelDefinitions.IsNull() && plan.TunnelType.ValueString() == "tcp" {
-		resp.Diagnostics.Append(diag.NewErrorDiagnostic("TunnelDefinitions is required", "You must supply TunnelDefinitions when TunnelType is \"tcp\"."))
+	// Apply more thorough validation and defaults
+	diags = applyProtocolTunnelDefaultsAndValidate(&plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
-	}
-	if plan.Username.IsNull() && plan.TunnelType.ValueString() == "mssql" {
-		resp.Diagnostics.Append(diag.NewErrorDiagnostic("Username is required", "You must supply a Username when TunnelType is \"mssql\"."))
-		return
-	}
-
-	if plan.TunnelType.ValueString() == "tcp" && plan.TunnelListenAddress.IsNull() {
-		plan.TunnelListenAddress = types.StringValue("127.0.0.1")
 	}
 
 	diags = resp.Plan.Set(ctx, &plan)
@@ -156,4 +153,92 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 		return
 	}
 	tflog.Debug(ctx, "Finished modification")
+}
+
+// applyProtocolTunnelDefaultsAndValidate enforces OpenAPI constraints for ProtocolTunnelJump
+func applyProtocolTunnelDefaultsAndValidate(plan *models.ProtocolTunnelJump) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	// name required
+	if plan.Name.IsNull() || plan.Name.ValueString() == "" {
+		diags.Append(diag.NewErrorDiagnostic("name is required", "The name field is required and must be 1..128 characters"))
+		return diags
+	}
+
+	ttype := plan.TunnelType.ValueString()
+
+	// TCP-specific: tunnel_definitions required and must be even number of semicolon-separated ints
+	if ttype == "tcp" {
+		if plan.TunnelDefinitions.IsNull() || plan.TunnelDefinitions.ValueString() == "" {
+			diags.Append(diag.NewErrorDiagnostic("TunnelDefinitions is required", "You must supply TunnelDefinitions when TunnelType is \"tcp\"."))
+			return diags
+		}
+		parts := strings.Split(plan.TunnelDefinitions.ValueString(), ";")
+		if len(parts)%2 != 0 {
+			diags.Append(diag.NewErrorDiagnostic("TunnelDefinitions invalid", "TunnelDefinitions must contain pairs of local and remote ports separated by ';'"))
+			return diags
+		}
+		for i, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				diags.Append(diag.NewErrorDiagnostic("TunnelDefinitions invalid", "Empty port value in TunnelDefinitions"))
+				continue
+			}
+			v, err := strconv.Atoi(p)
+			if err != nil {
+				diags.Append(diag.NewErrorDiagnostic("TunnelDefinitions invalid", "All tunnel definition values must be integers"))
+				continue
+			}
+			if i%2 == 0 { // local port: 0..65535
+				if v < 0 || v > 65535 {
+					diags.Append(diag.NewErrorDiagnostic("TunnelDefinitions port out of range", "Local ports must be between 0 and 65535"))
+				}
+			} else { // remote port: 1..65535
+				if v < 1 || v > 65535 {
+					diags.Append(diag.NewErrorDiagnostic("TunnelDefinitions port out of range", "Remote ports must be between 1 and 65535"))
+				}
+			}
+		}
+	}
+
+	// mssql-specific: username required
+	if ttype == "mssql" {
+		if plan.Username.IsNull() || plan.Username.ValueString() == "" {
+			diags.Append(diag.NewErrorDiagnostic("Username is required", "You must supply a Username when TunnelType is \"mssql\"."))
+		}
+	}
+
+	// k8s-specific: url and ca_certificates required
+	if ttype == "k8s" {
+		if plan.URL.IsNull() || plan.URL.ValueString() == "" {
+			diags.Append(diag.NewErrorDiagnostic("url is required", "You must supply a url when TunnelType is \"k8s\"."))
+		}
+		if plan.CACertificates.IsNull() || plan.CACertificates.ValueString() == "" {
+			diags.Append(diag.NewErrorDiagnostic("ca_certificates is required", "You must supply ca_certificates when TunnelType is \"k8s\"."))
+		}
+	}
+
+	// tunnel_listen_address: only allowed for tcp. Default/validate for tcp, clear for others.
+	if ttype == "tcp" {
+		if plan.TunnelListenAddress.IsNull() || plan.TunnelListenAddress.ValueString() == "" {
+			plan.TunnelListenAddress = types.StringValue("127.0.0.1")
+		} else {
+			ip := net.ParseIP(plan.TunnelListenAddress.ValueString())
+			if ip == nil {
+				diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address invalid", "tunnel_listen_address must be a valid IP address"))
+			} else {
+				_, cidr, _ := net.ParseCIDR("127.0.0.0/24")
+				if !cidr.Contains(ip) {
+					diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address subnet", "tunnel_listen_address must be within the 127.0.0.0/24 subnet"))
+				}
+			}
+		}
+	} else {
+		// Some provider implementations return an empty string for this field
+		// when it is not applicable. Set it to empty string to avoid a
+		// provider-inconsistent result after apply (null -> "").
+		plan.TunnelListenAddress = types.StringValue("")
+	}
+
+	return diags
 }

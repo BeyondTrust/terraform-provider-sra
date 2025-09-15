@@ -207,8 +207,13 @@ var jciSchema = map[string]schema.Attribute{
 	"installer_id": schema.StringAttribute{
 		Computed: true,
 	},
-	"key_info": schema.StringAttribute{
+	"key_info": schema.SingleNestedAttribute{
 		Computed: true,
+		Attributes: map[string]schema.Attribute{
+			"encoded_info":   schema.StringAttribute{Computed: true},
+			"filename":       schema.StringAttribute{Computed: true},
+			"installer_path": schema.StringAttribute{Computed: true},
+		},
 	},
 
 	"session_policy_id": schema.Int64Attribute{

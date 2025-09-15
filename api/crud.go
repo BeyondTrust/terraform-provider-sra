@@ -115,10 +115,13 @@ func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
 }
 
 func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
+	c.LogString("🎯 CreateItem pre-marshalling: %+v", item)
 	rb, err := json.Marshal(item)
 	if err != nil {
 		return nil, err
 	}
+
+	c.LogString("✅ CreateItem payload: %s", string(rb))
 
 	var newItem I
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.BaseURL, item.Endpoint()), strings.NewReader(string(rb)))

@@ -110,8 +110,13 @@ func (d *jumpClientInstallerDataSource) Schema(ctx context.Context, _ datasource
 		"installer_id": schema.StringAttribute{
 			Computed: true,
 		},
-		"key_info": schema.StringAttribute{
+		"key_info": schema.SingleNestedAttribute{
 			Computed: true,
+			Attributes: map[string]schema.Attribute{
+				"encoded_info":   schema.StringAttribute{Computed: true},
+				"filename":       schema.StringAttribute{Computed: true},
+				"installer_path": schema.StringAttribute{Computed: true},
+			},
 		},
 	}
 

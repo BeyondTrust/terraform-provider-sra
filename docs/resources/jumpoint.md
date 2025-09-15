@@ -34,7 +34,7 @@ resource "sra_jumpoint" "example" {
 ### Required
 
 - `code_name` (String)
-- `name` (String) The display name of the Jumpoint.
+- `name` (String) The display name of the Jumpoint. This value must be unique.
 - `platform` (String) The platform of the Jumpoint. This attribute cannot be modified after the Jumpoint is created.
 
 ### Optional
@@ -51,7 +51,7 @@ resource "sra_jumpoint" "example" {
 ### Read-Only
 
 - `connected` (Boolean) If true, the Jumpoint is connected to the appliance.
-- `id` (String) The unique identifier assigned to this Jumpoint by the appliance.
+- `id` (String) The unique identifier assigned to this Jumpoint by the appliance. This value must be unique.
 
 <a id="nestedatt--group_policy_memberships"></a>
 ### Nested Schema for `group_policy_memberships`
@@ -63,6 +63,8 @@ Required:
 ## Import
 
 Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/usr/bin/env bash

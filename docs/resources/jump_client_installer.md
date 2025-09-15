@@ -4,12 +4,12 @@ page_title: "sra_jump_client_installer Resource - sra"
 subcategory: ""
 description: |-
   Manages a Jump Client Installer.
-      *NOTE*: It is not recommended to use any installers managed by Terraform outside of Terraform
-      and any automated provisioning based on the Terraform configuration. Installers will be
-      deleted and recreated in response to any changes to the Terraform configuration, which
-      will invalidate any existing copies of the installer.
+  	*NOTE*: It is not recommended to use any installers managed by Terraform outside of Terraform
+  	and any automated provisioning based on the Terraform configuration. Installers will be
+  	deleted and recreated in response to any changes to the Terraform configuration, which
+  	will invalidate any existing copies of the installer.
   
-      For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance.
+  	For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance.
 ---
 
 # sra_jump_client_installer (Resource)
@@ -86,11 +86,22 @@ output "client" {
 - `id` (String) The unique identifier assigned to this Jump Client Installer by the appliance.
 - `installer_id` (String) The unique installer identifier that can be used to download the installer for a specific platform.
 - `is_quiet` (Boolean) If true, the customer client will start minimized when sessions are started from the deployed Jump Client. _This field only applies to RS_
-- `key_info` (String) The information needed to deploy a Windows MSI installer. Only included in the response when creating a new installer.
+- `key_info` (Attributes) (see [below for nested schema](#nestedatt--key_info))
+
+<a id="nestedatt--key_info"></a>
+### Nested Schema for `key_info`
+
+Read-Only:
+
+- `encoded_info` (String)
+- `filename` (String)
+- `installer_path` (String)
 
 ## Import
 
 Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/usr/bin/env bash

@@ -68,7 +68,7 @@ Optional:
   * performance
   * performance_quality
   * quality
-  * video
+  * best_performance
   * lossless
 
 - `rdp_username` (String) The Endpoint username.

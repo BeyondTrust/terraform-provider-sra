@@ -51,7 +51,7 @@ resource "sra_remote_rdp" "example" {
   * performance
   * performance_quality
   * quality
-  * video
+  * best_performance
   * lossless
 
 - `rdp_username` (String) The Endpoint username.
@@ -82,6 +82,8 @@ If blank then SecureApp technology will not be used.
 ## Import
 
 Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/usr/bin/env bash

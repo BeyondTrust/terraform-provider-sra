@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  version: '1.9'
+  version: '1.10'
   title: 'BeyondTrust Privileged Remote Access Configuration APIs'
   description: >
     <a id="__overview"></a>
@@ -13,13 +13,85 @@ info:
 
     ### Authentication
 
-    The BeyondTrust Privileged Remote Access Configuration APIs require [OAuth 2 credentials for authentication](https://www.beyondtrust.com/docs/privileged-remote-access/how-to/integrations/api/authentication.htm).
+    The BeyondTrust Privileged Remote Access Configuration APIs require OAuth 2 credentials for authentication.
+
+    To authenticate to the API, you must create an API account on the **/login > Management > API Configuration** page. The account must have permission to access the Configuration API. Copy the **OAuth Client ID** and **OAuth Client Secret** values before saving the API Account. API requests require a token to be generated using this client id and secret and then submitted with each API request.
+
+    <div class="p-message p-component p-message-info">
+      <span class="p-message-text"><strong>NOTE</strong>: The <strong>OAuth Client Secret</strong> cannot be viewed again after the API Account has been saved, but it can be regenerated when you edit the API Account. Regenerating a client secret and then saving the account immediately invalidates any OAuth tokens associated with the account. Any API calls using those tokens will be unable to access the API. A new token must be generated using the new client secret.</span>
+    </div>
+
+
+    #### Create a token
+
+    Create a token by sending an HTTP POST request to the URL of your BeyondTrust Privileged Remote Access site followed by /oauth2/token:
+
+        https://mycompany.beyondtrustcloud.com/oauth2/token
+
+    The OAuth client ID and client secret associated with the API account should be Base64 encoded and included in an HTTP basic authorization header:
+
+        Authorization: Basic <base64-encoded "client_id:secret">
+
+    Include the following POST body in the request:
+
+        grant_type=client_credentials
+
+    If the request is processed without error, you will receive an access token JSON response:
+
+        {
+            "access_token": "<token>",
+            "token_type": "Bearer",
+            "expires_in": 3600
+        }
+
+    <div class="p-message p-component p-message-info">
+      <span class="p-message-text"><strong>NOTE</strong>: This token expires after one hour. Any calls to the API past that point must have a new token. Each API account can have a maximum of 30 valid tokens. If an API account attempts to generate more than 30 tokens, then the oldest token is invalidated before a new one is generated.</span>
+    </div>
+
+
+    #### Request an API resource
+
+    Now that you have an access token, you can make HTTPS requests to the Configuration API.
+
+    The token obtained above must be included in an `Authorization` HTTP header with each request:
+
+        Authorization: Bearer <token>
+
+    If the token is valid, you gain access to the requested URL.
+
+    #### Authentication errors
+
+    Requests made to the web API with expired or invalid tokens result in a JSON error response:
+
+        {
+            "error": "access_denied",
+            "message": "The resource owner or authorization server denied the request."
+        }
+
+    <div class="p-message p-component p-message-warn">
+      <span class="p-message-text"><strong>IMPORTANT</strong>: When making consecutive API calls, you must close the connection after each API call.</span>
+    </div>
+
+
+    #### Request rate limits
+
+    Requests are limited to 20 per second and 15,000 per hour.
+
+    This limit applies to all API endpoints and is per API account.
+
+    Responses include headers with the rate limit information:
+
+    Example:
+
+        X-RateLimit-Limit: 15000
+        X-RateLimit-Remaining: 14996
+
 
     <a id="__overview_request_headers"></a>
 
     ### Required Request Headers
 
-    In addition to the [Authorization header used for OAuth 2 authentication](https://www.beyondtrust.com/docs/privileged-remote-access/how-to/integrations/api/authentication.htm),
+    In addition to the `Authorization` header mentioned above for OAuth 2 authentication,
 
       - for `GET` and `DELETE` requests, you must include an `Accept` header with the value `application/json`.
       - for all other requests where you are sending a JSON request body, you must include a `Content-Type` header with a value of `application/json`.
@@ -37,7 +109,7 @@ info:
 
     In addition to the human-readable documentation for each API below, the `OPTIONS` method may be used with any URI to obtain the list of allowed HTTP methods for a given URI. For example, the request
 
-        OPTIONS https://mycompanyname.beyondtrustcloud.com/api/config/v1/user
+        OPTIONS https://mycompany.beyondtrustcloud.com/api/config/v1/user
 
     will respond with an `Allow` header containing a comma-separated list of the HTTP methods that can be used with that URI:
 
@@ -87,7 +159,7 @@ info:
     <tr>
     <td>403</td>
     <td>The API Account whose authentication credentials were used for the request does not
-    have permission to use this API. Edit this account on the <a target="_blank" href="https://mycompanyname.beyondtrustcloud.com/login/api_account">API Account</a> page and
+    have permission to use this API. Edit this account on the <a target="_blank" href="https://mycompany.beyondtrustcloud.com/login/api_account">API Account</a> page and
     ensure it has permission to use the Configuration API.
     </td>
     </tr>
@@ -121,7 +193,7 @@ info:
 
     ### Pagination
 
-    All GET API endpoints that return multiple resources - e.g. `GET https://mycompanyname.beyondtrustcloud.com/api/config/v1/user` - return paginated responses of no more than 100 items by default. This means a single response may or may not include all of the requested resources and you may need to make additional requests to obtain the remaining resources.
+    All GET API endpoints that return multiple resources - e.g. `GET https://mycompany.beyondtrustcloud.com/api/config/v1/user` - return paginated responses of no more than 100 items by default. This means a single response may or may not include all of the requested resources and you may need to make additional requests to obtain the remaining resources.
 
     ### Query String Parameters
 
@@ -138,15 +210,15 @@ info:
 
     The [Link header](https://tools.ietf.org/html/rfc5988) includes the URLs of at least the first and last page of the paginated API endpoint based on your `per_page` and `current_page` query string parameters. The header may also contain URLs for the previous and next pages, depending on your pagination query string parameters and how many resources exist in the system. An example `Link` header for a request to
 
-        https://mycompanyname.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=2
+        https://mycompany.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=2
 
       would look something like the following:
 
 
-        Link: <https://mycompanyname.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=1>; rel="first",
-        <https://mycompanyname.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=1>; rel="previous",
-        <https://mycompanyname.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=3>; rel="next",
-        <https://mycompanyname.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=5>; rel="last"
+        Link: <https://mycompany.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=1>; rel="first",
+        <https://mycompany.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=1>; rel="previous",
+        <https://mycompany.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=3>; rel="next",
+        <https://mycompany.beyondtrustcloud.com/api/config/v1/user?per_page=10&current_page=5>; rel="last"
 
 
     *Newlines are included for readability. They would not be included in an actual `Link` header.*
@@ -215,9 +287,9 @@ info:
     email: support@BeyondTrust.com
 externalDocs:
   description: Find out more about BeyondTrust Remote Access APIs
-  url: https://www.beyondtrust.com/docs/privileged-remote-access/how-to/integrations/api/
+  url: https://docs.beyondtrust.com/pra/docs/api
 servers:
-  - url: https://mycompanyname.beyondtrustcloud.com/api/config/v1
+  - url: https://mycompany.beyondtrustcloud.com/api/config/v1
 paths:
   /jump-client:
     get:
@@ -565,6 +637,10 @@ paths:
                   type: boolean
                   default: false
                   description: If true, the session policy can be specified during installation, which will override the value specified in this API call.
+                jumpoint_proxy:
+                  type: string
+                  maxLength: 64
+                  description: The name of the Jumpoint. It must be online with Jump Zone Proxy enabled.
               required:
                 - jump_group_id
         required: true
@@ -629,7 +705,7 @@ paths:
           description: "The platform for the mass deployment installer."
           schema:
             type: string
-            enum: [linux-64, linux-64-headless, raspberry-pi-32-headless, mac-dmg, mac-zip, windows-64, windows-64-msi, windows-32, windows-32-msi]
+            enum: [linux-64, raspberry-pi-32-headless, mac-dmg, mac-zip, windows-64-msi, windows-32-msi]
       responses:
         '200':
           description: OK
@@ -696,7 +772,7 @@ paths:
   /jump-item/remote-rdp:
     get:
       summary: Get all Remote RDP Jump Items matching query parameters.
-      description: Gets a paginated list of Remote RDP Jump Items. This API is needed so that the synchronization integration can efficiently know which Remote RDP Jump Items already exist in the system.
+      description: Gets a paginated list of Remote RDP Jump Items.
       operationId: api.config.jump-item.remote-rdp.index
       parameters:
         - $ref: '#/components/parameters/PerPageParam'
@@ -877,7 +953,7 @@ paths:
   /jump-item/shell-jump:
     get:
       summary: Get all shell jump items matching query parameters.
-      description: Gets a paginated list of Shell Jump Items. This API is needed so that the synchronization integration can efficiently know which Shell Jump Items already exist in the system.
+      description: Gets a paginated list of Shell Jump Items.
       operationId: api.config.jump-item.shell-jump.index
       parameters:
         - $ref: '#/components/parameters/PerPageParam'
@@ -1208,10 +1284,353 @@ paths:
           $ref: '#/components/responses/404NotFound'
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
+  /jump-item/psql-tunnel-jump:
+    get:
+      summary: Get all PostgreSQL jump items matching query parameters.
+      description: Gets a paginated list of PostgreSQL Jump Items.
+      operationId: api.config.jump-item.psql-tunnel-jump.index
+      parameters:
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/CurrentPageParam'
+        - in: query
+          name: name
+          description: Filters results to include only PostgreSQL jump items with the given name.
+          schema:
+            type: string
+            maxLength: 128
+            minLength: 1
+        - in: query
+          name: hostname
+          description: Filters results to include only the PostgreSQL jump items with the given hostname.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - in: query
+          name: jump_group_id
+          description: Filters results to include only the PostgreSQL jump items with the given Jump Group id.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - in: query
+          name: jump_group_type
+          description: Filters results to include only the PostgreSQL jump items with the given Jump Group type.
+          schema:
+            type: string
+            enum: [ shared, personal ]
+        - in: query
+          name: jumpoint_id
+          description: Filters results to include only the PostgreSQL jump items with the given Jumpoint id.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - in: query
+          name: tag
+          description: Filters results to include only the PostgreSQL jump items with the given tag.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+            '200':
+              description: OK
+              headers:
+                Link:
+                  $ref: '#/components/headers/Link'
+                X-BT-Pagination-Current-Page:
+                  $ref: '#/components/headers/X-BT-Pagination-Current-Page'
+                X-BT-Pagination-Per-Page:
+                  $ref: '#/components/headers/X-BT-Pagination-Per-Page'
+                X-BT-Pagination-Last-Page:
+                  $ref: '#/components/headers/X-BT-Pagination-Last-Page'
+                X-BT-Pagination-Total:
+                  $ref: '#/components/headers/X-BT-Pagination-Total'
+              content:
+                application/json:
+                  schema:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PostgreSQLTunnelJumpItem'
+            '404':
+              $ref: '#/components/responses/404NotFound'
+            '422':
+              $ref: '#/components/responses/422UnprocessableEntity'
+    post:
+      summary: Adds a new PostgreSQL Tunnel Jump Item.
+      description: Creates a new PostgreSQL Tunnel Jump Item with the properties given in the request body.
+      operationId: api.config.jump-item.psql-tunnel-jump.store
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostgreSQLTunnelJumpItem'
+      responses:
+        '201':
+          description: Indicates the PostgreSQL Tunnel Jump Item was created successfully and contains the new instance. The `Location` header contains the URL of the item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgreSQLTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+  /jump-item/psql-tunnel-jump/{id}:
+    get:
+      summary: Get a PostgreSQL Tunnel Jump Item.
+      description: Return a PostgreSQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.psql-tunnel-jump.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The requested PostgreSQLTunnelJumpItem instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgreSQLTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+    patch:
+      summary: Update properties on a PostgreSQL Tunnel Jump Item.
+      description: Modifies the existing PostgreSQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.psql-tunnel-jump.update
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        description: A PostgreSQL Tunnel Jump Item object with modified properties.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostgreSQLTunnelJumpItem'
+        required: true
+      responses:
+        '200':
+          description: Indicates the PostgreSQL Tunnel Jump Item was successfully updated and contains an updated PostgreSQL Tunnel Jump Item instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgreSQLTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+    delete:
+      summary: Delete a PostgreSQL Tunnel Jump Item resource.
+      description: Deletes an existing PostgreSQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.psql-tunnel-jump.destroy
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Indicates the PostgreSQL Tunnel Jump Item was successfully deleted.
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+  /jump-item/psql-tunnel-jump/{id}/copy:
+    post:
+      summary: Copy a PostgreSQL Tunnel Jump Item.
+      description: Copies the PostgreSQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.psql-tunnel-jump.copy
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JumpItem'
+      responses:
+        '200':
+          description: Indicates the PostgreSQL Tunnel Jump Item was successfully copied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyJumpItemResponse'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /jump-item/mysql-tunnel-jump:
+    get:
+      summary: Get all MySQL jump items matching query parameters.
+      description: Gets a paginated list of MySQL Jump Items.
+      operationId: api.config.jump-item.mysql-tunnel-jump.index
+      parameters:
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/CurrentPageParam'
+        - in: query
+          name: name
+          description: Filters results to include only MySQL jump items with the given name.
+          schema:
+            type: string
+            maxLength: 128
+            minLength: 1
+        - in: query
+          name: hostname
+          description: Filters results to include only the MySQL jump items with the given hostname.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - in: query
+          name: jump_group_id
+          description: Filters results to include only the MySQL jump items with the given Jump Group id.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - in: query
+          name: jump_group_type
+          description: Filters results to include only the MySQL jump items with the given Jump Group type.
+          schema:
+            type: string
+            enum: [ shared, personal ]
+        - in: query
+          name: jumpoint_id
+          description: Filters results to include only the MySQL jump items with the given Jumpoint id.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - in: query
+          name: tag
+          description: Filters results to include only the MySQL jump items with the given tag.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+            '200':
+              description: OK
+              headers:
+                Link:
+                  $ref: '#/components/headers/Link'
+                X-BT-Pagination-Current-Page:
+                  $ref: '#/components/headers/X-BT-Pagination-Current-Page'
+                X-BT-Pagination-Per-Page:
+                  $ref: '#/components/headers/X-BT-Pagination-Per-Page'
+                X-BT-Pagination-Last-Page:
+                  $ref: '#/components/headers/X-BT-Pagination-Last-Page'
+                X-BT-Pagination-Total:
+                  $ref: '#/components/headers/X-BT-Pagination-Total'
+              content:
+                application/json:
+                  schema:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MySQLTunnelJumpItem'
+            '404':
+              $ref: '#/components/responses/404NotFound'
+            '422':
+              $ref: '#/components/responses/422UnprocessableEntity'
+    post:
+      summary: Adds a new MySQL Tunnel Jump Item.
+      description: Creates a new MySQL Tunnel Jump Item with the properties given in the request body.
+      operationId: api.config.jump-item.mysql-tunnel-jump.store
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MySQLTunnelJumpItem'
+      responses:
+        '201':
+          description: Indicates the MySQL Tunnel Jump Item was created successfully and contains the new instance. The `Location` header contains the URL of the item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MySQLTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+  /jump-item/mysql-tunnel-jump/{id}:
+    get:
+      summary: Get a MySQL Tunnel Jump Item.
+      description: Return a MySQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.mysql-tunnel-jump.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The requested MySQLTunnelJumpItem instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MySQLTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+    patch:
+      summary: Update properties on a MySQL Tunnel Jump Item.
+      description: Modifies the existing MySQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.mysql-tunnel-jump.update
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        description: A MySQL Tunnel Jump Item object with modified properties.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MySQLTunnelJumpItem'
+        required: true
+      responses:
+        '200':
+          description: Indicates the MySQL Tunnel Jump Item was successfully updated and contains an updated MySQL Tunnel Jump Item instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MySQLTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+    delete:
+      summary: Delete a MySQL Tunnel Jump Item resource.
+      description: Deletes an existing MySQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.mysql-tunnel-jump.destroy
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Indicates the MySQL Tunnel Jump Item was successfully deleted.
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+  /jump-item/mysql-tunnel-jump/{id}/copy:
+    post:
+      summary: Copy a MySQL Tunnel Jump Item.
+      description: Copies the MySQL Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.mysql-tunnel-jump.copy
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JumpItem'
+      responses:
+        '200':
+          description: Indicates the MySQL Tunnel Jump Item was successfully copied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyJumpItemResponse'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
   /jump-item/web-jump:
     get:
       summary: Get all web jump items matching query parameters.
-      description: Gets a paginated list of Web Jump Items. This API is needed so that the synchronization integration can efficiently know which Web Jump Items already exist in the system.
+      description: Gets a paginated list of Web Jump Items.
       operationId: api.config.jump-item.web-jump.index
       parameters:
         - $ref: '#/components/parameters/PerPageParam'
@@ -1376,7 +1795,7 @@ paths:
   /jump-item/protocol-tunnel-jump:
     get:
       summary: Get all protocol tunnel jump items matching query parameters.
-      description: Returns a paginated list of Protocol Tunnel Jump Items. This API is needed so that the synchronization integration can efficiently know which Protocol Tunnel Jump Items already exist in the system.
+      description: Returns a paginated list of Protocol Tunnel Jump Items.
       operationId: api.config.jump-item.protocol-tunnel-jump.index
       parameters:
         - $ref: '#/components/parameters/PerPageParam'
@@ -1544,6 +1963,174 @@ paths:
           $ref: '#/components/responses/404NotFound'
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
+
+  /jump-item/network-tunnel-jump:
+    get:
+      summary: Get all protocol tunnel jump items matching query parameters.
+      description: Returns a paginated list of Protocol Tunnel Jump Items.
+      operationId: api.config.jump-item.network-tunnel-jump.index
+      parameters:
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/CurrentPageParam'
+        - in: query
+          name: name
+          description: Filters results to include only protocol tunnel jump items with the given name.
+          schema:
+            type: string
+            maxLength: 128
+            minLength: 1
+        - in: query
+          name: jump_group_id
+          description: Filters results to include only the protocol tunnel jump items with the given Jump Group id.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 2147483647
+        - in: query
+          name: jump_group_type
+          description: Filters results to include only the protocol tunnel jump items with the given Jump Group type.
+          schema:
+            type: string
+            enum: [ shared, personal ]
+        - in: query
+          name: jumpoint_id
+          description: Filters results to include only the protocol tunnel jump items with the given Jumpoint id.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 2147483647
+        - in: query
+          name: tag
+          description: Filters results to include only the protocol tunnel jump items with the given tag.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        '200':
+          description: OK
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-BT-Pagination-Current-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Current-Page'
+            X-BT-Pagination-Per-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Per-Page'
+            X-BT-Pagination-Last-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Last-Page'
+            X-BT-Pagination-Total:
+              $ref: '#/components/headers/X-BT-Pagination-Total'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NetworkTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+    post:
+      summary: Adds a new Protocol Tunnel Jump Item.
+      description: Creates a new Protocol Tunnel Jump Item with the properties given in the request body.
+      operationId: api.config.jump-item.network-tunnel-jump.store
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NetworkTunnelJumpItem'
+      responses:
+        '201':
+          description: Indicates the Protocol Tunnel Jump Item was created successfully and contains the new instance. The `Location` header contains the URL of the item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+  /jump-item/network-tunnel-jump/{id}:
+    get:
+      summary: Get a Protocol Tunnel Jump Item.
+      description: Return a Protocol Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.network-tunnel-jump.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The requested NetworkTunnelJumpItem instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+    patch:
+      summary: Update properties on a Protocol Tunnel Jump Item.
+      description: Modifies the existing Protocol Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.network-tunnel-jump.update
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        description: A Protocol Tunnel Jump Item object with modified properties.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NetworkTunnelJumpItem'
+        required: true
+      responses:
+        '200':
+          description: Indicates the Protocol Tunnel Jump Item was successfully updated and contains an updated Protocol Tunnel Jump Item instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkTunnelJumpItem'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+    delete:
+      summary: Delete a Protocol Tunnel Jump Item resource.
+      description: Deletes an existing Protocol Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.network-tunnel-jump.destroy
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Indicates the Protocol Tunnel Jump Item was successfully deleted.
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+  /jump-item/network-tunnel-jump/{id}/copy:
+    post:
+      summary: Copy a Protocol Tunnel Jump Item.
+      description: Copies the Protocol Tunnel Jump Item resource with the given `{id}`.
+      operationId: api.config.jump-item.network-tunnel-jump.copy
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JumpItem'
+      responses:
+        '200':
+          description: Indicates the Protocol Tunnel Jump Item was successfully copied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyJumpItemResponse'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
   /jump-group:
     get:
       summary: Get all Jump Group resources matching query parameters.
@@ -2132,6 +2719,185 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Schedule'
+
+  /jump-approval/{user_id}:
+    get:
+      summary: Get the Jump Authorization Requests a user is an approver for.
+      description: Gets a list of Jump Authorization Request resources that a user with the given {user_id} is an approver for. If no filter criteria are specified then all Jump Authorization Requests the user is an approver for are returned.
+      operationId: api.config.jump-approval.index
+      parameters:
+        - in: path
+          name: user_id
+          description: The unique id of the User.
+          required: true
+          schema:
+            $ref: '#/components/schemas/ObjectId'
+        - in: query
+          name: state
+          description: The state of the Jump Authorization Request
+          schema:
+            type: string
+            enum: [pending, approved, denied, cancelled, in_use]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JumpAuthorizationRequest'
+  /jump-approval/{user_id}/view/{id}:
+    get:
+      summary: Get the Jump Authorization Request that a user is an approver for.
+      description: Gets a Jump Authorization Request resource with the given {id} that a user with the given {user_id} is an approver for.
+      operationId: api.config.jump-approval.view
+      parameters:
+        - in: path
+          name: user_id
+          description: The unique id of the User.
+          required: true
+          schema:
+            $ref: '#/components/schemas/ObjectId'
+        - in: path
+          name: id
+          description: The unique id of the Jump Authorization Request.
+          required: true
+          schema:
+            $ref: '#/components/schemas/ObjectId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JumpAuthorizationRequest'
+  /jump-approval/approve:
+    post:
+      summary: Answer a Jump Authorization Request.
+      description: Approve or Deny a Jump Authorization Request.
+      operationId: api.config.jump-policy.approve
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 2147483647
+                  description: The unique identifier assigned to the Jump Authorization Request.
+                user_id:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 2147483647
+                  description: The unique identifier assigned to the approving User.
+                answer:
+                  type: string
+                  enum: [approved, denied]
+                  description: The status to assign to the Jump Authorization Request.
+                comments:
+                  type: string
+                  maxLength: 2048
+                  description: Approving User's comments for their answer.
+              required:
+                - id
+                - user_id
+                - answer
+        required: true
+      responses:
+        '400':
+          description: The Jump Approval was not successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: An error message describing why the Jump Approval failed.
+        '200':
+          description: The Jump Approval was successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: A message describing the result of the Jump Approval.
+  /jump-approval/request:
+    post:
+      summary: Create a Jump Authorization Request.
+      description: Create a Jump Authorization Request on behalf of a User for a specified Jump Item.
+      operationId: api.config.jump-policy.request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 2147483647
+                  description: The unique identifier assigned to the requesting User.
+                jump_item_type:
+                  type: string
+                  description: The Jump Item's type.
+                jump_item_id:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 2147483647
+                  description: The Jump Item's id.
+                start:
+                  type: integer
+                  minimum: 0
+                  maximum: 2147483647
+                  description: Unix timestamp (in seconds) from which the request should start. Defaults to the current time.
+                duration:
+                  type: integer
+                  minimum: 60
+                  maximum: 2147483647
+                  default: 7200
+                  description: Duration (in seconds) that the request should last.
+                reason:
+                  type: string
+                  maxLength: 2048
+                  description: Requesting User's reason for their request.
+              required:
+                - user_id
+                - jump_item_id
+                - jump_item_type
+                - start
+                - duration
+        required: true
+      responses:
+        '400':
+          description: The Jump Request was not successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: An error message describing why the Jump Request failed.
+        '200':
+          description: The Jump Request was successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: A message describing the result of the Jump Request.
 
 
   /team:
@@ -3459,7 +4225,7 @@ paths:
           description: Filters results to include only accounts of a the given type.
           schema:
             type: string
-            enum: [username_password, ssh, ssh_ca, windows_local, windows_domain, opaque_token]
+            enum: [username_password, ssh, ssh_ca, windows_local, windows_domain, opaque_token, x509_ca, x509_csr, aws_secret, password_safe]
         - in: query
           name: name
           description: Filters results to include only accounts that match the given name.
@@ -3510,9 +4276,9 @@ paths:
     post:
       summary: Create a generic Vault Account.
       description: |
-        Adds a new username / password account or SSH account. Windows local and domain accounts cannot be added via this API.
+        Adds a new username / password account, SSH account or X.509 account. Windows local and domain accounts cannot be added via this API.
 
-        The request body must either be a `VaultUsernamePasswordAccount`, `VaultTokenAccount`, or `VaultSSHAccount` resource.
+        The request body must either be a `VaultUsernamePasswordAccount`, `VaultTokenAccount`, `VaultSSHAccount`, `VaultX509ImportedCAAccount`, `VaultX509GeneratedCAAccount`, or `VaultX509ClientAccount` resource.
 
         After an account is added via the API, the Vault Account Activity Report shows an "Account Created" event for that account. The "User" column shows the name of the API Account that created the account.
       operationId: api.config.vault.account.store
@@ -3525,6 +4291,9 @@ paths:
                 - $ref: '#/components/schemas/VaultUsernamePasswordAccount'
                 - $ref: '#/components/schemas/VaultTokenAccount'
                 - $ref: '#/components/schemas/VaultSSHAccount'
+                - $ref: '#/components/schemas/VaultX509ImportedCAAccount'
+                - $ref: '#/components/schemas/VaultX509GeneratedCAAccount'
+                - $ref: '#/components/schemas/VaultX509ClientAccount'
         required: true
       responses:
         '201':
@@ -3536,13 +4305,16 @@ paths:
                   - $ref: '#/components/schemas/VaultUsernamePasswordAccount'
                   - $ref: '#/components/schemas/VaultTokenAccount'
                   - $ref: '#/components/schemas/VaultSSHAccount'
+                  - $ref: '#/components/schemas/VaultX509ImportedCAAccount'
+                  - $ref: '#/components/schemas/VaultX509GeneratedCAAccount'
+                  - $ref: '#/components/schemas/VaultX509ClientAccount'
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
 
   /vault/account/{id}:
     get:
-      summary: Get a Vault Account.
-      description: Gets the Vault account with the given `{id}`. A type-specific resource is returned.
+      summary: Get a Vault Account or AWS Secret.
+      description: Gets the Vault account or AWS secret with the given `{id}`. A type-specific resource is returned.
       operationId: api.config.vault.account.show
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3556,8 +4328,11 @@ paths:
                   - $ref: '#/components/schemas/VaultUsernamePasswordAccount'
                   - $ref: '#/components/schemas/VaultTokenAccount'
                   - $ref: '#/components/schemas/VaultSSHAccount'
-                  - $ref: '#/components/schemas/VaultLocalAccount'
-                  - $ref: '#/components/schemas/VaultDomainAccount'
+                  - $ref: '#/components/schemas/VaultX509ImportedCAAccount'
+                  - $ref: '#/components/schemas/VaultX509GeneratedCAAccount'
+                  - $ref: '#/components/schemas/VaultX509ClientAccount'
+                  - $ref: '#/components/schemas/VaultAwsSecretAccount'
+                  - $ref: '#/components/schemas/VaultPasswordSafeAccount'
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
@@ -3577,6 +4352,10 @@ paths:
                 - $ref: '#/components/schemas/VaultUsernamePasswordAccount'
                 - $ref: '#/components/schemas/VaultTokenAccount'
                 - $ref: '#/components/schemas/VaultSSHAccount'
+                - $ref: '#/components/schemas/VaultX509ImportedCAAccount'
+                - $ref: '#/components/schemas/VaultX509GeneratedCAAccount'
+                - $ref: '#/components/schemas/VaultX509ClientAccount'
+                - $ref: '#/components/schemas/VaultAwsSecretAccount'
         required: true
       responses:
         '200':
@@ -3588,13 +4367,17 @@ paths:
                   - $ref: '#/components/schemas/VaultUsernamePasswordAccount'
                   - $ref: '#/components/schemas/VaultTokenAccount'
                   - $ref: '#/components/schemas/VaultSSHAccount'
+                  - $ref: '#/components/schemas/VaultX509ImportedCAAccount'
+                  - $ref: '#/components/schemas/VaultX509GeneratedCAAccount'
+                  - $ref: '#/components/schemas/VaultX509ClientAccount'
+                  - $ref: '#/components/schemas/VaultAwsSecretAccount'
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
     delete:
-      summary: Delete a Vault Account.
-      description: Removes the account with the given `{id}`. Personal accounts are not eligible for deletion through this API.
+      summary: Delete a Vault Account or AWS Secret.
+      description: Removes the account or AWS Secret with the given `{id}`. Personal accounts are not eligible for deletion through this API.
       operationId: api.config.vault.account.destroy
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3609,8 +4392,8 @@ paths:
           $ref: '#/components/responses/422UnprocessableEntity'
   /vault/account/{id}/check-out:
     post:
-      summary: Check out a Vault Account's password or private key.
-      description: Checks out a Vault account's password or private key and returns it in the response. This API supports all Vault account types, including Windows Local and Windows Domain accounts.
+      summary: Check out a Vault Account's password, private key or AWS Secret.
+      description: Checks out a Vault account's password, private key or AWS secret and returns it in the response. This API supports most Vault account types, including Windows Local and Windows Domain accounts. `x509_ca` accounts cannot be checked out or checked in.
       operationId: api.config.vault.account.check-out
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3628,14 +4411,14 @@ paths:
 
   /vault/account/{id}/check-in:
     post:
-      summary: Check in a Vault Account's password or private key.
-      description: Checks in a Vault account's password or private key. This API supports all Vault account types, including Windows Local and Windows Domain accounts.
+      summary: Check in a Vault Account's password, private key or AWS Secret.
+      description: Checks in a Vault account's password, private key or AWS Secret. This API supports most Vault account types, including Windows Local and Windows Domain accounts. `x509_ca` accounts cannot be checked out or checked in.
       operationId: api.config.vault.account.check-in
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
         '200':
-          description: The account was checked-in successfully.
+          description: The account or secret was checked-in successfully.
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
@@ -3643,14 +4426,14 @@ paths:
 
   /vault/account/{id}/force-check-in:
     post:
-      summary: Force check in a Vault Account's password.
-      description: Forcefully checks in a Vault account's password that was previously checked out by a different user or API account. This API supports all Vault account types, except `ssh` and `ssh_ca` accounts.
+      summary: Force check in a Vault Account's password or AWS Secret.
+      description: Forcefully checks in a Vault account's password or AWS Secret that was previously checked out by a different user or API account. This API supports all Vault account types, except `ssh`, `ssh_ca`, `x509_ca` and `x509_csr` accounts.
       operationId: api.config.vault.account.force-check-in
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
         '200':
-          description: The account was forcibly checked-in successfully.
+          description: The account or AWS Secret was forcibly checked-in successfully.
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
@@ -3659,13 +4442,13 @@ paths:
   /vault/account/{id}/rotate:
     post:
       summary: Schedules a credential rotation.
-      description: Schedules a credential rotation for the Windows Domain or Windows Local account with the given `{id}`. An error is returned for accounts that cannot be rotated by the system.
+      description: Schedules a credential rotation for the Windows Domain, Windows Local account or AWS Secret with the given `{id}`. An error is returned for accounts or secret that cannot be rotated by the system.
       operationId: api.config.vault.account.rotate
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
         '200':
-          description: The account was rotated successfully.
+          description: The account or secret was rotated successfully.
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
@@ -3731,7 +4514,7 @@ paths:
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
         '403':
-          description: Indicates that the account was personal and not eligible for adding a user.
+          description: Indicates that the account was personal or not eligible for adding a user.
   /vault/account/{id}/user/{user_id}:
     get:
       summary: Get a User of a Vault Account.
@@ -3787,7 +4570,7 @@ paths:
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
         '403':
-          description: Indicates that the account was personal and not eligible for updating a user.
+          description: Indicates that the account was personal or not eligible for updating a user.
     delete:
       summary: Remove a User from a Vault Account.
       description: Removes the user with the given `{user_id}` from the Vault account with the given `{id}`.
@@ -3808,14 +4591,14 @@ paths:
         '404':
           $ref: '#/components/responses/404NotFound'
         '403':
-          description: Indicates that the account was personal and not eligible for removing a user.
+          description: Indicates that the account was personal or not eligible for removing a user.
   /vault/account/{id}/jump-item-association:
     get:
-      summary: Get Jump Item association criteria for an Account.
+      summary: Get Jump Item association criteria.
       description: |
-        Get the Jump Item association criteria for the Account with the given `{id}`.
+        Get the Jump Item association criteria for the Account or AWS Secret with the given `{id}`.
 
-        This API cannot be used if the Account is inheriting Jump Item association criteria from its Account Group. Instead, query its Account Group's associations using the <a href="#api.config.vault.account-group.jump-item-association.show">Account Group's GET API for Jump Item associations</a>.
+        This API cannot be used if the Account or Secret is inheriting Jump Item association criteria from its Account Group. Instead, query its Account Group's associations using the <a href="#api.config.vault.account-group.jump-item-association.show">Account Group's GET API for Jump Item associations</a>.
       operationId: api.config.vault.account.jump-item-association.show
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3827,9 +4610,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountJumpItemAssociation'
     post:
-      summary: Add Jump Item association criteria for an Account.
+      summary: Add Jump Item association criteria.
       description: |
-        For an account that has no explicit Jump Item associations defined and is currently inheriting association criteria from its Account Group, this API will add Jump Item association criteria for the Account with the given `{id}` using the data in the request body. This should be used only if the Account does not already have any Jump Item association defined.
+        For an account or secret that has no explicit Jump Item associations defined and is currently inheriting association criteria from its Account Group, this API will add Jump Item association criteria for the Account or Secret with the given `{id}` using the data in the request body. This should be used only if the Account does not already have any Jump Item association defined.
 
         If you set the `filter_type` to "criteria", then you must provide some properties in the `criteria` field. You may specify some or all of the available `criteria` properties. Once you have created association criteria with this POST API, separate APIs exist for adding or deleting single Jump Item or shared Jump Group ids from their respective lists in `criteria`, which might be preferable to supplying the entire array of ids up front with this API:
 
@@ -3840,9 +4623,9 @@ paths:
 
         If the `filter_type` is set to "any_jump_items" or "no_jump_items", the `criteria` field will be ignored.
 
-        Once you have used this API to add Jump Item association criteria, use the <a href="#api.config.vault.account.jump-item-association.update">PATCH API</a> to change the `filter_type` and / or `criteria`. To change this Account back to inheriting Jump Item association criteria from its Account Group, use the <a href="#api.config.vault.account.jump-item-association.destroy">DELETE API</a>.
+        Once you have used this API to add Jump Item association criteria, use the <a href="#api.config.vault.account.jump-item-association.update">PATCH API</a> to change the `filter_type` and / or `criteria`. To change this Account or Secret back to inheriting Jump Item association criteria from its Account Group, use the <a href="#api.config.vault.account.jump-item-association.destroy">DELETE API</a>.
 
-        This API cannot be used if the Account already has Jump Item association criteria defined. If you wish to update the current Jump Item association criteria, use the <a href="#api.config.vault.account.jump-item-association.update">PATCH API</a> instead.
+        This API cannot be used if the Account or Secret already has Jump Item association criteria defined. If you wish to update the current Jump Item association criteria, use the <a href="#api.config.vault.account.jump-item-association.update">PATCH API</a> instead.
       operationId: api.config.vault.account.jump-item-association.store
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3860,11 +4643,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountJumpItemAssociation'
     patch:
-      summary: Update the Jump Item association criteria for an Account.
+      summary: Update the Jump Item association criteria.
       description: |
-        Update the Jump Item association criteria for the Account with the given `{id}` using the data in the request body.
+        Update the Jump Item association criteria for the Account or Secret with the given `{id}` using the data in the request body.
 
-        You may change either or both of the `filter_type` and `criteria` properties of the association object in a single request, but `criteria` will be ignored if the `filter_type` is not set to "criteria". Updating `filter_type` from "criteria" to "any_jump_items" or "no_jump_items" implicitly deletes all previous `criteria` for the account.
+        You may change either or both of the `filter_type` and `criteria` properties of the association object in a single request, but `criteria` will be ignored if the `filter_type` is not set to "criteria". Updating `filter_type` from "criteria" to "any_jump_items" or "no_jump_items" implicitly deletes all previous `criteria` for the account or secret.
 
         If you want the account to inherit associations from its Account Group you must use the endpoint:
 
@@ -3877,7 +4660,7 @@ paths:
         - <a href="#api.config.vault.account.jump-item-association.shared-jump-group.store">Add a single Jump Group to `shared_jump_groups`.</a>
         - <a href="#api.config.vault.account.jump-item-association.shared-jump-group.destroy">Remove a single Jump Group from `shared_jump_groups`.</a>
 
-        This API cannot be used if the given Account is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
+        This API cannot be used if the given Account or Secret is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account or Secret, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
       operationId: api.config.vault.account.jump-item-association.update
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3895,11 +4678,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountJumpItemAssociation'
     delete:
-      summary: Delete Jump Item association criteria for an Account.
+      summary: Delete Jump Item association criteria.
       description: |
-        For an Account with the given `{id}` that has Jump Item associations defined, this API removes those associations so that the Account begins inheriting associations from its Account Group instead.
+        For an Account or Secret with the given `{id}` that has Jump Item associations defined, this API removes those associations so that the Account or Secret begins inheriting associations from its Account Group instead.
 
-        This API cannot be used if the given Account is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined, since there is nothing to delete.
+        This API cannot be used if the given Account or Secret is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined, since there is nothing to delete.
       operationId: api.config.vault.account.jump-item-association.destroy
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3912,13 +4695,13 @@ paths:
           $ref: '#/components/responses/422UnprocessableEntity'
   /vault/account/{id}/jump-item-association/jump-item:
     post:
-      summary: Add a Jump Item to an Account's Jump Item association criteria.
+      summary: Add a Jump Item to the association criteria.
       description: |
-        Adds a specific Jump Item identified in the request body to the Jump Item association criteria of the Account with the given `{id}`.
+        Adds a specific Jump Item identified in the request body to the Jump Item association criteria of the Account or Secret with the given `{id}`.
 
-        The Account's Jump Item association must have its `filter_type` set to "criteria".
+        The Account or Secret Jump Item association must have its `filter_type` set to "criteria".
 
-        This API cannot be used if the given Account is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
+        This API cannot be used if the given Account or Secret is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account or Secret, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
 
         Currently Remote Jump Items cannot be added.
       operationId: api.config.vault.account.jump-item-association.jump-item.store
@@ -3933,19 +4716,19 @@ paths:
         required: true
       responses:
         '200':
-          description: Indicates the Jump Item was successfully added to the Account's Jump Item association criteria.
+          description: Indicates the Jump Item was successfully added to the Account or Secret Jump Item association criteria.
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
     delete:
-      summary: Remove a Jump Item from an Account's Jump Item association criteria.
+      summary: Remove a Jump Item from the Jump Item association criteria.
       description: |
-        Removes a specific Jump Item identified in the request body from the Jump Item association criteria of the Account with the given `{id}`.
+        Removes a specific Jump Item identified in the request body from the Jump Item association criteria of the Account or Secret with the given `{id}`.
 
-        The Account's Jump Item association must have its `filter_type` set to "criteria".
+        The Account or Secret Jump Item association must have its `filter_type` set to "criteria".
 
-        This API cannot be used if the given Account is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
+        This API cannot be used if the given Account or Secret is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account or Secret, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
       operationId: api.config.vault.account.jump-item-association.jump-item.destroy
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -3958,20 +4741,20 @@ paths:
         required: true
       responses:
         '204':
-          description: Indicates the Jump Item was successfully removed from the Account's Jump Item association criteria.
+          description: Indicates the Jump Item was successfully removed from the Jump Item association criteria.
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
   /vault/account/{id}/jump-item-association/shared-jump-group:
     post:
-      summary: Add a shared Jump Group to an Account's Jump Item association criteria.
+      summary: Add a shared Jump Group to the Jump Item association criteria.
       description: |
-        Adds a specific shared Jump Group identified by `shared_jump_group_id` in the request body to the Jump Item association criteria of the Account with the given `{id}`.
+        Adds a specific shared Jump Group identified by `shared_jump_group_id` in the request body to the Jump Item association criteria of the Account or Secret with the given `{id}`.
 
-        The Account's Jump Item association must have its `filter_type` set to "criteria".
+        The Jump Item association must have its `filter_type` set to "criteria".
 
-        This API cannot be used if the given Account is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
+        This API cannot be used if the given Account or Secret is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account or Secret, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
       operationId: api.config.vault.account.jump-item-association.shared-jump-group.store
       requestBody:
         content:
@@ -3989,19 +4772,19 @@ paths:
         - $ref: '#/components/parameters/IdParam'
       responses:
         '200':
-          description: Indicates the shared Jump Group was successfully added to the Account's Jump Item association criteria.
+          description: Indicates the shared Jump Group was successfully added to the Jump Item association criteria.
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
     delete:
-      summary: Remove a shared Jump Group from an Account's Jump Item association criteria.
+      summary: Remove a shared Jump Group from the Jump Item association criteria.
       description: |
-        Removes a specific shared Jump Group identified by `{shared_jump_group_id}` from the Jump Item association criteria of the Account with the given `{id}`.
+        Removes a specific shared Jump Group identified by `{shared_jump_group_id}` from the Jump Item association criteria of the Account or Secret with the given `{id}`.
 
         The Account's Jump Item association must have its `filter_type` set to "criteria".
 
-        This API cannot be used if the given Account is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
+        This API cannot be used if the given Account or Secret is inheriting Jump Item association criteria from its Account Group and does not have any of its own Jump Item associations defined. To create association criteria specifically for this Account or Secret, use the <a href="#api.config.vault.account.jump-item-association.store">POST API</a> instead.
       operationId: api.config.vault.account.jump-item-association.shared-jump-group.destroy
       parameters:
         - $ref: '#/components/parameters/IdParam'
@@ -4019,7 +4802,7 @@ paths:
         required: true
       responses:
         '204':
-          description: Indicates the shared Jump Group was successfully removed from the Account's Jump Item association criteria.
+          description: Indicates the shared Jump Group was successfully removed from the Jump Item association criteria.
         '404':
           $ref: '#/components/responses/404NotFound'
         '422':
@@ -4630,14 +5413,18 @@ paths:
       operationId: api.config.vault.account-group.jump-item-association.shared-jump-group.destroy
       parameters:
         - $ref: '#/components/parameters/IdParam'
-        - in: path
-          name: shared_jump_group_id
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 2147483647
-          description: Unique identifier for the shared Jump Group.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shared_jump_group_id:
+                  type: integer
+                  minimum: 1
+                  maximum: 2147483647
+                  description: Unique identifier for the shared Jump Group.
+        required: true
       responses:
         '204':
           description: Indicates the shared Jump Group was successfully removed from the Account Group's Jump Item association criteria.
@@ -5012,6 +5799,379 @@ paths:
         '422':
           $ref: '#/components/responses/422UnprocessableEntity'
 
+  /endpoint-automation/job:
+    get:
+      summary: Get all Endpoint Automation Jobs.
+      description: |
+        Gets a paginated list of Endpoint Automation Jobs.
+
+        They can optionally be filtered using query string parameters documented below. If no filter criteria are specified, then all Endpoint Automation Jobs are returned. String parameters are always matched case-insensitively and exactly; no partial matches are allowed.
+      operationId: api.config.endpoint-automation.job.index
+      parameters:
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/CurrentPageParam'
+        - in: query
+          name: name
+          description: Filters results to include only Endpoint Automation Jobs with the given name.
+          schema:
+            type: string
+            maxLength: 255
+            minLength: 1
+      responses:
+        '200':
+          description: OK
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-BT-Pagination-Current-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Current-Page'
+            X-BT-Pagination-Per-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Per-Page'
+            X-BT-Pagination-Last-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Last-Page'
+            X-BT-Pagination-Total:
+              $ref: '#/components/headers/X-BT-Pagination-Total'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EndpointAutomationJob'
+    post:
+      summary: Create an Endpoint Automation Job.
+      description: Create an Endpoint Automation Job.
+      operationId: api.config.endpoint-automation.job.store
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  required: true
+                  minLength: 1
+                  maxLength: 128
+                  description: The name of the job.
+                notes:
+                  type: string
+                  minLength: 0
+                  maxLength: 1000
+                  description: The notes of the job.
+                start_at:
+                  type: string
+                  required: true
+                  format: date-time
+                  description: The date and time the job should start.
+                tag:
+                  type: string
+                  minLength: 0
+                  maxLength: 128
+                  description: A tag for organizing jobs created with the script.
+                operating_system:
+                  required: true
+                  type: string
+                  enum: [Windows, Linux, Mac]
+                endpoint_ids:
+                  type: array
+                  required: true
+                  description: Array of endpoint ids to run the job on.
+                  items:
+                    $ref: '#/components/schemas/ObjectId'
+                payload:
+                  type: object
+                  required: true
+                  properties:
+                    cmd:
+                      type: string
+                      required: true
+                      minLength: 1
+                      maxLength: 2048
+                      description: The command that's run to start the script.
+                    script:
+                      type: string
+                      required: true
+                      minLength: 1
+                      maxLength: 100000
+                      description: The script that's run on the endpoints.
+                    resource_ids:
+                      type: array
+                      description: Array of resource ids to be included when running a job.
+                      minItems: 0
+                      maxItems: 20
+                      items:
+                        $ref: '#/components/schemas/ObjectId'
+      responses:
+        '201':
+          description: Indicates the Endpoint Automation Job was created successfully. The `Location` header contains the URL of the Endpoint Automation Job.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationJob'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /endpoint-automation/job/{id}:
+    get:
+      summary: Get an Endpoint Automation Job.
+      description: Gets the Endpoint Automation Job with the given `{id}`.
+      operationId: api.config.endpoint-automation.job.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationJob'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /endpoint-automation/job/{id}/execution:
+    get:
+      summary: Get all executions of an Endpoint Automation Job.
+      description: Gets all executions of an Endpoint Automation Job with the given job `{id}`.
+      operationId: api.config.endpoint-automation.job.execution.index
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationJobExecution'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /endpoint-automation/resource:
+    get:
+      summary: Get all Endpoint Automation Resources.
+      description: |
+        Gets a paginated list of Endpoint Automation Resources.
+        They can optionally be filtered using query string parameters documented below. If no filter criteria are specified, then all Endpoint Automation Resources are returned. String parameters are always matched case-insensitively and exactly; no partial matches are allowed.
+      operationId: api.config.endpoint-automation.resource.index
+      parameters:
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/CurrentPageParam'
+      responses:
+        '200':
+          description: OK
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-BT-Pagination-Current-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Current-Page'
+            X-BT-Pagination-Per-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Per-Page'
+            X-BT-Pagination-Last-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Last-Page'
+            X-BT-Pagination-Total:
+              $ref: '#/components/headers/X-BT-Pagination-Total'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EndpointAutomationResource'
+
+  /endpoint-automation/resource/{id}:
+    get:
+      summary: Get an Endpoint Automation Resource.
+      description: Gets the Endpoint Automation Resource with the given `{id}`.
+      operationId: api.config.endpoint-automation.resource.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationResource'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /endpoint-automation/script:
+    get:
+      summary: Get all Endpoint Automation Scripts.
+      description: |
+        Gets a paginated list of Endpoint Automation Script resources.
+        They can optionally be filtered using query string parameters documented below. If no filter criteria are specified, then all Endpoint Automation Scripts are returned. String parameters are always matched case-insensitively and exactly; no partial matches are allowed.
+      operationId: api.config.endpoint-automation.script.index
+      parameters:
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/CurrentPageParam'
+      responses:
+        '200':
+          description: OK
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-BT-Pagination-Current-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Current-Page'
+            X-BT-Pagination-Per-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Per-Page'
+            X-BT-Pagination-Last-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Last-Page'
+            X-BT-Pagination-Total:
+              $ref: '#/components/headers/X-BT-Pagination-Total'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EndpointAutomationScript'
+    post:
+      summary: Create an Endpoint Automation Script.
+      description: Create an Endpoint Automation Script.
+      operationId: api.config.endpoint-automation.script.store
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointAutomationScript'
+        required: true
+      responses:
+        '201':
+          description: Indicates the Endpoint Automation script was created successfully. The `Location` header contains the URL of the Endpoint Automation script.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationScript'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /endpoint-automation/script/{id}:
+    get:
+      summary: Get an Endpoint Automation Script.
+      description: Gets the Endpoint Automation Script with the given `{id}`.
+      operationId: api.config.endpoint-automation.script.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationScript'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /endpoint-automation/script/{id}/resource:
+    get:
+      summary: Gets all Endpoint Automation Resources associated with the Script.
+      description: Gets all Endpoint Automation Resources with the given script `{id}`.
+      operationId: api.config.endpoint-automation.script.resource
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationResource'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+  /endpoint-automation/endpoint:
+    get:
+      summary: Get all Endpoint Automation Endpoints.
+      description: |
+        Gets a paginated list of Endpoint Automation Endpoints.
+        They can optionally be filtered using query string parameters documented below. If no filter criteria are specified, then all Endpoint Automation Endpoints are returned. String parameters are always matched case-insensitively and exactly; no partial matches are allowed.
+      operationId: api.config.endpoint-automation.endpoint.index
+      parameters:
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/CurrentPageParam'
+        - in: query
+          name: operating_system
+          description: Filters results to include only Endpoint Automation Endpoints with the given operating system.
+          schema:
+            type: string
+            enum: [Windows, Linux, Mac]
+        - in: query
+          name: names
+          description: Filters results to include only Endpoint Automation Endpoints with the given name.
+          schema:
+            type: string
+        - in: query
+          name: tags
+          description: Filters results to include only Endpoint Automation Endpoints with the given tag.
+          schema:
+            type: string
+        - in: query
+          name: hostname
+          description: Filters results to include only Endpoint Automation Endpoints with the given computer name.
+          schema:
+            type: string
+        - in: query
+          name: public_ip
+          description: Filters results to include only Endpoint Automation Endpoints with the given public ip.
+          schema:
+            type: string
+        - in: query
+          name: private_ip
+          description: Filters results to include only Endpoint Automation Endpoints with the given private ip.
+          schema:
+            type: string
+        - in: query
+          name: jump_group_id
+          description: Filter results to include only Endpoint Automation Endpoints within the given jump group id.
+          schema:
+            $ref: '#/components/schemas/ObjectId'
+      responses:
+        '200':
+          description: OK
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-BT-Pagination-Current-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Current-Page'
+            X-BT-Pagination-Per-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Per-Page'
+            X-BT-Pagination-Last-Page:
+              $ref: '#/components/headers/X-BT-Pagination-Last-Page'
+            X-BT-Pagination-Total:
+              $ref: '#/components/headers/X-BT-Pagination-Total'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EndpointAutomationEndpoint'
+
+  /endpoint-automation/endpoint/{id}:
+    get:
+      summary: Get an Endpoint.
+      description: Gets the Endpoint with the given `{id}`.
+      operationId: api.config.endpoint-automation.endpoint.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointAutomationEndpoint'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
 
   /openapi.yaml:
     get:
@@ -5086,6 +6246,25 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ApiAccount'
+  /api-account/{id}:
+    get:
+      summary: Get an API Account.
+      description: Gets the API Account resource with the given `{id}`.
+      operationId: api.config.api-account.show
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiAccount'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+
 
 components:
   schemas:
@@ -5110,7 +6289,7 @@ components:
       maxLength: 64
       minLength: 0
       pattern: '^[a-zA-Z0-9_\\-]+$'
-      description: The code name of a resource.
+      description: The code name of a resource. This value must be unique.
 
     ErrorMessageResponse:
       type: object
@@ -5181,13 +6360,13 @@ components:
           description: The type of Jump Group that owns this Jump Item.
         quality:
           type: string
-          default: video
+          default: best_performance
           enum:
             - low
             - performance
             - performance_quality
             - quality
-            - video
+            - best_performance
             - lossless
           description: >
             The quality of the connection. One of the following:
@@ -5195,7 +6374,7 @@ components:
               * performance
               * performance_quality
               * quality
-              * video
+              * best_performance
               * lossless
         console:
           type: boolean
@@ -5491,6 +6670,177 @@ components:
         - hostname
         - protocol
         - jump_group_id
+    PostgreSQLTunnelJumpItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: >
+            The unique identifier assigned to this PostgreSQL Tunnel Jump Item by Privileged Remote Access.
+            Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier.
+            The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+        name:
+          type: string
+          maxLength: 128
+          minLength: 1
+          description: The name of the PostgreSQL Tunnel Jump Item.
+        jumpoint_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jumpoint through which connections are made.
+        hostname:
+          type: string
+          maxLength: 128
+          minLength: 1
+          description: The hostname or IP address.
+        jump_group_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jump Group or user that owns this Jump Item.
+        jump_group_type:
+          type: string
+          enum: [ shared, personal ]
+          description: The type of Jump Group that owns this Jump Item.
+          default: shared
+        tag:
+          type: string
+          minLength: 0
+          maxLength: 64
+          description: The Jump Item's tag.
+        comments:
+          type: string
+          minLength: 0
+          maxLength: 1024
+          description: The Jump Item's comments.
+        jump_policy_id:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jump Policy used to manage access to this Jump Item.
+        session_policy_id:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 2
+          maximum: 2147483647
+          description: The unique identifier of the Session Policy used to control the user's capabilities in the session.
+        tunnel_listen_address:
+          type: string
+          minLength: 0
+          maxLength: 32
+          default: '127.0.0.1'
+          description: For PostgreSQL tunnel Jump Items, this is the IPv4 address on which the users should connect to start tunnels. The value must be within the 127.0.0.0/24 subnet.
+        username:
+          type: string
+          minLength: 0
+          maxLength: 128
+          description: The database username required for PostgreSQL tunnel Jump Items.
+        database:
+          type: string
+          minLength: 0
+          maxLength: 128
+          description: The database name used for PostgreSQL tunnel Jump Items.
+      required:
+        - name
+        - jumpoint_id
+        - hostname
+        - jump_group_id
+
+    MySQLTunnelJumpItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: >
+            The unique identifier assigned to this MySQL Jump Item by Privileged Remote Access.
+            Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier.
+            The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+        name:
+          type: string
+          maxLength: 128
+          minLength: 1
+          description: The name of the MySQL Tunnel Jump Item.
+        jumpoint_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jumpoint through which connections are made.
+        hostname:
+          type: string
+          maxLength: 128
+          minLength: 1
+          description: The hostname or IP address.
+        jump_group_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jump Group or user that owns this Jump Item.
+        jump_group_type:
+          type: string
+          enum: [ shared, personal ]
+          description: The type of Jump Group that owns this Jump Item.
+          default: shared
+        tag:
+          type: string
+          minLength: 0
+          maxLength: 64
+          description: The Jump Item's tag.
+        comments:
+          type: string
+          minLength: 0
+          maxLength: 1024
+          description: The Jump Item's comments.
+        jump_policy_id:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jump Policy used to manage access to this Jump Item.
+        session_policy_id:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 2
+          maximum: 2147483647
+          description: The unique identifier of the Session Policy used to control the user's capabilities in the session.
+        tunnel_listen_address:
+          type: string
+          minLength: 0
+          maxLength: 32
+          default: '127.0.0.1'
+          description: This is the IPv4 address on which the users should connect to start tunnels. The value must be within the 127.0.0.0/24 subnet.
+        username:
+          type: string
+          minLength: 0
+          maxLength: 128
+          description: The database username required for MySQL Jump Items.
+        database:
+          type: string
+          minLength: 0
+          maxLength: 128
+          description: The database name used for MySQL Jump Items.
+      required:
+        - name
+        - jumpoint_id
+        - hostname
+        - jump_group_id
     ProtocolTunnelJumpItem:
       type: object
       properties:
@@ -5605,12 +6955,185 @@ components:
           minLength: 1
           maxLength: 12288
           description: The certificate used for Kubernetes tunnel Jump Items. This field is required when `tunnel_type` is `k8s`.
-
       required:
         - name
         - jumpoint_id
         - hostname
         - jump_group_id
+
+    NetworkTunnelJumpItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Protocol Tunnel Jump Item by Privileged Remote Access.
+        name:
+          type: string
+          maxLength: 128
+          minLength: 1
+          description: The name of the Protocol Tunnel Jump Item.
+        jumpoint_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jumpoint through which connections are made.
+        jump_group_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jump Group or user that owns this Jump Item.
+        jump_group_type:
+          type: string
+          enum: [ shared, personal ]
+          description: The type of Jump Group that owns this Jump Item.
+          default: shared
+        tag:
+          type: string
+          minLength: 0
+          maxLength: 64
+          description: The Jump Item's tag.
+        comments:
+          type: string
+          minLength: 0
+          maxLength: 1024
+          description: The Jump Item's comments.
+        jump_policy_id:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Jump Policy used to manage access to this Jump Item.
+        session_policy_id:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 2
+          maximum: 2147483647
+          description: The unique identifier of the Session Policy used to control the user's capabilities in the session.
+        filter_rules:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: Array of filter rules.
+          items:
+            $ref: '#/components/schemas/NetworkTunnelJumpItemFilterRule'
+      required:
+        - name
+        - jumpoint_id
+        - jump_group_id
+        - filter_rules
+
+    NetworkTunnelJumpItemFilterRuleIPAddressCIDR:
+      type: object
+      properties:
+        cidr:
+          type: string
+          description: CIDR notation for IP addresses that are allowed ingress to the tunnel.
+          example: "192.168.1.0/24"
+      required:
+        - cidr
+
+    NetworkTunnelJumpItemFilterRuleIPAddressRange:
+      type: object
+      description: Range of consecutive IPv4 addresses that are allowed ingress to the tunnel.
+      properties:
+        range:
+          type: object
+          properties:
+            start:
+              type: string
+              description: First IPv4 address in the range.
+            end:
+              type: string
+              description: Last IPv4 address in the range.
+          required:
+            - start
+            - end
+      example: '{ "range": { "start": "192.168.1.1", "end": "192.168.1.20" } }'
+      required:
+        - range
+
+    NetworkTunnelJumpItemFilterRuleIPAddressList:
+      type: object
+      description: List of IPv4 addresses that are allowed ingress to the tunnel.
+      properties:
+        list:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items:
+            type: string
+            description: An IPv4 address.
+      example: '{ "list": ["192.168.1.1", "192.168.1.20"] }'
+
+    NetworkTunnelJumpItemFilterRulePortRange:
+      type: object
+      description: Range of ports (inclusive) that are allowed ingress to the tunnel.
+      properties:
+        range:
+          type: object
+          properties:
+            start:
+              type: integer
+              minimum: 1
+              maximum: 65535
+            end:
+              type: integer
+              minimum: 1
+              maximum: 65535
+          required:
+            - start
+            - end
+      example: '{ "range": { "start": 9000, "end": 9999 } }'
+      required:
+        - range
+
+    NetworkTunnelJumpItemFilterRulePortList:
+      type: object
+      description: List of ports that are allowed ingress to the tunnel. If the list is an empty array, any port is allowed.
+      properties:
+        list:
+          type: array
+          minItems: 0
+          maxItems: 42
+          items:
+            type: integer
+            minimum: 1
+            maximum: 65535
+      example:
+        - '{ "list": [8000, 8999, 9000] }'
+        - '{ "list": [8080] }'
+        - '{ "list": [] }' # This means any port is allowed.
+
+    NetworkTunnelJumpItemFilterRule:
+      type: object
+      properties:
+        ip_addresses:
+          oneOf:
+            - $ref: '#/components/schemas/NetworkTunnelJumpItemFilterRuleIPAddressCIDR'
+            - $ref: '#/components/schemas/NetworkTunnelJumpItemFilterRuleIPAddressRange'
+            - $ref: '#/components/schemas/NetworkTunnelJumpItemFilterRuleIPAddressList'
+        protocol:
+          type: string
+          enum: [HOPOPT,ICMP,IGMP,GGP,IPinIP,ST,TCP,CBT,EGP,IGP,BBN_RCC_MON,NVPII,PUP,ARGUS,EMCON,XNET,CHAOS,UDP,MUX,DCN_MEAS,HMP,PRM,XNS_IDP,TRUNK_1,TRUNK_2,LEAF_1,LEAF_2,RDP,IRTP,ISO_TP4,NETBLT,MFE_NSP,MERIT_INP,DCCP,ThirdPartyConnect,IDPR,XTP,DDP,IDPR_CMTP,TransportProtocol,IL,IPv6,SDRP,IPv6_Route,IPv6_Frag,IDRP,RSVP,GRE,DSR,BNA,ESP,AH,I_NLSP,SwIPe,NARP,MOBILE,TLSP,SKIP,IPv6_ICMP,IPv6_NoNxt,IPv6_Opts,AnyHostInternal,CFTP,AnyLocalNetwork,SAT_EXPAK,KRYPTOLAN,RVD,IPPC,AnyDistFilesystem,SAT_MON,VISA,IPCU,CPNX,CPHB,WSN,PVP,BR_SAT_MON,SUN_ND,WB_MON,WB_EXPAK,ISO_IP,VMTP,SECURE_VMTP,VINES,TTP,IPTM,NSFNET_IGP,DGP,TCF,EIGRP,OSPF,Sprite_RPC,LARP,MTP,AX25,OS,MICP,SCC_SP,ETHERIP,ENCAP,AnyPrivateEncryption,GMTP,IFMP,PNNI,PIM,ARIS,SCPS,QNX,ActiveNetworks,IPComp,SNP,Compaq_Peer,IPXinIP,VRRP,PGM,AnyZeroHop,L2TP,DDX,IATP,STP,SRP,UTI,SMP,SM,PTP,ISISoverIPv4,FIRE,CRTP,CRUDP,SSCOPMCE,IPLT,SPS,PIPE,SCTP,FC,RSVP_E2E_IGNORE,MobilityHeader,UDPLite,MPLSinIP,manet,HIP,Shim6,WESP,ROHC,Ethernet,AGGFRAG,NSH,ANY]
+          description: An [IANA protocol keyword](https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml) or "ANY" to allow any protocol.
+          default: 'ANY'
+        ports:
+          description: "A range or list of ports for protocols that support ports: TCP, UDP, UDPLite, SCTP. To allow any port, provide a [NetworkTunnelJumpItemFilterRulePortList](#/components/schemas/NetworkTunnelJumpItemFilterRulePortList) containing an empty array."
+          oneOf:
+            - $ref: '#/components/schemas/NetworkTunnelJumpItemFilterRulePortRange'
+            - $ref: '#/components/schemas/NetworkTunnelJumpItemFilterRulePortList'
+          default: '{ "list": [] }'
+      required:
+        - ip_addresses
+
     WebJumpItem:
       type: object
       properties:
@@ -5648,12 +7171,6 @@ components:
             - force_upn_format
             - force_dlln_format
           default: default
-          description: >
-            One of the following:
-              * default
-              * username_only
-              * force_upn_format
-              * force_dlln_format
         verify_certificate:
           type: boolean
           default: true
@@ -5696,14 +7213,17 @@ components:
         username_field:
           type: string
           maxLength: 255
+          nullable: true
           description: The HTML id, name or CSS Selector that can be used to detect the username input element. Auto-detection is done if this is not set.
         password_field:
           type: string
           maxLength: 255
+          nullable: true
           description: The HTML id, name or CSS Selector that can be used to detect the password input element. Auto-detection is done if this is not set.
         submit_field:
           type: string
           maxLength: 255
+          nullable: true
           description: The HTML id, name or CSS Selector that can be used to detect the submit input element. Auto-detection is done if this is not set.
         session_policy_id:
           type: integer
@@ -5786,6 +7306,10 @@ components:
           type: boolean
           description: Allow Access to Vault Account Activity Reports.
           readOnly: true
+        perm_reporting_jump_item:
+          type: boolean
+          description: Allow Access to Jump Item Reports.
+          readOnly: true
         perm_reporting_syslog:
           type: boolean
           description: Allow Access to Syslog Reports.
@@ -5805,10 +7329,6 @@ components:
         perm_scim:
           type: boolean
           description: Allow Access to the SCIM API.
-          readOnly: true
-        bearer_token_long_lived:
-          type: boolean
-          description: Allow long-lived bearer token.
           readOnly: true
         perm_configuration:
           type: boolean
@@ -6091,9 +7611,20 @@ components:
           default: false
           description: Allowed to use Protocol Tunnel Jump.
           readOnly: true
+        perm_sd_static_port_for_external_tools:
+          type: boolean
+          default: false
+          description: Allowed to use static port and username for external tool sessions.
+          readOnly: true
         perm_vault:
           type: boolean
           description: Allowed to Administer Vault.
+          readOnly: true
+        perm_endpoint_automation:
+          type: string
+          description: Allowed to Administer Endpoint Automation.
+          default: 'not_allowed'
+          enum: [ 'not_allowed', 'user', 'administrator' ]
           readOnly: true
       required:
         - public_display_name
@@ -6112,7 +7643,7 @@ components:
           type: string
           maxLength: 255
           minLength: 1
-          description: The display name of the Jump Group.
+          description: The display name of the Jump Group. This value must be unique.
         code_name:
           $ref: '#/components/schemas/CodeName'
         comments:
@@ -6184,6 +7715,7 @@ components:
           minimum: 1
           maximum: 2147483647
           description: The unique identifier of the Jump Policy used to manage access to this Jump Item.
+          nullable: true
         session_policy_id:
           type: integer
           format: int32
@@ -6215,7 +7747,7 @@ components:
         is_lost:
           type: boolean
           readOnly: true
-          description: "For active Jump Clients, this is true when the Jump Client has been disconnected for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page. For passive Jump Clients, this is true when the Jump Client has not checked in for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page."
+          description: "For active Jump Clients, this is true when the Jump Client has been disconnected for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page. For standby Jump Clients, this is true when the Jump Client has not checked in for longer than the number of days configured for the 'lost' setting on the /login → Jump → Jump Clients page."
         needs_update:
           type: boolean
           readOnly: true
@@ -6374,11 +7906,27 @@ components:
           readOnly: true
           description: The unique installer identifier that can be used to download the installer for a specific platform.
         key_info:
+          type: object
+          properties:
+            encodedInfo:
+              type: string
+              maxLength: 4096
+              readOnly: true
+              description: The information needed to deploy an installer. Only included in the response when creating a new installer.
+            filename:
+              type: string
+              maxLength: 4096
+              readOnly: true
+              description: The installer filename.
+            installerPath:
+              type: string
+              maxLength: 4096
+              readOnly: true
+              description: The location where the installer file is located.
+        jumpoint_proxy:
           type: string
-          minLength: 46
-          maxLength: 46
-          readOnly: true
-          description: The information needed to deploy a Windows MSI installer. Only included in the response when creating a new installer.
+          description: The name of the Jumpoint proxy.
+          maxLength: 64
 
 
     Team:
@@ -6541,12 +8089,12 @@ components:
           minimum: 1
           maximum: 2147483647
           readOnly: true
-          description: The unique identifier assigned to this Jumpoint by the appliance.
+          description: The unique identifier assigned to this Jumpoint by the appliance. This value must be unique.
         name:
           type: string
           maxLength: 255
           minLength: 1
-          description: The display name of the Jumpoint.
+          description: The display name of the Jumpoint. This value must be unique.
         platform:
           type: string
           description: "The platform of the Jumpoint. This attribute cannot be modified after the Jumpoint is created."
@@ -6590,7 +8138,56 @@ components:
           minimum: 1
           maximum: 2147483647
           default: null
+          nullable: true
           description: The unique identifier of the Vault account through which RDP sessions can also receive additional audit capabilities. It must be an generic account or a domain account.
+        managed_ip_ranges:
+          type: array
+          description: An array of dotted-decimal IPv4 address ranges that should be managed by the network tunnel service on this Jumpoint. If the Network Tunnel feature will be used on one or more networks which do not provide a DHCP service, provide ranges from which allocations can be made for access sessions. An IP address for each network that the filter rules of a Protocol Tunnel Jump Shortcut allows will be allocated to a user while participating in a session. Take care to provide ranges that do not contain IP addresses which could be used by other systems on that network.
+          default: []
+          example: '[ { "start": "192.168.1.1", "end": "192.168.1.24" }, { "start": "10.10.11.12", "end": "10.10.11.124" } ]'
+          items:
+            $ref: '#/components/schemas/IPRange'
+        jzp_enabled:
+          type: boolean
+          default: false
+          description: Indicates whether the Jump Zone Proxy feature is enabled. This value can be null in responses for Jumpoints created before an upgrade until the Jumpoint connects for the first time after the upgrade.
+        jzp_proxy_hostname:
+          type: string
+          default: ''
+          maxLength: 256
+          minLength: 0
+          description: The hostname of the Jump Zone Proxy server. This parameter is only used for standalone Jumpoints and is only valid if the Jump Zone Proxy is enabled. This value can be null in responses for Jumpoints created before an upgrade until the Jumpoint connects for the first time after the upgrade.
+        jzp_proxy_port:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 65535
+          default: 9555
+          description: TCP Port of the Jump Zone Proxy. Only valid when the Jump Zone Proxy is enabled. This value can be null in responses for Jumpoints created before an upgrade until the Jumpoint connects for the first time after the upgrade.
+        jzp_allow_http_get:
+          type: boolean
+          default: false
+          description: If enabled, HTTP GET requests are permitted through the proxy to the BeyondTrust appliance, and this setting is only applicable if the Jump Zone Proxy is enabled. This value can be null in responses for Jumpoints created before an upgrade until the Jumpoint connects for the first time after the upgrade.
+        jzp_client_address_restrictions_type:
+          type: string
+          enum: ['no_restriction', 'allow_all', 'deny_all']
+          description: 'The type of client address restrictions to apply to the JZP. If set to `no_restriction`, the `jzp_restricted_ips` field is ignored. If set to `allow_all`, the `jzp_restricted_ips` field is used to specify a list of allowed network address prefixes. If set to `deny_all`, the `jzp_restricted_ips` field is used to specify a list of denied network address prefixes.'
+          default: 'no_restriction'
+        jzp_restricted_ips:
+          type: array
+          description: Array of network address prefixes, where netmasks are optional and can be specified in either dotted-decimal or integer bitmask format. If a netmask is omitted, the entry is assumed to be a single IP address. This field is only valid if the jzp_client_address_restrictions_type is set to `allow_all` or `deny_all`.
+          default: []
+          example: '["192.168.0.0/255.255.0.0", "192.168.100.0/24", "192.168.100.16", "fe80:0:0:0:0:0:0:0/16"]'
+          items:
+            type: string
+        docker_deploy_key:
+          type: string
+          readOnly: true
+          description: The value to provide to the Jumpoint Docker image as the DEPLOY_KEY environment variable. This value will only be set for Linux Jumpoints that have clustered set to true.
+        key_info:
+          type: string
+          readOnly: true
+          description: The key info of the Jumpoint Installer.
       required:
         - name
         - platform
@@ -6670,6 +8267,39 @@ components:
           type: boolean
           default: true
           description: If true, users are restricted to accessing Jump Items within the scheduled hours. This setting cannot be enabled when require_approval is true.
+        simultaneous_jumps:
+            description: >
+              If set to `join`, once the first user is in a session, subsequent users will be able to enter the session. The first user will receive a notification that another user has joined the session, but the first user will not have an opportunity to deny access before other user joins.
+              Selecting the `global` value means that the behavior defined under Jump -> Jump Items will be used.
+            type: string
+            default: global
+            enum: [global, join, disallow]
+        simultaneous_jump_behavior_applies_to_copies:
+          description: >
+            This field is only valid if simultaneous_jumps is set to join; otherwise, this field should be set to false or left unset.
+            If `true`, a user will be allowed to join a session that was started from another copy of a Jump Client in a different Jump Group. Session permissions will be based on the original Jump Client that started the session.
+            If `false`, a user will not be allowed to join a session that was started from another copy of a Jump Item unless it is the same Jump Group.
+          type: boolean
+          default: false
+        simultaneous_jumps_rdp:
+          description: >
+            If set to `new_session`, then a new independent session will start for each user which jumps to a specific RDP Jump Item, and the RDP configuration on the endpoint will control any further behavior regarding simultaneous RDP connections.
+            Selecting the `global` value means that the behavior defined under Jump -> Jump Items will be used.
+          type: string
+          default: global
+          enum: [global, new_session, disallow]
+        external_tools_rdp_allowed:
+          description: If `true`, this will follow the global setting behavior for Remote RDP Jump Shortcuts defined under Jump -> Jump Items.
+            If the global setting allows opening Remote RDP Jump Shortcuts with external tools, then users can open them. Otherwise, users cannot open them.
+            If `false`, this will prevent users from opening them with external tools regardless of the global setting.
+          type: boolean
+          default: true
+        external_tools_shell_allowed:
+          description: If `true`, this will follow the global setting behavior for Shell sessions defined under Jump -> Jump Items.
+            If the global setting allows opening Shell sessions with external tools, then users can open them. Otherwise, users cannot open them.
+            If `false`, this will prevent users from opening them with external tools regardless of the global setting.
+          type: boolean
+          default: true
         schedule_strict:
           type: boolean
           default: false
@@ -6678,6 +8308,10 @@ components:
           type: boolean
           default: false
           description: If true, users must enter a valid ticket ID that will be verified against the Ticket System configured on the Jump → Jump Policies page. This setting has no effect if a Ticket System is not configured.
+        two_factor_challenge_required:
+          type: boolean
+          default: false
+          description: If true, users must have two factor authentication enabled and must complete a two factor challenge before starting a session.
         session_start_notification:
           type: boolean
           default: false
@@ -6705,7 +8339,7 @@ components:
         approval_required:
           type: boolean
           default: false
-          description: If true, users must wait for approval from one of the approvers before they can start a session. This setting cannot be enabled when ```schedule_enabled``` is true.
+          description: If true, users must wait for approval from one of the approvers before they can start a session. This setting cannot be enabled when `schedule_enabled` is true.
         approval_max_duration:
           type: integer
           format: int32
@@ -6734,6 +8368,14 @@ components:
           description: The list of user ids to which approval requests will be sent. It is required only if approvals are enabled.
           items:
             type: string
+        approval_team_ids:
+          type: array
+          default: []
+          minItems: 0
+          maxItems: 100
+          description: The list of team ids to which approval requests will be sent. It is required only if approvals are enabled.
+          items:
+            type: string
         approval_display_name:
           type: string
           maxLength: 255
@@ -6750,9 +8392,64 @@ components:
         recordings_disabled:
           type: boolean
           default: false
-          description: If true, sessions will not be recorded even if recordings are enabled on the Configuration → Options page. This affects Screen Sharing, User Recordings for Protocol Tunnel Jump, and Command Shell recordings.
+          description: If true, sessions will not be recorded even if recordings are enabled on the Configuration → Options page. This affects Screen Sharing, User Recordings for Protocol Tunnel Jump, and Shell recordings
       required:
         - display_name
+
+    JumpAuthorizationRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier assigned to this Jump Authorization Request.
+        state:
+          type: string
+          enum: [pending, approved, denied, cancelled, in_use]
+          description: The current state of the Jump Authorization Request.
+        jump_policy_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The id of the Jump Policy this request was caused by.
+          readOnly: true
+        jump_item_type:
+          type: string
+          description: The Jump Item's type.
+        jump_item_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The Jump Item's id.
+        created_by_user_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The id of the User who made the request.
+        start_timestamp:
+          type: string
+          format: date-time
+          description: The requesting date/time that the authorization is to be allowed.
+        duration:
+          type: integer
+          minimum: 60
+          maximum: 2147483647
+          default: 7200
+          description: The requested duration (in seconds) following the start_timestamp, after which the authorization ends.
+        request_reason:
+          type: string
+          maxLength: 2048
+          description: The reason given by the User for the request.
+        response_comments:
+          type: string
+          maxLength: 2048
+          description: The comments given by the approver for approving or denying the request.
+
 
     SessionPolicy:
       type: object
@@ -6827,7 +8524,7 @@ components:
           description: The unique identifier assigned to this Account by the system.
         type:
           type: string
-          enum: [username_password, ssh, ssh_ca, windows_local, windows_domain, opaque_token]
+          enum: [username_password, ssh, ssh_ca, windows_local, windows_domain, opaque_token, x509_ca, x509_csr, aws_secret, password_safe]
           readOnly: true
         name:
           type: string
@@ -6855,7 +8552,7 @@ components:
           format: int32
           minimum: 1
           maximum: 2147483647
-          description: The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
+          description: The unique identifier of the Vault Account Group. For most account types, the `account_group_id` defaults to `1`, which is the default Account Group. If the `type` is `x509_ca`, or the account is personal, account_group_id will not be present.
         account_policy:
           type: string
           maxLength: 64
@@ -6876,7 +8573,7 @@ components:
           type: string
           maxLength: 255
           minLength: 1
-          description: The name of the Account Group.
+          description: The name of the Account Group. This value must be unique.
         description:
           type: string
           maxLength: 1024
@@ -6887,6 +8584,8 @@ components:
           minLength: 1
           nullable: true
           description: The code name of the Account Policy associated with the Account Group. When the value is `null`, the account policy is inherited from the global default.
+      required:
+        - name
     AccountJumpItemAssociation:
       type: object
       description: Describes Jump Item association criteria for Vault Accounts and Account Groups. The `criteria` property is only allowed if the `filter_type` is "criteria".
@@ -7056,12 +8755,12 @@ components:
           type: string
           maxLength: 255
           minLength: 1
-          description: The name of the Account Policy.
+          description: The name of the Account Policy. This value must be unique.
         code_name:
           type: string
           maxLength: 64
           minLength: 0
-          description: The code name of the Account Policy.
+          description: The code name of the Account Policy. This value must be unique.
         description:
           type: string
           maxLength: 1024
@@ -7168,6 +8867,10 @@ components:
           type: boolean
           default: false
           description: Allowed to use Protocol Tunnel Jump.
+        perm_sd_static_port_for_external_tools:
+          type: boolean
+          default: false
+          description: Allowed to use static port and username for external tool sessions.
         default_jump_item_role_id:
           type: integer
           format: int32
@@ -7274,6 +8977,129 @@ components:
         - name
         - username
         - password
+
+    AwsSecretKeyValue:
+      type: object
+      properties:
+        Key:
+          type: string
+          readOnly: true
+          description: The Key for the tag.
+        Value:
+          type: string
+          readOnly: true
+          description: The value for the tag.
+
+    VaultAwsSecretAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Account by the system.
+        type:
+          type: string
+          readOnly: true
+          enum: [aws_secret]
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          readOnly: true
+          description: The name of the Secret.
+        description:
+          type: string
+          maxLength: 4096
+          readOnly: true
+          description: The description of the Secret.
+        arn:
+          type: string
+          maxLength: 4096
+          readOnly: true
+          description: The ARN of the Secret.
+        aws_organization_id:
+          type: string
+          maxLength: 4096
+          readOnly: true
+          description: The Organization Id of the Secret.
+        tags:
+          type: array
+          description: List of tags associated to this secret.
+          default: null
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/AwsSecretKeyValue'
+        last_checkout_timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the secret was last checked out.
+        account_group_id:
+          default: 1
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
+        account_policy:
+          type: string
+          maxLength: 64
+          minLength: 1
+          nullable: true
+          description: The code name of the Account Policy associated with the secret. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
+      required:
+        - type
+        - name
+
+    VaultPasswordSafeAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Account by the system.
+        type:
+          type: string
+          readOnly: true
+          enum: [password_safe]
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The name of the Account.
+        description:
+          type: string
+          maxLength: 4096
+          description: The Account's description.
+        username:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The username that will be injected and/or checked out.
+        last_checkout_timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the account was last checked out.
+        account_group_id:
+          default: 1
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the Vault Account Group.
+        account_policy:
+          type: string
+          maxLength: 64
+          minLength: 1
+          nullable: true
+          description: The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
 
     VaultTokenAccount:
       type: object
@@ -7382,6 +9208,7 @@ components:
           type: string
           minLength: 1
           maxLength: 4096
+          nullable: true
           description: The public certificate used for authentication.
         description:
           type: string
@@ -7543,6 +9370,158 @@ components:
         - name
         - username
 
+    VaultX509ImportedCAAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Account by the system.
+        type:
+          type: string
+          enum: [x509_ca]
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The name of the Account.
+        description:
+          type: string
+          maxLength: 4096
+          description: The Account's description.
+        x509_key:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: A key pair associated with the Certificate Authority.
+          writeOnly: true
+        x509_key_passphrase:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: The passphrase used to unlock the private key pair.
+          writeOnly: true
+        x509_cert:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The public X.509 certificate used for trust.
+      required:
+        - type
+        - name
+        - x509_key
+        - x509_cert
+
+    VaultX509GeneratedCAAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Account by the system.
+        type:
+          type: string
+          enum: [x509_ca]
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The name of the Account.
+        description:
+          type: string
+          maxLength: 4096
+          description: The Account's description.
+        x509_cert:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The public X.509 certificate used for trust.
+          readOnly: true
+        subject:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: Subject DN in comma delimited format
+        ttl:
+          type: string
+          enum: [365, 730, 1095, 1825, 3650, 7300]
+          description: number of days before the generated CA expires
+        key_algorithm:
+          type: string
+          enum: [rsa_2048, rsa_3072, rsa_4096, ecc_secp384r1]
+          description: key encryption algorithm
+        cert_digest_algorithm:
+          type: string
+          enum: [sha256, sha384, sha512]
+          description:  digest signing algorithm
+      required:
+        - type
+        - name
+        - subject
+        - ttl
+        - key_algorithm
+        - cert_digest_algorithm
+
+    VaultX509ClientAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to this Account by the system.
+        type:
+          type: string
+          enum: [x509_csr]
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: The name of the Account.
+        description:
+          type: string
+          maxLength: 4096
+          description: The Account's description.
+        parent_x509:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The unique identifier of the X.509 Parent Certificate Authority
+        subject:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: Subject DN in comma delimited format
+        ttl:
+          type: string
+          enum: [60, 120, 300, 1800, 3600, 10800, 28800, 86400]
+          description: number of seconds before generated certificates expire
+        key_algorithm:
+          type: string
+          enum: [rsa_2048, rsa_3072, rsa_4096, ecc_secp384r1]
+          description: key encryption algorithm
+        cert_digest_algorithm:
+          type: string
+          enum: [sha256, sha384, sha512]
+          description:  digest signing algorithm
+      required:
+        - type
+        - name
+        - parent_x509
+        - subject
+        - ttl
+        - key_algorithm
+        - cert_digest_algorithm
+
     VaultAccountUser:
       type: object
       properties:
@@ -7570,7 +9549,7 @@ components:
           description: The username of the checked out account.
         type:
           type: string
-          enum: [username_password, ssh, ssh_ca, windows_local, windows_domain, opaque_token]
+          enum: [username_password, ssh, ssh_ca, windows_local, windows_domain, opaque_token, aws_secret]
         password:
           type: string
           minLength: 1
@@ -7642,6 +9621,7 @@ components:
             - kerberos
             - saml
             - scim
+
           description: |
             The type of security provider. Must be one of the following:
 
@@ -7651,6 +9631,7 @@ components:
             - `kerberos`: a Kerberos security provider
             - `saml`: a SAML 2.0 security provider
             - `scim`: a SCIM security provider
+
         name:
           type: string
           readOnly: true
@@ -7878,19 +9859,19 @@ components:
         user_added_notification_enabled:
           type: boolean
           default: true
-          description: If enabled, the Privileged Remote Access users and/or team members are emailed when a user is added to the vendor group. This value cannot be false if `user_approval_enabled` is true. At least one administrator or team must be set in ```administrator_ids``` or ```team_ids``` respectively if this value is true.
+          description: If enabled, the Privileged Remote Access users and/or team members are emailed when a user is added to the vendor group. This value cannot be false if `user_approval_enabled` is true. At least one administrator or team must be set in `administrator_ids` or `team_ids` respectively if this value is true.
         user_expired_notification_enabled:
           type: boolean
           default: true
-          description: If enabled, the Privileged Remote Access users and/or team members are emailed when a user has expired or has been automatically deleted in this vendor group. At least one administrator or team must be set in ```administrator_ids``` or ```team_ids``` respectively if this value is true.
+          description: If enabled, the Privileged Remote Access users and/or team members are emailed when a user has expired or has been automatically deleted in this vendor group. At least one administrator or team must be set in `administrator_ids` or `team_ids` respectively if this value is true.
         user_approval_enabled:
           type: boolean
           default: false
-          description: If enabled, approval by a Privileged Remote Access users and/or team members are required to activate users in the vendor group. At least one administrator or team must be set in ```administrator_ids``` or ```team_ids``` respectively if this value is true.
+          description: If enabled, approval by a Privileged Remote Access users and/or team members are required to activate users in the vendor group. At least one administrator or team must be set in `administrator_ids` or `team_ids` respectively if this value is true.
         user_reactivation_enabled:
           type: boolean
           default: false
-          description: If enabled, approval by a Privileged Remote Access users and/or team members are required to extend or reactivate users in the vendor group. ```user_approval_enabled``` must first be enabled.
+          description: If enabled, approval by a Privileged Remote Access users and/or team members are required to extend or reactivate users in the vendor group. `user_approval_enabled` must first be enabled.
         administrator_ids:
             type: array
             description: >
@@ -8053,56 +10034,348 @@ components:
               description: |
                 The selected Group Policy will define the initial and the default set of permissions, memberships, and other settings to all users authenticating with this Security Provider.
                 These settings can be modified individually per user or group of users if they belong to other Group Policies.
-    SCIMSecurityProvider:
+
+    OIDCSecurityProvider:
       allOf:
         - $ref: '#/components/schemas/ExtendedSecurityProvider'
-        - type: object
+
+    EndpointAutomationJob:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to the endpoint automation job by the appliance.
+        name:
+          type: string
+          description: The name of the job.
+          minLength: 1
+          maxLength: 128
+        notes:
+          type: string
+          description: The notes of the job.
+        start_at:
+          type: string
+          format: date-time
+          description: The date and time the job should start.
+        tag:
+          type: string
+          minLength: 0
+          maxLength: 128
+          description: A tag for organizing jobs created with the script.
+        operating_system:
+          type: string
+          enum: [Windows, Linux, Mac]
+        created_by_api_account_id:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: The id of the api account that created the job.
+        created_by_user_id:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: The id of the user who created the job.
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+          description: When the script was created.
+        finished_timestamp:
+          type: string
+          readOnly: true
+          format: date-time
+          nullable: true
+          description: When the all endpoint jobs finished running.
+        payload:
+          type: object
           properties:
-            unique_id_attribute_name:
+            cmd:
               type: string
-              readOnly: true
-              description: The name of the SCIM attribute that uniquely identifies the users.
-            display_name:
+              minLength: 1
+              maxLength: 2048
+              description: The command that's run to start the script.
+            script:
               type: string
-              readOnly: true
-              description: The display name for the users. If multiple SCIM attributes are used to populate a single user attribute, then each attribute will be surrounded with braces.
-            email:
-              type: string
-              readOnly: true
-              description: E-mail SCIM attribute.
-            user_name:
-              type: string
-              readOnly: true
-              description: Username SCIM attribute.
-            scim_user_query_id:
-              type: string
-              readOnly: true
-              enum:
-                - id
-                - externalId
-                - userName
-              description: |
-                SCIM User Query ID.
-                Values:
-                  - id (BeyondTrust ID)
-                  - externalId (Provider ID)
-                  - userName (User Name)
-            scim_group_query_id:
-              type: string
-              readOnly: true
-              enum:
-                - id
-                - externalId
-                - displayName
-              description: |
-                SCIM Group Query ID.
-                Values:
-                  - id (Platform ID)
-                  - externalId (Provider ID)
-                  - displayName (Group Name)
-    LocalSecurityProvider:
-      allOf:
-        - $ref: '#/components/schemas/ExtendedSecurityProvider'
+              minLength: 1
+              maxLength: 100000
+              description: The script that's run on the endpoints.
+            resources:
+              $ref: '#/components/schemas/EndpointAutomationMinimalResource'
+
+    EndpointAutomationMinimalResource:
+      type: object
+      description: Endpoint Automation Minimal Resources are smaller immutable versions of Endpoint Automation Resources on jobs.
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to the endpoint automation script by the appliance.
+        file_name:
+          type: string
+          readOnly: true
+          description: The name of the file that's used in the job.
+        file_size:
+          type: integer
+          readOnly: true
+          minimum: 0
+          description: The size of the file.
+        display_url:
+          type: string
+          readOnly: true
+          description: The URL for viewing the resource.
+
+    EndpointAutomationScript:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to the endpoint automation script by the appliance.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: The name of the script.
+        description:
+          type: string
+          description: The description of the script.
+          minLength: 0
+          maxLength: 1000
+        tag:
+          type: string
+          minLength: 0
+          maxLength: 128
+          description: A tag for organizing jobs created with the script.
+        cmd:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: The command that's run to start the script.
+        script:
+          type: string
+          minLength: 1
+          maxLength: 100000
+          description: The script that's run on the endpoints.
+        operating_system:
+          type: string
+          enum: [Windows, Linux, Mac]
+        resource_ids:
+          type: array
+          description: Array of resource ids to be included when creating a script.
+          minItems: 0
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ObjectId'
+        created_by_api_account_id:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: The id of the api account that created the script.
+        created_by_user_id:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: The id of the user who created the script.
+        updated_at:
+          type: string
+          readOnly: true
+          format: date-time
+          description: When the script was last updated.
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+          description: When the script was created.
+      required:
+        - name
+        - cmd
+        - script
+        - operating_system
+
+    EndpointAutomationResource:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: The unique identifier assigned to the endpoint automation script by the appliance.
+        file_name:
+          type: string
+          readOnly: true
+          description: The name of the file that's used in the job.
+        file_size:
+          type: integer
+          readOnly: true
+          minimum: 0
+          description: The size of the file.
+        display_url:
+          type: string
+          readOnly: true
+          description: The URL for viewing the resource.
+        hash:
+          type: string
+          readOnly: true
+          description: The hash of the file.
+        updated_at:
+          type: string
+          readOnly: true
+          format: date-time
+          description: When the resource was last updated.
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+          description: When the resource was created.
+        updated_by:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The user id of the last user to update the resource.
+        created_by:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The user id of the user who created the resource.
+
+    EndpointAutomationEndpoint:
+      type: object
+      description: An Endpoint Automation Endpoint is a collection of 1 or more Jump Clients that meet the criteria for being used in Endpoint Automation.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: The id of the endpoint automation endpoint.
+        operating_system_type:
+          type: string
+          enum: [Windows, Linux, Mac]
+        names:
+          type: array
+          readOnly: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+            description: The Jump Client's user-friendly name.
+        hostname:
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          description: The Jump Client's hostname.
+        tags:
+          type: array
+          readOnly: true
+          items:
+            type: string
+            minLength: 0
+            maxLength: 64
+            description: The Jump Client's tag.
+        public_ip:
+          type: string
+          readOnly: true
+          description: The public IP address of the system on which the Jump Client is running.
+        private_ip:
+          type: string
+          readOnly: true
+          description: The private IP address of the system on which the Jump Client is running.
+        is_active:
+          type: boolean
+          readOnly: true
+          description: Indicates whether a job can currently be run on the endpoint.
+        jump_group_id:
+          type: array
+          readOnly: true
+          items:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 2147483647
+            description: The unique identifier of the shared Jump Group or user that owns the Jump Client(s).
+
+    EndpointAutomationJobExecution:
+      type: object
+      properties:
+        state:
+          type: string
+          readOnly: true
+          description: The state of the endpoint job
+        started_running_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: The timestamp of when the endpoint job started running
+        finished_timestamp:
+          type: string
+          readOnly: true
+          format: date-time
+          nullable: true
+          description: The timestamp of when the endpoint job finished running
+        finished_type:
+          type: string
+          readOnly: true
+          nullable: true
+          description: The type of event that triggered the endpoint job to finish
+        finished_error:
+          type: string
+          readOnly: true
+          nullable: true
+          description: An error message that provides more details as to why the job finished due to an error
+        log_file_path:
+          type: string
+          readOnly: true
+          nullable: true
+          description: The file path on the endpoint to the complete output of the script
+        endpoint_id:
+          type: integer
+          readOnly: true
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: The endpoint id of the endpoint automation endpoint.
+        output_tail:
+          type: string
+          readOnly: true
+          nullable: true
+          description: The output tail from the script run on the endpoint
+        exit_code:
+          type: number
+          readOnly: true
+          nullable: true
+          description: The exit code from the script run on the endpoint
+
     LDAPSecurityProvider:
       allOf:
         - $ref: '#/components/schemas/ExtendedSecurityProvider'
@@ -8252,6 +10525,7 @@ components:
               type: boolean
               readOnly: true
               description: Keep display name synchronized with remote system.
+
     SAMLSecurityProvider:
       allOf:
         - $ref: '#/components/schemas/ExtendedSecurityProvider'
@@ -8271,8 +10545,8 @@ components:
                 type: string
               readOnly: false
               description: |
-                This is an optional list of SAML groups always available to be manually assigned to group policies in Privileged Remote Access.
-                If left blank, a given SAML group will be made available only after the first successful authentication of a user member of such group.
+                This is an optional list of SAML or OIDC groups always available to be manually assigned to group policies in Privileged Remote Access.
+                If left blank, a given SAML or OIDC group will be made available only after the first successful authentication of a user member of such group.
             display_name:
               type: string
               readOnly: true
@@ -8319,6 +10593,7 @@ components:
               type: boolean
               readOnly: true
               description: The display names will be set according to the User Schema Settings.
+
     RadiusSecurityProvider:
       allOf:
         - $ref: '#/components/schemas/ExtendedSecurityProvider'
@@ -8363,6 +10638,7 @@ components:
               type: boolean
               readOnly: true
               description: The display name will be set to the User-Name attribute in the Access-Request message.
+
     KerberosSecurityProvider:
       allOf:
         - $ref: '#/components/schemas/ExtendedSecurityProvider'
@@ -8425,6 +10701,61 @@ components:
                 maximum: 2147483647
               readOnly: true
               description: This is an optional list of unique identifier of the LDAP Group Providers.
+
+    LocalSecurityProvider:
+      allOf:
+        - $ref: '#/components/schemas/ExtendedSecurityProvider'
+
+    SCIMSecurityProvider:
+      allOf:
+        - $ref: '#/components/schemas/ExtendedSecurityProvider'
+        - type: object
+          properties:
+            unique_id_attribute_name:
+              type: string
+              readOnly: true
+              description: The name of the SCIM attribute that uniquely identifies the users.
+            display_name:
+              type: string
+              readOnly: true
+              description: The display name for the users. If multiple SCIM attributes are used to populate a single user attribute, then each attribute will be surrounded with braces.
+            email:
+              type: string
+              readOnly: true
+              description: E-mail SCIM attribute.
+            user_name:
+              type: string
+              readOnly: true
+              description: Username SCIM attribute.
+            scim_user_query_id:
+              type: string
+              readOnly: true
+              enum:
+                - id
+                - externalId
+                - userName
+              description: |
+                SCIM User Query ID.
+                Values:
+                  - id (BeyondTrust ID)
+                  - externalId (Provider ID)
+                  - userName (User Name)
+            scim_group_query_id:
+              type: string
+              readOnly: true
+              enum:
+                - id
+                - externalId
+                - displayName
+              description: |
+                SCIM Group Query ID.
+                Values:
+                  - id (Platform ID)
+                  - externalId (Provider ID)
+                  - displayName (Group Name)
+
+
+
     RemoteRdpCandidate:
       type: object
       properties:
@@ -8435,6 +10766,17 @@ components:
           maximum: 2147483647
           readOnly: true
           description: The unique identifier for the Remote RDP Jump Item.
+
+    IPRange:
+      type: object
+      properties:
+        start:
+          type: string
+          description: The starting IPv4 address of the range.
+        end:
+          type: string
+          description: The ending IPv4 address of the range.
+
   parameters:
     IdParam:
       name: id
@@ -8493,9 +10835,9 @@ components:
         example: |
           (Newlines added for readability.)
 
-          Link: <https://mycompanyname.beyondtrustcloud.com/api/config/user?per_page=10&current_page=1>; rel="first",
-          <https://mycompanyname.beyondtrustcloud.com/api/config/user?per_page=10&current_page=6>; rel="previous",
-          <https://mycompanyname.beyondtrustcloud.com/api/config/user?per_page=10&current_page=7>; rel="last"
+          Link: <https://mycompany.beyondtrustcloud.com/api/config/user?per_page=10&current_page=1>; rel="first",
+          <https://mycompany.beyondtrustcloud.com/api/config/user?per_page=10&current_page=6>; rel="previous",
+          <https://mycompany.beyondtrustcloud.com/api/config/user?per_page=10&current_page=7>; rel="last"
     X-BT-Pagination-Current-Page:
       description: Indicates the 1-based page number for a paginated response.
       schema:
@@ -8514,7 +10856,6 @@ components:
       schema:
         type: integer
         minimum: 0
-
 
   responses:
     404NotFound:
@@ -8540,4 +10881,4 @@ components:
       flows:
         clientCredentials:
           scopes: {}
-          tokenUrl: https://mycompanyname.beyondtrustcloud.com/oauth2/token
+          tokenUrl: https://mycompany.beyondtrustcloud.com/oauth2/token
