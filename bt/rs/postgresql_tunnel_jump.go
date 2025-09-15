@@ -76,6 +76,10 @@ func (r *postgresqlTunnelJumpResource) ModifyPlan(ctx context.Context, req resou
 	tflog.Debug(ctx, "Finished modification (postgresql)")
 }
 
+func (r *postgresqlTunnelJumpResource) printableName() string {
+	return "postgresql_tunnel_jump"
+}
+
 // applyPostgresDefaultsAndValidate applies defaults and returns diagnostics similar to
 // the logic used during ModifyPlan. This is separated to make unit testing easier.
 func applyPostgresDefaultsAndValidate(plan *models.PostgreSQLTunnelJump) diag.Diagnostics {

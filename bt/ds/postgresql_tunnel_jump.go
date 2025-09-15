@@ -34,6 +34,10 @@ type postgresqlTunnelJumpDataSourceModel struct {
 	Tag           types.String                  `tfsdk:"tag" filter:"tag"`
 }
 
+func (r *postgresqlTunnelJumpDataSource) printableName() string {
+	return "postgresql_tunnel_jump"
+}
+
 func (d *postgresqlTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Fetch a list of PostgreSQL Tunnel Jump Items. NOTE: PRA only.",
