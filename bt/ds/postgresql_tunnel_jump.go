@@ -2,12 +2,14 @@ package ds
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var (
@@ -34,8 +36,9 @@ type postgresqlTunnelJumpDataSourceModel struct {
 	Tag           types.String                  `tfsdk:"tag" filter:"tag"`
 }
 
-func (r *postgresqlTunnelJumpDataSource) printableName() string {
-	return "postgresql_tunnel_jump"
+func (d *postgresqlTunnelJumpDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = fmt.Sprintf("%s_postgresql_tunnel_jump_list", req.ProviderTypeName)
+	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
 }
 
 func (d *postgresqlTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

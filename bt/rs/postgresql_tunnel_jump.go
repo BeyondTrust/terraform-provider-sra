@@ -2,6 +2,7 @@ package rs
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
@@ -76,8 +77,9 @@ func (r *postgresqlTunnelJumpResource) ModifyPlan(ctx context.Context, req resou
 	tflog.Debug(ctx, "Finished modification (postgresql)")
 }
 
-func (r *postgresqlTunnelJumpResource) printableName() string {
-	return "postgresql_tunnel_jump"
+func (d *postgresqlTunnelJumpResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = fmt.Sprintf("%s_postgresql_tunnel_jump", req.ProviderTypeName)
+	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
 }
 
 // applyPostgresDefaultsAndValidate applies defaults and returns diagnostics similar to

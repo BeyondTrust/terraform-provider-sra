@@ -13,7 +13,7 @@ module "jump_resources" {
   random_bits = var.random_bits
 }
 
-resource "sra_postgresql_tunnel_jump" "test" {
+resource "sra_my_sql_tunnel_jump" "test" {
   name                  = var.name
   hostname              = var.hostname
   jumpoint_id           = module.jump_resources.jumpoint.id
@@ -24,11 +24,11 @@ resource "sra_postgresql_tunnel_jump" "test" {
   tunnel_listen_address = var.tunnel_listen_address
 }
 
-data "sra_postgresql_tunnel_jump_list" "list" {
+data "sra_my_sql_tunnel_jump_list" "list" {
   tag = var.random_bits
 }
 
-resource "sra_postgresql_tunnel_jump" "test_secondary" {
+resource "sra_my_sql_tunnel_jump" "test_secondary" {
   name                  = "${var.name}-secondary"
   hostname              = var.hostname
   jumpoint_id           = module.jump_resources.jumpoint.id
@@ -36,6 +36,5 @@ resource "sra_postgresql_tunnel_jump" "test_secondary" {
   tag                   = var.random_bits
   username              = "secondary_user"
   database              = var.database
-  tunnel_listen_address = "127.0.0.2"
+  tunnel_listen_address = "127.0.0.3"
 }
-
