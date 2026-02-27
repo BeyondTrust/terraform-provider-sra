@@ -12,7 +12,7 @@ This provider requires Remote Support or Privileged Remote Access version 23.2.1
 
 ## Use Cases
 
-The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjection with BeyondTrust Remote Support or BeyondTrust Priviliged Remote Access products.
+The chief use case for this provider is to manage access to all assets managed within your Terraform instance in conjunction with BeyondTrust Remote Support or BeyondTrust Priviliged Remote Access products.
 
 As examples, this provider allows:
 * Enabling Jump Item creation and deletion to match the provisioning and deprovisioning of assets within Terraform.
