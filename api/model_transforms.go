@@ -230,7 +230,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			}
 
 			// If destination is pointer to string and TF value is empty string, skip setting so field is omitted (omitempty) instead of sending "" (API may reject empty string as invalid).
-			if apiTypeField.Type.Elem().Kind() == reflect.String && tfObjField.Type.String() == "types.String" {
+			if apiTypeField.Type.Elem().Kind() == reflect.String && tfObjField.Type.String() == "basetypes.StringValue" {
 				val := tfField.Interface().(types.String)
 				if val.ValueString() == "" {
 					tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI skipping empty string pointer field %s", fieldName))

@@ -232,6 +232,97 @@ func TestCopyAPItoTF(t *testing.T) {
 	}
 }
 
+func TestCopyTFtoAPI_EmptyStringPointerSkipped(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false)
+
+	tfObj := &testTFModel{
+		ID:                types.StringValue("1"),
+		StringVal:         types.StringValue("hello"),
+		IntVal:            types.Int64Value(1),
+		BoolVal:           types.BoolValue(true),
+		PointerStringVal:  types.StringValue(""), // empty string should be skipped for pointer fields
+		PointerIntVal:     types.Int64Value(0),
+		PointerBoolVal:    types.BoolValue(false),
+		NullStringVal:     types.StringNull(),
+		NullIntVal:        types.Int64Null(),
+		NullBoolVal:       types.BoolNull(),
+		UnknownStringVal:  types.StringUnknown(),
+		UnknownIntVal:     types.Int64Unknown(),
+		UnknownBoolVal:    types.BoolUnknown(),
+		ProductField:      types.StringNull(),
+		PersistStateField: types.StringValue("x"),
+		APISkipField:      types.StringValue("x"),
+		TFOnlyField:       types.BoolValue(false),
+	}
+
+	var apiObj testAPIModel
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+
+	assert.Nil(t, apiObj.PointerStringVal, "Empty string on a pointer field should be skipped (omitempty)")
+}
+
+func TestCopyTFtoAPI_NullID(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false)
+
+	tfObj := &testTFModel{
+		ID:                types.StringNull(),
+		StringVal:         types.StringValue("hello"),
+		IntVal:            types.Int64Value(1),
+		BoolVal:           types.BoolValue(true),
+		PointerStringVal:  types.StringNull(),
+		PointerIntVal:     types.Int64Null(),
+		PointerBoolVal:    types.BoolNull(),
+		NullStringVal:     types.StringNull(),
+		NullIntVal:        types.Int64Null(),
+		NullBoolVal:       types.BoolNull(),
+		UnknownStringVal:  types.StringUnknown(),
+		UnknownIntVal:     types.Int64Unknown(),
+		UnknownBoolVal:    types.BoolUnknown(),
+		ProductField:      types.StringNull(),
+		PersistStateField: types.StringValue("x"),
+		APISkipField:      types.StringValue("x"),
+		TFOnlyField:       types.BoolValue(false),
+	}
+
+	var apiObj testAPIModel
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+
+	assert.Nil(t, apiObj.ID, "Null TF ID should leave API ID nil")
+	assert.Equal(t, "hello", apiObj.StringVal, "Other fields should still copy")
+}
+
+func TestCopyTFtoAPI_UnknownID(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false)
+
+	tfObj := &testTFModel{
+		ID:                types.StringUnknown(),
+		StringVal:         types.StringValue("hello"),
+		IntVal:            types.Int64Value(1),
+		BoolVal:           types.BoolValue(true),
+		PointerStringVal:  types.StringNull(),
+		PointerIntVal:     types.Int64Null(),
+		PointerBoolVal:    types.BoolNull(),
+		NullStringVal:     types.StringNull(),
+		NullIntVal:        types.Int64Null(),
+		NullBoolVal:       types.BoolNull(),
+		UnknownStringVal:  types.StringUnknown(),
+		UnknownIntVal:     types.Int64Unknown(),
+		UnknownBoolVal:    types.BoolUnknown(),
+		ProductField:      types.StringNull(),
+		PersistStateField: types.StringValue("x"),
+		APISkipField:      types.StringValue("x"),
+		TFOnlyField:       types.BoolValue(false),
+	}
+
+	var apiObj testAPIModel
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+
+	assert.Nil(t, apiObj.ID, "Unknown TF ID should leave API ID nil")
+}
+
 func TestCopyTFtoAPI_SliceField(t *testing.T) {
 	ctx := context.Background()
 	SetProductIsRS(false) // PRA mode so sraproduct:"pra" fields are active
