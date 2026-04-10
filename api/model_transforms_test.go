@@ -232,6 +232,80 @@ func TestCopyAPItoTF(t *testing.T) {
 	}
 }
 
+func TestCopyAPItoTF_NilPointersSetToNull(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false)
+
+	id := 42
+	apiObj := &testAPIModel{
+		ID:                &id,
+		StringVal:         "hello",
+		IntVal:            1,
+		BoolVal:           true,
+		PointerStringVal:  nil,
+		PointerIntVal:     nil,
+		PointerBoolVal:    nil,
+		NullStringVal:     nil,
+		NullIntVal:        nil,
+		NullBoolVal:       nil,
+		UnknownStringVal:  nil,
+		UnknownIntVal:     nil,
+		UnknownBoolVal:    nil,
+		ProductField:      nil,
+		PersistStateField: nil,
+	}
+
+	tfObj := &testTFModel{
+		ID:                types.StringUnknown(),
+		StringVal:         types.StringUnknown(),
+		IntVal:            types.Int64Unknown(),
+		BoolVal:           types.BoolUnknown(),
+		PointerStringVal:  types.StringUnknown(),
+		PointerIntVal:     types.Int64Unknown(),
+		PointerBoolVal:    types.BoolUnknown(),
+		NullStringVal:     types.StringUnknown(),
+		NullIntVal:        types.Int64Unknown(),
+		NullBoolVal:       types.BoolUnknown(),
+		UnknownStringVal:  types.StringUnknown(),
+		UnknownIntVal:     types.Int64Unknown(),
+		UnknownBoolVal:    types.BoolUnknown(),
+		ProductField:      types.StringUnknown(),
+		PersistStateField: types.StringValue("keep me"),
+		APISkipField:      types.StringValue("untouched"),
+		TFOnlyField:       types.BoolValue(false),
+	}
+
+	apiElem := reflect.ValueOf(apiObj).Elem()
+	apiType := reflect.TypeOf(apiObj).Elem()
+	tfElem := reflect.ValueOf(tfObj).Elem()
+
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+
+	// Non-pointer fields should be set
+	assert.Equal(t, "42", tfObj.ID.ValueString())
+	assert.Equal(t, "hello", tfObj.StringVal.ValueString())
+	assert.Equal(t, int64(1), tfObj.IntVal.ValueInt64())
+	assert.Equal(t, true, tfObj.BoolVal.ValueBool())
+
+	// Nil pointer fields should become TF null
+	assert.True(t, tfObj.PointerStringVal.IsNull(), "nil *string should produce types.StringNull")
+	assert.True(t, tfObj.PointerIntVal.IsNull(), "nil *int should produce types.Int64Null")
+	assert.True(t, tfObj.PointerBoolVal.IsNull(), "nil *bool should produce types.BoolNull")
+
+	assert.True(t, tfObj.NullStringVal.IsNull())
+	assert.True(t, tfObj.NullIntVal.IsNull())
+	assert.True(t, tfObj.NullBoolVal.IsNull())
+
+	// persist_state field should be preserved, not overwritten
+	assert.Equal(t, "keep me", tfObj.PersistStateField.ValueString())
+
+	// sraapi:"skip" field should be untouched
+	assert.Equal(t, "untouched", tfObj.APISkipField.ValueString())
+
+	// nil PRA field in PRA mode should be null (nil pointer path, not product mismatch path)
+	assert.True(t, tfObj.ProductField.IsNull())
+}
+
 func TestCopyTFtoAPI_EmptyStringPointerSkipped(t *testing.T) {
 	ctx := context.Background()
 	SetProductIsRS(false)
