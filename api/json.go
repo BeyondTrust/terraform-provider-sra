@@ -23,7 +23,7 @@ func (t *Timestamp) UnmarshalJSON(b []byte) error {
 	s := strings.TrimSpace(string(b))
 
 	// null -> empty
-	if s == "null" || s == "" {
+	if s == "null" || s == "" || s == `""` {
 		*t = ""
 		return nil
 	}
