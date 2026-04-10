@@ -59,6 +59,18 @@ type testAPIModel struct {
 	PersistStateField *string
 }
 
+type testTFModelWithSet struct {
+	ID        types.String
+	Name      types.String
+	EmailList types.Set `sraproduct:"pra"`
+}
+
+type testAPIModelWithSet struct {
+	ID        *int
+	Name      string
+	EmailList *[]string `sraproduct:"pra"`
+}
+
 func TestCopyTFtoAPI(t *testing.T) {
 	// t.Parallel()
 
@@ -218,4 +230,50 @@ func TestCopyAPItoTF(t *testing.T) {
 			assert.True(t, tfObj.ProductField.IsNull())
 		}
 	}
+}
+
+func TestCopyTFtoAPI_SliceField(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false) // PRA mode so sraproduct:"pra" fields are active
+
+	emails := []string{"a@b.com", "c@d.com"}
+	emailSet, _ := types.SetValueFrom(ctx, types.StringType, emails)
+
+	tfObj := &testTFModelWithSet{
+		ID:        types.StringValue("5"),
+		Name:      types.StringValue("test"),
+		EmailList: emailSet,
+	}
+
+	var apiObj testAPIModelWithSet
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+
+	assert.NotNil(t, apiObj.ID)
+	assert.Equal(t, 5, *apiObj.ID)
+	assert.Equal(t, "test", apiObj.Name)
+	// The slice field is not currently handled by CopyTFtoAPI's switch — the Slice case
+	// exists but has no active code. The pointer gets allocated (non-nil) during the
+	// pointer-dereferencing step, but the underlying slice remains nil.
+	// After refactor, this assertion should change to verify the slice is populated.
+	assert.NotNil(t, apiObj.EmailList, "Current behavior: pointer is allocated but slice content is not populated")
+	assert.Nil(t, *apiObj.EmailList, "Current behavior: underlying slice is nil (slice handling is a no-op)")
+}
+
+func TestCopyTFtoAPI_SliceFieldProductMismatch(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(true) // RS mode — sraproduct:"pra" field should be skipped
+
+	tfObj := &testTFModelWithSet{
+		ID:        types.StringValue("5"),
+		Name:      types.StringValue("test"),
+		EmailList: types.SetNull(types.StringType),
+	}
+
+	var apiObj testAPIModelWithSet
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+
+	assert.NotNil(t, apiObj.ID)
+	assert.Equal(t, 5, *apiObj.ID)
+	assert.Equal(t, "test", apiObj.Name)
+	assert.Nil(t, apiObj.EmailList, "PRA field should be skipped in RS mode")
 }
