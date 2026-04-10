@@ -442,3 +442,119 @@ func TestCopyTFtoAPI_SliceFieldProductMismatch(t *testing.T) {
 	assert.Equal(t, "test", apiObj.Name)
 	assert.Nil(t, apiObj.EmailList, "PRA field should be skipped in RS mode")
 }
+
+func TestCopyAPItoTF_SliceToSet(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false) // PRA mode
+
+	id := 10
+	emails := []string{"a@b.com", "c@d.com"}
+	apiObj := &testAPIModelWithSet{
+		ID:        &id,
+		Name:      "test",
+		EmailList: &emails,
+	}
+
+	tfObj := &testTFModelWithSet{
+		ID:        types.StringUnknown(),
+		Name:      types.StringUnknown(),
+		EmailList: types.SetUnknown(types.StringType),
+	}
+
+	apiElem := reflect.ValueOf(apiObj).Elem()
+	apiType := reflect.TypeOf(apiObj).Elem()
+	tfElem := reflect.ValueOf(tfObj).Elem()
+
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+
+	assert.Equal(t, "10", tfObj.ID.ValueString())
+	assert.Equal(t, "test", tfObj.Name.ValueString())
+
+	assert.False(t, tfObj.EmailList.IsNull(), "Populated slice should not be null")
+	assert.False(t, tfObj.EmailList.IsUnknown(), "Populated slice should not be unknown")
+
+	var result []string
+	diag := tfObj.EmailList.ElementsAs(ctx, &result, false)
+	assert.False(t, diag.HasError())
+	assert.ElementsMatch(t, []string{"a@b.com", "c@d.com"}, result)
+}
+
+func TestCopyAPItoTF_NilSliceToNullSet(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false) // PRA mode
+
+	id := 10
+	apiObj := &testAPIModelWithSet{
+		ID:        &id,
+		Name:      "test",
+		EmailList: nil, // nil slice
+	}
+
+	tfObj := &testTFModelWithSet{
+		ID:        types.StringUnknown(),
+		Name:      types.StringUnknown(),
+		EmailList: types.SetUnknown(types.StringType),
+	}
+
+	apiElem := reflect.ValueOf(apiObj).Elem()
+	apiType := reflect.TypeOf(apiObj).Elem()
+	tfElem := reflect.ValueOf(tfObj).Elem()
+
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+
+	assert.True(t, tfObj.EmailList.IsNull(), "Nil API slice should produce null TF set")
+}
+
+func TestCopyAPItoTF_EmptySliceToEmptySet(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(false)
+
+	id := 10
+	emails := []string{} // empty, not nil
+	apiObj := &testAPIModelWithSet{
+		ID:        &id,
+		Name:      "test",
+		EmailList: &emails,
+	}
+
+	tfObj := &testTFModelWithSet{
+		ID:        types.StringUnknown(),
+		Name:      types.StringUnknown(),
+		EmailList: types.SetUnknown(types.StringType),
+	}
+
+	apiElem := reflect.ValueOf(apiObj).Elem()
+	apiType := reflect.TypeOf(apiObj).Elem()
+	tfElem := reflect.ValueOf(tfObj).Elem()
+
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+
+	assert.False(t, tfObj.EmailList.IsNull(), "Empty slice should produce empty set, not null")
+	assert.Equal(t, 0, len(tfObj.EmailList.Elements()))
+}
+
+func TestCopyAPItoTF_SliceProductMismatch(t *testing.T) {
+	ctx := context.Background()
+	SetProductIsRS(true) // RS mode — sraproduct:"pra" field should be nulled
+
+	id := 10
+	apiObj := &testAPIModelWithSet{
+		ID:        &id,
+		Name:      "test",
+		EmailList: nil,
+	}
+
+	tfObj := &testTFModelWithSet{
+		ID:        types.StringUnknown(),
+		Name:      types.StringUnknown(),
+		EmailList: types.SetUnknown(types.StringType),
+	}
+
+	apiElem := reflect.ValueOf(apiObj).Elem()
+	apiType := reflect.TypeOf(apiObj).Elem()
+	tfElem := reflect.ValueOf(tfObj).Elem()
+
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+
+	assert.True(t, tfObj.EmailList.IsNull(), "PRA slice field in RS mode should be null")
+}
