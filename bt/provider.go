@@ -173,8 +173,12 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		)
 	}
 
-	api.SetProductIsRS(mechs.IsRS())
-	tflog.Info(ctx, fmt.Sprintf("Detected product is RS? [%v]", api.IsRS()))
+	if mechs.IsRS() {
+		c.Product = api.ProductRS
+	} else {
+		c.Product = api.ProductPRA
+	}
+	tflog.Info(ctx, fmt.Sprintf("Detected product [%s]", c.Product))
 
 	resp.DataSourceData = c
 	resp.ResourceData = c

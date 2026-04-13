@@ -118,7 +118,7 @@ func (r *jumpGroupResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		}
 
 		for i, m := range planList {
-			if api.IsPRA() {
+			if r.ApiClient.IsPRA() {
 				if m.JumpPolicyID.IsNull() || m.JumpPolicyID.IsUnknown() {
 					m.JumpPolicyID = types.Int64Value(0)
 				}

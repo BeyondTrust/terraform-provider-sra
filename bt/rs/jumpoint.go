@@ -130,9 +130,9 @@ func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		return
 	}
 
-	if api.IsRS() {
+	if r.ApiClient.IsRS() {
 		plan.ProtocolTunnelEnabled = types.BoolNull()
-	} else if api.IsPRA() && plan.ProtocolTunnelEnabled.IsUnknown() {
+	} else if r.ApiClient.IsPRA() && plan.ProtocolTunnelEnabled.IsUnknown() {
 		plan.ProtocolTunnelEnabled = types.BoolValue(true)
 	}
 

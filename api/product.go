@@ -7,32 +7,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-type CtxKey string
-
-const ProductKey CtxKey = "product"
 const ProductRS = "RS"
 const ProductPRA = "PRA"
-
-var (
-	product = ProductPRA
-)
-
-func SetProductIsRS(isRS bool) {
-	if isRS {
-		product = ProductRS
-	} else {
-		product = ProductPRA
-	}
-}
-func IsRS() bool {
-	return product == ProductRS
-}
-func IsPRA() bool {
-	return product == ProductPRA
-}
-func ProductName() string {
-	return product
-}
 
 type RestrictsProducts interface {
 	AllowRS() bool
