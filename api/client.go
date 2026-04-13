@@ -8,33 +8,37 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"testing"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
+// Logger is satisfied by *testing.T and any other type with a Logf method.
+type Logger interface {
+	Logf(format string, args ...any)
+}
+
 type APIClient struct {
 	RootURL    string
 	BaseURL    string
 	HTTPClient *http.Client
-	t          *testing.T
+	testLogger Logger
 	logCtx     *context.Context
 	mu         sync.Mutex
 }
 
-func (c *APIClient) SetTest(t *testing.T) {
-	if t == nil {
+func (c *APIClient) SetTestLogger(l Logger) {
+	if l == nil {
 		return
 	}
 	if c == nil {
 		// Receiver is nil (caller may have passed a nil client). Log to the test
 		// so the caller still sees the context but avoid a panic.
-		t.Logf("🧪 Set testing context for APIClient (nil receiver)")
+		l.Logf("🧪 Set testing context for APIClient (nil receiver)")
 		return
 	}
-	c.t = t
-	t.Logf("🧪 Set testing context for APIClient")
+	c.testLogger = l
+	l.Logf("🧪 Set testing context for APIClient")
 }
 
 func (c *APIClient) SetLogContext(ctx *context.Context) {
@@ -53,8 +57,8 @@ func (c *APIClient) SetLogContext(ctx *context.Context) {
 }
 
 func (c *APIClient) LogString(format string, args ...any) {
-	if c.t != nil {
-		c.t.Logf(format, args...)
+	if c.testLogger != nil {
+		c.testLogger.Logf(format, args...)
 	}
 	if c.logCtx != nil {
 		c.mu.Lock()
@@ -98,7 +102,11 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("User-Agent", "SRA-Terraform-Plugin")
 	req.Header.Set("Accept", "application/json")
 
-	if c.t != nil || c.logCtx != nil {
+	if req.Body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	if c.testLogger != nil || c.logCtx != nil {
 		// DEBUG: print request body so tests can show the exact JSON payload sent to the API
 		var urlStr string = "<nil>"
 		if req.URL != nil {

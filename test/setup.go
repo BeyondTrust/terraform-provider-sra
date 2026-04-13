@@ -32,7 +32,7 @@ func setEnvAndGetRandom(t *testing.T) string {
 		client_secret := os.Getenv("BT_CLIENT_SECRET")
 		t.Logf("🚀 Running tests against [%s]", os.Getenv("BT_API_HOST"))
 		client, _ = api.NewClient(os.Getenv("BT_API_HOST"), &client_id, &client_secret)
-		client.SetTest(t)
+		client.SetTestLogger(t)
 
 		mechs, _ = api.Get[api.MechList](client)
 		t.Logf("Got mechs [%+v]", mechs)
