@@ -103,10 +103,10 @@ Additionally, for Terraform to be happy:
 
 func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var item TApi
-	if !api.IsProductAllowed(ctx, item) {
+	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
-			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+			fmt.Sprintf("%s can't be used with a %s resource", r.ApiClient.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), r.ApiClient.ProductName()),
 		)
 		return
 	}
@@ -122,7 +122,7 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
-	api.CopyTFtoAPI(ctx, tfObj, apiObj)
+	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
 
 	rb, _ := json.Marshal(item)
 	tflog.Debug(ctx, "🙀 executing item post", map[string]interface{}{
@@ -138,7 +138,7 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	}
 	apiType := reflect.TypeOf(newItem).Elem()
 	newApiObj := reflect.ValueOf(newItem).Elem()
-	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType)
+	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType, r.ApiClient.Product)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -150,10 +150,10 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	tflog.Debug(ctx, fmt.Sprintln("Reading"))
 	var testItem TApi
-	if !api.IsProductAllowed(ctx, testItem) {
+	if !api.IsProductAllowed(ctx, testItem, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
-			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+			fmt.Sprintf("%s can't be used with a %s resource", r.ApiClient.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), r.ApiClient.ProductName()),
 		)
 		return
 	}
@@ -185,7 +185,7 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 	}
 	apiType := reflect.TypeOf(item).Elem()
 	apiObj := reflect.ValueOf(item).Elem()
-	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType)
+	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType, r.ApiClient.Product)
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -196,10 +196,10 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 
 func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var item TApi
-	if !api.IsProductAllowed(ctx, item) {
+	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
-			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+			fmt.Sprintf("%s can't be used with a %s resource", r.ApiClient.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), r.ApiClient.ProductName()),
 		)
 		return
 	}
@@ -214,7 +214,7 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
-	api.CopyTFtoAPI(ctx, tfObj, apiObj)
+	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
 
 	rb, _ := json.Marshal(item)
 	tflog.Debug(ctx, "🙀 executing item update", map[string]interface{}{
@@ -233,7 +233,7 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 
 	newApiObj := reflect.ValueOf(newItem).Elem()
 	apiType := reflect.TypeOf(newItem).Elem()
-	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType)
+	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType, r.ApiClient.Product)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -245,10 +245,10 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Debug(ctx, "Starting delete")
 	var item TApi
-	if !api.IsProductAllowed(ctx, item) {
+	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
-			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+			fmt.Sprintf("%s can't be used with a %s resource", r.ApiClient.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), r.ApiClient.ProductName()),
 		)
 		return
 	}
@@ -280,10 +280,10 @@ func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.Delete
 // Generic ImportState implementation that just imports by ID
 func (r *apiResource[TApi, TTf]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	var item TApi
-	if !api.IsProductAllowed(ctx, item) {
+	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("%s can't be used with a %s resource", api.ProductName(), r.printableName()),
-			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), api.ProductName()),
+			fmt.Sprintf("%s can't be used with a %s resource", r.ApiClient.ProductName(), r.printableName()),
+			fmt.Sprintf("The %s resource can't be used when BT_API_HOST is configured for a %s site.", r.printableName(), r.ApiClient.ProductName()),
 		)
 		return
 	}

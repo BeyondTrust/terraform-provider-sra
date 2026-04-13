@@ -72,7 +72,7 @@ for logging purposes. The general idea for these is:
 	    * Currently we only map int and string types. Other types will panic. Additional types will need to be added to the switch mappings as needed
 */
 
-func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value) {
+func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value, product string) {
 	for i := 0; i < tfObj.NumField(); i++ {
 		tfObjField := tfObj.Type().Field(i)
 		fieldName := tfObjField.Name
@@ -415,8 +415,8 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 	}
 }
 
-func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type) {
-	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, IsRS()))
+func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type, product string) {
+	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, product == ProductRS))
 	for i := 0; i < tfObj.NumField(); i++ {
 		tfObjField := tfObj.Type().Field(i)
 		fieldName := tfObjField.Name

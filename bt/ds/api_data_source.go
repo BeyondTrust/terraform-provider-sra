@@ -59,10 +59,10 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Metadata(ctx context.Context, re
 
 func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var item TApi
-	if !api.IsProductAllowed(ctx, item) {
+	if !api.IsProductAllowed(ctx, item, d.apiClient.Product) {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("%s can't be used with a %s data source", api.ProductName(), d.printableName()),
-			fmt.Sprintf("The %s data source can't be used when BT_API_HOST is configured for a %s site.", d.printableName(), api.ProductName()),
+			fmt.Sprintf("%s can't be used with a %s data source", d.apiClient.ProductName(), d.printableName()),
+			fmt.Sprintf("The %s data source can't be used when BT_API_HOST is configured for a %s site.", d.printableName(), d.apiClient.ProductName()),
 		)
 		return
 	}
@@ -121,7 +121,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Conte
 		apiType := reflect.TypeOf(&item).Elem()
 		itemStateObj := reflect.ValueOf(&itemState).Elem()
 
-		api.CopyAPItoTF(ctx, itemObj, itemStateObj, apiType)
+		api.CopyAPItoTF(ctx, itemObj, itemStateObj, apiType, d.apiClient.Product)
 
 		tflog.Debug(ctx, "🐉 TF Object is now copied", map[string]interface{}{
 			"object": itemState,

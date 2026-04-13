@@ -99,11 +99,14 @@ func TestCopyTFtoAPI(t *testing.T) {
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
 	for _, isRS := range []bool{false, true} {
-		SetProductIsRS(isRS)
+		product := ProductPRA
+		if isRS {
+			product = ProductRS
+		}
 
 		var apiObj testAPIModel
 		apiElem := reflect.ValueOf(&apiObj).Elem()
-		CopyTFtoAPI(ctx, tfElem, apiElem)
+		CopyTFtoAPI(ctx, tfElem, apiElem, product)
 
 		id, _ := strconv.Atoi(tfObj.ID.ValueString())
 		assert.Equal(t, id, *apiObj.ID)
@@ -176,7 +179,10 @@ func TestCopyAPItoTF(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 
 	for _, isRS := range []bool{false, true} {
-		SetProductIsRS(isRS)
+		product := ProductPRA
+		if isRS {
+			product = ProductRS
+		}
 
 		tfObj := &testTFModel{
 			ID:                types.StringUnknown(),
@@ -199,7 +205,7 @@ func TestCopyAPItoTF(t *testing.T) {
 		}
 		tfElem := reflect.ValueOf(tfObj).Elem()
 
-		CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+		CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
 
 		assert.Equal(t, strconv.Itoa(id), tfObj.ID.ValueString())
 
@@ -234,7 +240,7 @@ func TestCopyAPItoTF(t *testing.T) {
 
 func TestCopyAPItoTF_NilPointersSetToNull(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false)
+	product := ProductPRA
 
 	id := 42
 	apiObj := &testAPIModel{
@@ -279,7 +285,7 @@ func TestCopyAPItoTF_NilPointersSetToNull(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
 
 	// Non-pointer fields should be set
 	assert.Equal(t, "42", tfObj.ID.ValueString())
@@ -308,7 +314,7 @@ func TestCopyAPItoTF_NilPointersSetToNull(t *testing.T) {
 
 func TestCopyTFtoAPI_EmptyStringPointerSkipped(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false)
+	product := ProductPRA
 
 	tfObj := &testTFModel{
 		ID:                types.StringValue("1"),
@@ -331,14 +337,14 @@ func TestCopyTFtoAPI_EmptyStringPointerSkipped(t *testing.T) {
 	}
 
 	var apiObj testAPIModel
-	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem(), product)
 
 	assert.Nil(t, apiObj.PointerStringVal, "Empty string on a pointer field should be skipped (omitempty)")
 }
 
 func TestCopyTFtoAPI_NullID(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false)
+	product := ProductPRA
 
 	tfObj := &testTFModel{
 		ID:                types.StringNull(),
@@ -361,7 +367,7 @@ func TestCopyTFtoAPI_NullID(t *testing.T) {
 	}
 
 	var apiObj testAPIModel
-	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem(), product)
 
 	assert.Nil(t, apiObj.ID, "Null TF ID should leave API ID nil")
 	assert.Equal(t, "hello", apiObj.StringVal, "Other fields should still copy")
@@ -369,7 +375,7 @@ func TestCopyTFtoAPI_NullID(t *testing.T) {
 
 func TestCopyTFtoAPI_UnknownID(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false)
+	product := ProductPRA
 
 	tfObj := &testTFModel{
 		ID:                types.StringUnknown(),
@@ -392,14 +398,14 @@ func TestCopyTFtoAPI_UnknownID(t *testing.T) {
 	}
 
 	var apiObj testAPIModel
-	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem(), product)
 
 	assert.Nil(t, apiObj.ID, "Unknown TF ID should leave API ID nil")
 }
 
 func TestCopyTFtoAPI_SliceField(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false) // PRA mode so sraproduct:"pra" fields are active
+	product := ProductPRA // PRA mode so sraproduct:"pra" fields are active
 
 	emails := []string{"a@b.com", "c@d.com"}
 	emailSet, _ := types.SetValueFrom(ctx, types.StringType, emails)
@@ -411,7 +417,7 @@ func TestCopyTFtoAPI_SliceField(t *testing.T) {
 	}
 
 	var apiObj testAPIModelWithSet
-	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem(), product)
 
 	assert.NotNil(t, apiObj.ID)
 	assert.Equal(t, 5, *apiObj.ID)
@@ -426,7 +432,7 @@ func TestCopyTFtoAPI_SliceField(t *testing.T) {
 
 func TestCopyTFtoAPI_SliceFieldProductMismatch(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(true) // RS mode — sraproduct:"pra" field should be skipped
+	product := ProductRS // RS mode — sraproduct:"pra" field should be skipped
 
 	tfObj := &testTFModelWithSet{
 		ID:        types.StringValue("5"),
@@ -435,7 +441,7 @@ func TestCopyTFtoAPI_SliceFieldProductMismatch(t *testing.T) {
 	}
 
 	var apiObj testAPIModelWithSet
-	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem())
+	CopyTFtoAPI(ctx, reflect.ValueOf(tfObj).Elem(), reflect.ValueOf(&apiObj).Elem(), product)
 
 	assert.NotNil(t, apiObj.ID)
 	assert.Equal(t, 5, *apiObj.ID)
@@ -445,7 +451,7 @@ func TestCopyTFtoAPI_SliceFieldProductMismatch(t *testing.T) {
 
 func TestCopyAPItoTF_SliceToSet(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false) // PRA mode
+	product := ProductPRA // PRA mode
 
 	id := 10
 	emails := []string{"a@b.com", "c@d.com"}
@@ -465,7 +471,7 @@ func TestCopyAPItoTF_SliceToSet(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
 
 	assert.Equal(t, "10", tfObj.ID.ValueString())
 	assert.Equal(t, "test", tfObj.Name.ValueString())
@@ -481,7 +487,7 @@ func TestCopyAPItoTF_SliceToSet(t *testing.T) {
 
 func TestCopyAPItoTF_NilSliceToNullSet(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false) // PRA mode
+	product := ProductPRA // PRA mode
 
 	id := 10
 	apiObj := &testAPIModelWithSet{
@@ -500,14 +506,14 @@ func TestCopyAPItoTF_NilSliceToNullSet(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
 
 	assert.True(t, tfObj.EmailList.IsNull(), "Nil API slice should produce null TF set")
 }
 
 func TestCopyAPItoTF_EmptySliceToEmptySet(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(false)
+	product := ProductPRA
 
 	id := 10
 	emails := []string{} // empty, not nil
@@ -527,7 +533,7 @@ func TestCopyAPItoTF_EmptySliceToEmptySet(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
 
 	assert.False(t, tfObj.EmailList.IsNull(), "Empty slice should produce empty set, not null")
 	assert.Equal(t, 0, len(tfObj.EmailList.Elements()))
@@ -535,7 +541,7 @@ func TestCopyAPItoTF_EmptySliceToEmptySet(t *testing.T) {
 
 func TestCopyAPItoTF_SliceProductMismatch(t *testing.T) {
 	ctx := context.Background()
-	SetProductIsRS(true) // RS mode — sraproduct:"pra" field should be nulled
+	product := ProductRS // RS mode — sraproduct:"pra" field should be nulled
 
 	id := 10
 	apiObj := &testAPIModelWithSet{
@@ -554,7 +560,7 @@ func TestCopyAPItoTF_SliceProductMismatch(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType)
+	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
 
 	assert.True(t, tfObj.EmailList.IsNull(), "PRA slice field in RS mode should be null")
 }

@@ -39,7 +39,7 @@ type RestrictsProducts interface {
 	AllowPRA() bool
 }
 
-func IsProductAllowed(ctx context.Context, i interface{}) bool {
+func IsProductAllowed(ctx context.Context, i interface{}, product string) bool {
 	s, ok := i.(RestrictsProducts)
 
 	if !ok {
@@ -48,11 +48,11 @@ func IsProductAllowed(ctx context.Context, i interface{}) bool {
 		return true
 	}
 
-	if !s.AllowRS() && IsRS() {
+	if !s.AllowRS() && product == ProductRS {
 		tflog.Trace(ctx, fmt.Sprintf("🌈 Not RS [%+v]\n", s))
 		return false
 	}
-	if !s.AllowPRA() && IsPRA() {
+	if !s.AllowPRA() && product == ProductPRA {
 		tflog.Trace(ctx, fmt.Sprintf("🌈 Not PRA [%+v]\n", s))
 		return false
 	}

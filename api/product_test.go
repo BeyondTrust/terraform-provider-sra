@@ -70,15 +70,13 @@ func TestProductRestriction(t *testing.T) {
 
 	ctx := context.Background()
 
-	SetProductIsRS(true)
-	assert.False(t, IsProductAllowed(ctx, p))
-	assert.True(t, IsProductAllowed(ctx, r))
-	assert.True(t, IsProductAllowed(ctx, n))
-	assert.True(t, IsProductAllowed(ctx, a))
+	assert.False(t, IsProductAllowed(ctx, p, ProductRS))
+	assert.True(t, IsProductAllowed(ctx, r, ProductRS))
+	assert.True(t, IsProductAllowed(ctx, n, ProductRS))
+	assert.True(t, IsProductAllowed(ctx, a, ProductRS))
 
-	SetProductIsRS(false)
-	assert.True(t, IsProductAllowed(ctx, p))
-	assert.False(t, IsProductAllowed(ctx, r))
-	assert.True(t, IsProductAllowed(ctx, n))
-	assert.True(t, IsProductAllowed(ctx, a))
+	assert.True(t, IsProductAllowed(ctx, p, ProductPRA))
+	assert.False(t, IsProductAllowed(ctx, r, ProductPRA))
+	assert.True(t, IsProductAllowed(ctx, n, ProductPRA))
+	assert.True(t, IsProductAllowed(ctx, a, ProductPRA))
 }

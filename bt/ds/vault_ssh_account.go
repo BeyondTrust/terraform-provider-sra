@@ -158,7 +158,7 @@ func (d *vaultSSHAccountDataSource) Read(ctx context.Context, req datasource.Rea
 	tfObj := reflect.ValueOf(&account).Elem()
 	apiType := reflect.TypeOf(item).Elem()
 	apiObj := reflect.ValueOf(item).Elem()
-	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType)
+	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType, d.apiClient.Product)
 
 	state.Account = &account
 
