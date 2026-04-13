@@ -19,8 +19,6 @@ import (
 type GPMembership interface {
 	comparable
 	api.APIResource
-	GetGroupPolicyID() *string
-	SetGroupPolicyID(id *string)
 }
 
 // provisionGroupPolicies provisions each unique group policy ID in the set.
@@ -56,6 +54,8 @@ func CreateGPMemberships[T GPMembership](
 	diags *diag.Diagnostics,
 	entityID int,
 	setEntityID func(*T, int),
+	getGroupPolicyID func(*T) *string,
+	setGroupPolicyID func(*T, *string),
 	mu *sync.Mutex,
 ) {
 	var tfGPList types.Set
@@ -102,9 +102,9 @@ func CreateGPMemberships[T GPMembership](
 		}
 
 		result := *item
-		result.SetGroupPolicyID(m.GetGroupPolicyID())
+		setGroupPolicyID(&result, getGroupPolicyID(&m))
 		results = append(results, result)
-		needsProvision.Add(*m.GetGroupPolicyID())
+		needsProvision.Add(*getGroupPolicyID(&m))
 	}
 
 	provisionGroupPolicies(client, diags, needsProvision)
@@ -129,6 +129,8 @@ func ReadGPMemberships[T GPMembership](
 	respState *tfsdk.State,
 	diags *diag.Diagnostics,
 	entityID int,
+	getGroupPolicyID func(*T) *string,
+	setGroupPolicyID func(*T, *string),
 ) {
 	var tfGPList types.Set
 	d := state.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
@@ -152,7 +154,7 @@ func ReadGPMemberships[T GPMembership](
 		tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
 			"read": m,
 		})
-		gpId := *m.GetGroupPolicyID()
+		gpId := *getGroupPolicyID(&m)
 
 		endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
 		item, err := api.GetItemEndpoint[T](client, endpoint)
@@ -166,7 +168,7 @@ func ReadGPMemberships[T GPMembership](
 			tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
 				"read": *item,
 			})
-			(*item).SetGroupPolicyID(&gpId)
+			setGroupPolicyID(item, &gpId)
 			gpList[i] = *item
 		}
 	}
@@ -190,6 +192,8 @@ func UpdateGPMemberships[T GPMembership](
 	diags *diag.Diagnostics,
 	entityID int,
 	setEntityID func(*T, int),
+	getGroupPolicyID func(*T) *string,
+	setGroupPolicyID func(*T, *string),
 	diffFunc func([]T, []T) (mapset.Set[T], mapset.Set[T], mapset.Set[T]),
 	mu *sync.Mutex,
 ) {
@@ -259,7 +263,7 @@ func UpdateGPMemberships[T GPMembership](
 			)
 			return
 		}
-		needsProvision.Add(*m.GetGroupPolicyID())
+		needsProvision.Add(*getGroupPolicyID(&m))
 	}
 
 	results := noChange.ToSlice()
@@ -276,9 +280,9 @@ func UpdateGPMemberships[T GPMembership](
 		}
 
 		result := *item
-		result.SetGroupPolicyID(m.GetGroupPolicyID())
+		setGroupPolicyID(&result, getGroupPolicyID(&m))
 		results = append(results, result)
-		needsProvision.Add(*m.GetGroupPolicyID())
+		needsProvision.Add(*getGroupPolicyID(&m))
 	}
 
 	provisionGroupPolicies(client, diags, needsProvision)
