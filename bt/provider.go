@@ -62,7 +62,7 @@ As examples, this provider allows:
 * Enabling Group Policy associations to Jump Groups, Vault Accounts, Vault Account Groups to control overall user access to all Terraform assets.
 
 Examples for all of these use cases can be found within the [test-tf-files](https://github.com/BeyondTrust/terraform-provider-sra/tree/main/test-tf-files) section of our Github repo.
-q
+
 ## Configuration
 
 To function, the provider requires the hostname of your instance as well as credentials for an API account configured in that instance. This API account must have permission to "Allow Access" to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the "Manage Vault Accounts" permission.
@@ -97,19 +97,19 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	host := os.Getenv("BT_API_HOST")
-	client_id := os.Getenv("BT_CLIENT_ID")
-	client_secret := os.Getenv("BT_CLIENT_SECRET")
+	clientID := os.Getenv("BT_CLIENT_ID")
+	clientSecret := os.Getenv("BT_CLIENT_SECRET")
 
 	if !config.Host.IsNull() && !config.Host.IsUnknown() {
 		host = config.Host.ValueString()
 	}
 
 	if !config.ClientId.IsNull() && !config.ClientId.IsUnknown() {
-		client_id = config.ClientId.ValueString()
+		clientID = config.ClientId.ValueString()
 	}
 
 	if !config.ClientSecret.IsNull() && !config.ClientSecret.IsUnknown() {
-		client_secret = config.ClientSecret.ValueString()
+		clientSecret = config.ClientSecret.ValueString()
 	}
 
 	if host == "" {
@@ -122,22 +122,22 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		)
 	}
 
-	if client_id == "" {
+	if clientID == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("client_id"),
-			"Missing BeyondTrust SRA API Username",
-			"The provider cannot create the BeyondTrust SRA API client as there is a missing or empty value for the BeyondTrust SRA API client_id. "+
-				"Set the username value in the configuration or use the BT_CLIENT_ID environment variable. "+
+			"Missing BeyondTrust SRA API Client ID",
+			"The provider cannot create the BeyondTrust SRA API client as there is a missing or empty value for the BeyondTrust SRA API Client ID. "+
+				"Set the client_id value in the configuration or use the BT_CLIENT_ID environment variable. "+
 				"If either is already set, ensure the value is not empty.",
 		)
 	}
 
-	if client_secret == "" {
+	if clientSecret == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("client_secret"),
-			"Missing BeyondTrust SRA API Password",
-			"The provider cannot create the BeyondTrust SRA API client as there is a missing or empty value for the BeyondTrust SRA API client_secret. "+
-				"Set the password value in the configuration or use the BT_CLIENT_SECRET environment variable. "+
+			"Missing BeyondTrust SRA API Client Secret",
+			"The provider cannot create the BeyondTrust SRA API client as there is a missing or empty value for the BeyondTrust SRA API Client Secret. "+
+				"Set the client_secret value in the configuration or use the BT_CLIENT_SECRET environment variable. "+
 				"If either is already set, ensure the value is not empty.",
 		)
 	}
@@ -147,30 +147,30 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	ctx = tflog.SetField(ctx, "bt_api_host", host)
-	ctx = tflog.SetField(ctx, "bt_client_id", client_id)
-	ctx = tflog.SetField(ctx, "bt_client_secret", client_secret)
+	ctx = tflog.SetField(ctx, "bt_client_id", clientID)
+	ctx = tflog.SetField(ctx, "bt_client_secret", clientSecret)
 	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "bt_client_secret")
 
 	tflog.Debug(ctx, "Creating BT API Client")
-	c, err := api.NewClient(host, &client_id, &client_secret)
-	c.SetLogContext(&ctx)
-
+	c, err := api.NewClient(host, &clientID, &clientSecret)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to create BeyondTrust SRA API Client",
-			"An unexpected error occurred when creating the BeyondTrust SRA API Client"+
+			"An unexpected error occurred when creating the BeyondTrust SRA API Client. "+
 				"Error: "+err.Error(),
 		)
+		return
 	}
+	c.SetLogContext(&ctx)
 
 	mechs, err := api.Get[api.MechList](c)
-
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to determine BeyondTrust Product",
-			"An unexpected error occurred when querying the SRA Instance"+
+			"An unexpected error occurred when querying the SRA Instance. "+
 				"Error: "+err.Error(),
 		)
+		return
 	}
 
 	if mechs.IsRS() {
