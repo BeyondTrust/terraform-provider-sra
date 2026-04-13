@@ -121,7 +121,13 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Conte
 		apiType := reflect.TypeOf(&item).Elem()
 		itemStateObj := reflect.ValueOf(&itemState).Elem()
 
-		api.CopyAPItoTF(ctx, itemObj, itemStateObj, apiType, d.apiClient.Product)
+		if err := api.CopyAPItoTF(ctx, itemObj, itemStateObj, apiType, d.apiClient.Product); err != nil {
+			resp.Diagnostics.AddError(
+				fmt.Sprintf("Error converting %s API response", d.printableName()),
+				"Unexpected error converting API response to Terraform state: "+err.Error(),
+			)
+			return nil
+		}
 
 		tflog.Debug(ctx, "🐉 TF Object is now copied", map[string]interface{}{
 			"object": itemState,

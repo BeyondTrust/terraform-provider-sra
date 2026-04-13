@@ -59,6 +59,16 @@ type testAPIModel struct {
 	PersistStateField *string
 }
 
+type testTFModelWithFloat struct {
+	ID       types.String
+	BadField types.Float64
+}
+
+type testAPIModelWithFloat struct {
+	ID       *int
+	BadField float64
+}
+
 type testTFModelWithSet struct {
 	ID        types.String
 	Name      types.String
@@ -205,7 +215,8 @@ func TestCopyAPItoTF(t *testing.T) {
 		}
 		tfElem := reflect.ValueOf(tfObj).Elem()
 
-		CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+		err := CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+		assert.Nil(t, err)
 
 		assert.Equal(t, strconv.Itoa(id), tfObj.ID.ValueString())
 
@@ -285,7 +296,8 @@ func TestCopyAPItoTF_NilPointersSetToNull(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	err := CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	assert.Nil(t, err)
 
 	// Non-pointer fields should be set
 	assert.Equal(t, "42", tfObj.ID.ValueString())
@@ -471,7 +483,8 @@ func TestCopyAPItoTF_SliceToSet(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	err := CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	assert.Nil(t, err)
 
 	assert.Equal(t, "10", tfObj.ID.ValueString())
 	assert.Equal(t, "test", tfObj.Name.ValueString())
@@ -506,7 +519,8 @@ func TestCopyAPItoTF_NilSliceToNullSet(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	err := CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	assert.Nil(t, err)
 
 	assert.True(t, tfObj.EmailList.IsNull(), "Nil API slice should produce null TF set")
 }
@@ -533,7 +547,8 @@ func TestCopyAPItoTF_EmptySliceToEmptySet(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	err := CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	assert.Nil(t, err)
 
 	assert.False(t, tfObj.EmailList.IsNull(), "Empty slice should produce empty set, not null")
 	assert.Equal(t, 0, len(tfObj.EmailList.Elements()))
@@ -560,7 +575,31 @@ func TestCopyAPItoTF_SliceProductMismatch(t *testing.T) {
 	apiType := reflect.TypeOf(apiObj).Elem()
 	tfElem := reflect.ValueOf(tfObj).Elem()
 
-	CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	err := CopyAPItoTF(ctx, apiElem, tfElem, apiType, product)
+	assert.Nil(t, err)
 
 	assert.True(t, tfObj.EmailList.IsNull(), "PRA slice field in RS mode should be null")
+}
+
+func TestCopyAPItoTF_UnhandledTypeReturnsError(t *testing.T) {
+	ctx := context.Background()
+
+	id := 1
+	apiObj := &testAPIModelWithFloat{
+		ID:       &id,
+		BadField: 3.14,
+	}
+
+	tfObj := &testTFModelWithFloat{
+		ID:       types.StringUnknown(),
+		BadField: types.Float64Unknown(),
+	}
+
+	apiElem := reflect.ValueOf(apiObj).Elem()
+	apiType := reflect.TypeOf(apiObj).Elem()
+	tfElem := reflect.ValueOf(tfObj).Elem()
+
+	err := CopyAPItoTF(ctx, apiElem, tfElem, apiType, ProductPRA)
+	assert.NotNil(t, err, "CopyAPItoTF should return error for unhandled float64 type")
+	assert.Contains(t, err.Error(), "BadField")
 }

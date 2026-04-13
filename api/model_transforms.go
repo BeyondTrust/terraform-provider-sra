@@ -415,7 +415,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 	}
 }
 
-func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type, product string) {
+func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type, product string) error {
 	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, product == ProductRS))
 	for i := 0; i < tfObj.NumField(); i++ {
 		tfObjField := tfObj.Type().Field(i)
@@ -731,20 +731,21 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 						case reflect.String:
 							rgList.Index(j).SetString(field.Index(j).Interface().(string))
 						default:
-							panic("Unhandled set type: " + field.Index(j).Kind().String())
+							return fmt.Errorf("unhandled set element type for field %s: %s", tfObjField.Name, field.Index(j).Kind().String())
 						}
 					}
 
 					v, err := types.SetValueFrom(ctx, types.StringType, goList)
 					if err != nil {
-						panic("Error converting go set to TF object: " + err.Errors()[0].Detail())
+						return fmt.Errorf("error converting set for field %s: %s", tfObjField.Name, err.Errors()[0].Detail())
 					}
 					setVal, _ := types.SetValueFrom(ctx, types.StringType, v)
 					tfObj.Field(i).Set(reflect.ValueOf(setVal))
 				}
 			}
 		default:
-			panic("Unknown encoded type in struct: " + field.Kind().String())
+			return fmt.Errorf("unknown encoded type for field %s: %s", tfObjField.Name, fieldKind.String())
 		}
 	}
+	return nil
 }

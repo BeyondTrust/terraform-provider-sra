@@ -138,7 +138,13 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	}
 	apiType := reflect.TypeOf(newItem).Elem()
 	newApiObj := reflect.ValueOf(newItem).Elem()
-	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType, r.ApiClient.Product)
+	if err := api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType, r.ApiClient.Product); err != nil {
+		resp.Diagnostics.AddError(
+			"Error converting API response",
+			"Unexpected error converting API response to Terraform state: "+err.Error(),
+		)
+		return
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -185,7 +191,13 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 	}
 	apiType := reflect.TypeOf(item).Elem()
 	apiObj := reflect.ValueOf(item).Elem()
-	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType, r.ApiClient.Product)
+	if err := api.CopyAPItoTF(ctx, apiObj, tfObj, apiType, r.ApiClient.Product); err != nil {
+		resp.Diagnostics.AddError(
+			"Error converting API response",
+			"Unexpected error converting API response to Terraform state: "+err.Error(),
+		)
+		return
+	}
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -233,7 +245,13 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 
 	newApiObj := reflect.ValueOf(newItem).Elem()
 	apiType := reflect.TypeOf(newItem).Elem()
-	api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType, r.ApiClient.Product)
+	if err := api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType, r.ApiClient.Product); err != nil {
+		resp.Diagnostics.AddError(
+			"Error converting API response",
+			"Unexpected error converting API response to Terraform state: "+err.Error(),
+		)
+		return
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
