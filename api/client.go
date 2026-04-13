@@ -21,10 +21,23 @@ type Logger interface {
 type APIClient struct {
 	RootURL    string
 	BaseURL    string
+	Product    string
 	HTTPClient *http.Client
 	testLogger Logger
 	logCtx     *context.Context
 	mu         sync.Mutex
+}
+
+func (c *APIClient) IsRS() bool {
+	return c.Product == ProductRS
+}
+
+func (c *APIClient) IsPRA() bool {
+	return c.Product == ProductPRA
+}
+
+func (c *APIClient) ProductName() string {
+	return c.Product
 }
 
 func (c *APIClient) SetTestLogger(l Logger) {
