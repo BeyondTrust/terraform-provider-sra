@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 type NetworkConfig struct {
@@ -41,16 +41,6 @@ type PortRange struct {
 	Start types.Int64 `json:"start" tfsdk:"start"`
 	End   types.Int64 `json:"end" tfsdk:"end"`
 }
-
-// Then convert using proper struct
-// func convertToStruct(obj tftypes.Value) (*NetworkConfig, error) {
-// 	var config NetworkConfig
-// 	err := tftypes.ValueAs(obj, &config)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &config, nil
-// }
 
 /*
 These functions do the actual copying from TF -> API and API -> TF. They take a context parameter first
@@ -257,151 +247,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 			field.SetBool(val.ValueBool())
 
 		case reflect.Slice:
-			// Special-case for json.RawMessage on the API model (backed by []byte)
-			// if tfObjField.Name == "FilterRules" {
-			// 	val := tfField.Interface().(types.String)
-			// 	// If null/unknown/empty, leave API nil/empty
-			// 	if val.IsNull() || val.IsUnknown() || val.ValueString() == "" {
-			// 		// leave as nil/empty
-			// 	} else {
-			// 		var list []map[string]interface{}
-			// 		if err := json.Unmarshal([]byte(val.ValueString()), &list); err == nil {
-			// 			var outList []map[string]interface{}
-			// 			for _, item := range list {
-			// 				if v, ok := item["ip_addresses"]; ok {
-			// 					switch vv := v.(type) {
-			// 					case []interface{}:
-			// 						var cidrs []string
-			// 						var plain []interface{}
-			// 						for _, elem := range vv {
-			// 							if s, ok := elem.(string); ok && strings.Contains(s, "/") {
-			// 								cidrs = append(cidrs, s)
-			// 							} else {
-			// 								plain = append(plain, elem)
-			// 							}
-			// 						}
-			// 						if len(cidrs) > 0 && len(plain) == 0 {
-			// 							for _, c := range cidrs {
-			// 								ni := make(map[string]interface{}, len(item))
-			// 								for k, v := range item {
-			// 									if k == "ip_addresses" {
-			// 										continue
-			// 									}
-			// 									ni[k] = v
-			// 								}
-			// 								ni["ip_addresses"] = map[string]interface{}{"cidr": c}
-			// 								if p, ok := ni["protocol"]; ok {
-			// 									if ps, ok := p.(string); ok {
-			// 										ni["protocol"] = strings.ToUpper(ps)
-			// 									}
-			// 								} else {
-			// 									ni["protocol"] = "ANY"
-			// 								}
-			// 								if pp, ok := ni["ports"]; ok {
-			// 									switch pvv := pp.(type) {
-			// 									case []interface{}:
-			// 										ni["ports"] = map[string]interface{}{"list": pvv}
-			// 									case map[string]interface{}:
-			// 									default:
-			// 										ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 									}
-			// 								} else {
-			// 									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 								}
-			// 								outList = append(outList, ni)
-			// 							}
-			// 							continue
-			// 						}
-			// 						if len(cidrs) > 0 && len(plain) > 0 {
-			// 							ni := make(map[string]interface{}, len(item))
-			// 							for k, v := range item {
-			// 								if k == "ip_addresses" {
-			// 									continue
-			// 								}
-			// 								ni[k] = v
-			// 							}
-			// 							ni["ip_addresses"] = map[string]interface{}{"list": plain}
-			// 							if p, ok := ni["protocol"]; ok {
-			// 								if ps, ok := p.(string); ok {
-			// 									ni["protocol"] = strings.ToUpper(ps)
-			// 								}
-			// 							} else {
-			// 								ni["protocol"] = "ANY"
-			// 							}
-			// 							if pp, ok := ni["ports"]; ok {
-			// 								switch pvv := pp.(type) {
-			// 								case []interface{}:
-			// 									ni["ports"] = map[string]interface{}{"list": pvv}
-			// 								case map[string]interface{}:
-			// 								default:
-			// 									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 								}
-			// 							} else {
-			// 								ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 							}
-			// 							outList = append(outList, ni)
-			// 							for _, c := range cidrs {
-			// 								ci := make(map[string]interface{}, len(item))
-			// 								for k, v := range item {
-			// 									if k == "ip_addresses" {
-			// 										continue
-			// 									}
-			// 									ci[k] = v
-			// 								}
-			// 								ci["ip_addresses"] = map[string]interface{}{"cidr": c}
-			// 								if p, ok := ci["protocol"]; ok {
-			// 									if ps, ok := p.(string); ok {
-			// 										ci["protocol"] = strings.ToUpper(ps)
-			// 									}
-			// 								} else {
-			// 									ci["protocol"] = "ANY"
-			// 								}
-			// 								if pp, ok := ci["ports"]; ok {
-			// 									switch pvv := pp.(type) {
-			// 									case []interface{}:
-			// 										ci["ports"] = map[string]interface{}{"list": pvv}
-			// 									case map[string]interface{}:
-			// 									default:
-			// 										ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 									}
-			// 								} else {
-			// 									ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 								}
-			// 								outList = append(outList, ci)
-			// 							}
-			// 							continue
-			// 						}
-			// 						item["ip_addresses"] = map[string]interface{}{"list": vv}
-			// 					case string:
-			// 						if strings.Contains(vv, "/") {
-			// 							item["ip_addresses"] = map[string]interface{}{"cidr": vv}
-			// 						} else {
-			// 							item["ip_addresses"] = map[string]interface{}{"list": []interface{}{vv}}
-			// 						}
-			// 					case map[string]interface{}:
-			// 					}
-			// 				}
-			// 				if v, ok := item["ports"]; ok {
-			// 					switch vv := v.(type) {
-			// 					case []interface{}:
-			// 						item["ports"] = map[string]interface{}{"list": vv}
-			// 					case map[string]interface{}:
-			// 					}
-			// 				}
-			// 				if v, ok := item["protocol"]; ok {
-			// 					if s, ok := v.(string); ok {
-			// 						item["protocol"] = strings.ToUpper(s)
-			// 					}
-			// 				}
-			// 				outList = append(outList, item)
-			// 			}
-			// 			newBytes, _ := json.Marshal(outList)
-			// 			field.Set(reflect.ValueOf([]byte(newBytes)))
-			// 		} else {
-			// 			field.Set(reflect.ValueOf([]byte("null")))
-			// 		}
-			// 	}
-			// }
+			// No active slice handling needed here (FilterRules is handled above)
 
 		default:
 			// Log detailed runtime information instead of panicking so we can
