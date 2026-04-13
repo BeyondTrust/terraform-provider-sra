@@ -174,7 +174,14 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 	tflog.Debug(ctx, fmt.Sprintf("🤬 read state [%v]", state))
 	tfObj := reflect.ValueOf(&state).Elem()
 	tfId := tfObj.FieldByName("ID").Interface().(types.String)
-	id, _ := strconv.Atoi(tfId.ValueString())
+	id, err := strconv.Atoi(tfId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid resource ID",
+			fmt.Sprintf("Could not parse resource ID [%s] as integer: %s", tfId.ValueString(), err.Error()),
+		)
+		return
+	}
 	item, err := api.GetItem[TApi](r.ApiClient, &id)
 
 	rb, _ := json.Marshal(item)
@@ -235,9 +242,8 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	newItem, err := api.UpdateItem(r.ApiClient, item)
 	if err != nil {
 		tfId := tfObj.FieldByName("ID").Interface().(types.String)
-		id, _ := strconv.Atoi(tfId.ValueString())
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error updating item with id [%d]", id),
+			fmt.Sprintf("Error updating item with id [%s]", tfId.ValueString()),
 			"Unexpected error: "+err.Error(),
 		)
 		return
@@ -284,8 +290,15 @@ func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.Delete
 
 	tfObj := reflect.ValueOf(&state).Elem()
 	tfId := tfObj.FieldByName("ID").Interface().(types.String)
-	id, _ := strconv.Atoi(tfId.ValueString())
-	err := api.DeleteItem[TApi](r.ApiClient, &id)
+	id, err := strconv.Atoi(tfId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid resource ID",
+			fmt.Sprintf("Could not parse resource ID [%s] as integer: %s", tfId.ValueString(), err.Error()),
+		)
+		return
+	}
+	err = api.DeleteItem[TApi](r.ApiClient, &id)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("Error deleting item with ID [%d]", id),
