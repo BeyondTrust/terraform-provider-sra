@@ -428,19 +428,12 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		field := apiObj.FieldByName(fieldName)
 		tflog.Debug(ctx, "🍺 copyAPItoTF field "+fieldName)
 
-		// FIXME (maybe?) The reflect library doesn't have a nice wrapper method for setting
-		// the Terraform types, and I didn't know enough about the other reflect
-		// methods to set the pointer directly in a way that works. So these
-		// ugly looking expressions get the raw pointer and set what it
-		// points to with the proper value from the source model
-		//
-		// The unsafe pointer of the address of the field is a pointer to the TF type… we're setting
-		// the dereferenced value of that. This is effectively what the nice reflect wrappers do
-		// *(*types.String)(tfObj.Field(i).Addr().UnsafePointer())
+		// Field values are set using reflect.ValueOf() which is the standard
+		// safe approach for setting struct fields via reflection.
 		if fieldName == "ID" {
 			val := field.Elem().Int()
 			tflog.Debug(ctx, fmt.Sprintf("🥃 ID [%d]", val))
-			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(strconv.Itoa(int(val)))
+			tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(strconv.Itoa(int(val)))))
 			continue
 		}
 
@@ -468,19 +461,19 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		switch fieldKind {
 		case reflect.String:
 			if setToNil {
-				*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
+				tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
 			} else {
 				// Special-case for FilterRules which may be a json.RawMessage on the API model
 				if tfObjField.Name == "FilterRules" {
 					// field is a reflect.Value referencing the RawMessage (string in JSON)
 					rawBytes := []byte(field.String())
 					if len(rawBytes) == 0 {
-						*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
+						tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
 					} else {
-						*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(string(rawBytes))
+						tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(string(rawBytes))))
 					}
 				} else {
-					*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(field.String())
+					tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(field.String())))
 				}
 			}
 		case reflect.Struct:
@@ -491,7 +484,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 					"installer_path": types.StringType,
 				}
 				if setToNil {
-					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = types.ObjectNull(attrTypes)
+					tfObj.Field(i).Set(reflect.ValueOf(types.ObjectNull(attrTypes)))
 					break
 				}
 				vals := map[string]attr.Value{
@@ -510,36 +503,36 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 				}
 				ov, diag := types.ObjectValue(attrTypes, vals)
 				if diag.HasError() {
-					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = types.ObjectNull(attrTypes)
+					tfObj.Field(i).Set(reflect.ValueOf(types.ObjectNull(attrTypes)))
 				} else {
-					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = ov
+					tfObj.Field(i).Set(reflect.ValueOf(ov))
 				}
 				break
 			}
 			// Unhandled struct types will be ignored here.
 		case reflect.Int:
 			if setToNil {
-				*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Null()
+				tfObj.Field(i).Set(reflect.ValueOf(types.Int64Null()))
 			} else {
-				*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Value(field.Int())
+				tfObj.Field(i).Set(reflect.ValueOf(types.Int64Value(field.Int())))
 			}
 		case reflect.Bool:
 			if setToNil {
-				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolNull()
+				tfObj.Field(i).Set(reflect.ValueOf(types.BoolNull()))
 			} else {
-				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolValue(field.Bool())
+				tfObj.Field(i).Set(reflect.ValueOf(types.BoolValue(field.Bool())))
 			}
 		case reflect.Slice:
 			if setToNil {
-				*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()) = types.SetNull(types.StringType)
+				tfObj.Field(i).Set(reflect.ValueOf(types.SetNull(types.StringType)))
 			} else if field.Len() == 0 {
-				*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()) = types.SetValueMust(types.StringType, []attr.Value{})
+				tfObj.Field(i).Set(reflect.ValueOf(types.SetValueMust(types.StringType, []attr.Value{})))
 			} else {
 				// If this is the FilterRules field, the API will provide []byte (json.RawMessage). Convert back to a string.
 				if tfObjField.Name == "FilterRules" {
 					rawBytes := field.Bytes()
 					if len(rawBytes) == 0 {
-						*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
+						tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
 					} else {
 						// Unmarshal into primitive maps so json.Unmarshal decodes strings/numbers
 						// rather than trying to decode into Terraform framework types.
@@ -547,7 +540,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 						if err := json.Unmarshal(rawBytes, &apiConfig); err != nil {
 							tflog.Warn(ctx, fmt.Sprintf("Failed to unmarshal FilterRules JSON into primitive maps: %v", err))
 							// Fallback: keep raw JSON as string in TF state so user can inspect it
-							*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(string(rawBytes))
+							tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(string(rawBytes))))
 						} else {
 							// Create the TF list value and set it
 							elemType := types.ObjectType{
@@ -726,7 +719,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 							if listDiags.HasError() {
 								tflog.Warn(ctx, fmt.Sprintf("Failed to create FilterRules list value: %v", listDiags))
 							}
-							*(*types.List)(tfObj.Field(i).Addr().UnsafePointer()) = listVal
+							tfObj.Field(i).Set(reflect.ValueOf(listVal))
 						}
 					}
 				} else {
@@ -746,7 +739,8 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 					if err != nil {
 						panic("Error converting go set to TF object: " + err.Errors()[0].Detail())
 					}
-					*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()), _ = types.SetValueFrom(ctx, types.StringType, v)
+					setVal, _ := types.SetValueFrom(ctx, types.StringType, v)
+					tfObj.Field(i).Set(reflect.ValueOf(setVal))
 				}
 			}
 		default:
