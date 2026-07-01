@@ -261,6 +261,42 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 	}
 }
 
+// filterRulesObjectType is the Terraform element type for the network tunnel
+// jump FilterRules list. The API side is a *json.RawMessage; the TF side is a
+// types.List of these objects. It is defined once so every branch that must
+// produce a FilterRules value (including the null/empty/error cases) uses the
+// same element type — assigning any non-List value into the field panics.
+func filterRulesObjectType() types.ObjectType {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"ip_addresses": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"list": types.ListType{ElemType: types.StringType},
+					"cidr": types.StringType,
+					"range": types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"start": types.StringType,
+							"end":   types.StringType,
+						},
+					},
+				},
+			},
+			"ports": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"list": types.ListType{ElemType: types.Int64Type},
+					"range": types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"start": types.Int64Type,
+							"end":   types.Int64Type,
+						},
+					},
+				},
+			},
+			"protocol": types.StringType,
+		},
+	}
+}
+
 func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type, product string) error {
 	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, product == ProductRS))
 	for i := 0; i < tfObj.NumField(); i++ {
@@ -368,54 +404,37 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 				tfObj.Field(i).Set(reflect.ValueOf(types.BoolValue(field.Bool())))
 			}
 		case reflect.Slice:
+			isFilterRules := tfObjField.Name == "FilterRules"
 			if setToNil {
-				tfObj.Field(i).Set(reflect.ValueOf(types.SetNull(types.StringType)))
+				if isFilterRules {
+					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+				} else {
+					tfObj.Field(i).Set(reflect.ValueOf(types.SetNull(types.StringType)))
+				}
 			} else if field.Len() == 0 {
-				tfObj.Field(i).Set(reflect.ValueOf(types.SetValueMust(types.StringType, []attr.Value{})))
+				if isFilterRules {
+					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+				} else {
+					tfObj.Field(i).Set(reflect.ValueOf(types.SetValueMust(types.StringType, []attr.Value{})))
+				}
 			} else {
 				// If this is the FilterRules field, the API will provide []byte (json.RawMessage). Convert back to a string.
-				if tfObjField.Name == "FilterRules" {
+				if isFilterRules {
 					rawBytes := field.Bytes()
 					if len(rawBytes) == 0 {
-						tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
+						tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
 					} else {
 						// Unmarshal into primitive maps so json.Unmarshal decodes strings/numbers
 						// rather than trying to decode into Terraform framework types.
 						var apiConfig []map[string]interface{}
 						if err := json.Unmarshal(rawBytes, &apiConfig); err != nil {
 							tflog.Warn(ctx, fmt.Sprintf("Failed to unmarshal FilterRules JSON into primitive maps: %v", err))
-							// Fallback: keep raw JSON as string in TF state so user can inspect it
-							tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(string(rawBytes))))
+							// Can't represent raw JSON as a types.List; null the field. The warning
+							// above preserves the raw payload in logs for inspection.
+							tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
 						} else {
 							// Create the TF list value and set it
-							elemType := types.ObjectType{
-								AttrTypes: map[string]attr.Type{
-									"ip_addresses": types.ObjectType{
-										AttrTypes: map[string]attr.Type{
-											"list": types.ListType{ElemType: types.StringType},
-											"cidr": types.StringType,
-											"range": types.ObjectType{
-												AttrTypes: map[string]attr.Type{
-													"start": types.StringType,
-													"end":   types.StringType,
-												},
-											},
-										},
-									},
-									"ports": types.ObjectType{
-										AttrTypes: map[string]attr.Type{
-											"list": types.ListType{ElemType: types.Int64Type},
-											"range": types.ObjectType{
-												AttrTypes: map[string]attr.Type{
-													"start": types.Int64Type,
-													"end":   types.Int64Type,
-												},
-											},
-										},
-									},
-									"protocol": types.StringType,
-								},
-							}
+							elemType := filterRulesObjectType()
 							tflog.Debug(ctx, fmt.Sprintf("🎯 copyAPItoTF creating FilterRules list with primitive value %+v", apiConfig))
 							elems := make([]attr.Value, 0, len(apiConfig))
 							for idx, itm := range apiConfig {
