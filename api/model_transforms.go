@@ -116,9 +116,9 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 				m := make(map[string]interface{})
 
 				// ip_addresses: check CIDR, list, range (all are terraform types)
-				if !(c.IPAddresses.CIDR.IsNull() || c.IPAddresses.CIDR.IsUnknown()) && c.IPAddresses.CIDR.ValueString() != "" {
+				if (!c.IPAddresses.CIDR.IsNull() && !c.IPAddresses.CIDR.IsUnknown()) && c.IPAddresses.CIDR.ValueString() != "" {
 					m["ip_addresses"] = map[string]interface{}{"cidr": c.IPAddresses.CIDR.ValueString()}
-				} else if !(c.IPAddresses.List.IsNull() || c.IPAddresses.List.IsUnknown()) {
+				} else if !c.IPAddresses.List.IsNull() && !c.IPAddresses.List.IsUnknown() {
 					var ips []string
 					if err := c.IPAddresses.List.ElementsAs(ctx, &ips, false); err == nil {
 						arr := make([]interface{}, 0, len(ips))
@@ -127,25 +127,25 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 						}
 						m["ip_addresses"] = map[string]interface{}{"list": arr}
 					}
-				} else if !(c.IPAddresses.Range.IsNull() || c.IPAddresses.Range.IsUnknown()) {
+				} else if !c.IPAddresses.Range.IsNull() && !c.IPAddresses.Range.IsUnknown() {
 					var rng struct {
 						Start types.String `tfsdk:"start"`
 						End   types.String `tfsdk:"end"`
 					}
 					_ = c.IPAddresses.Range.As(ctx, &rng, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-					if !(rng.Start.IsNull() || rng.Start.IsUnknown()) && !(rng.End.IsNull() || rng.End.IsUnknown()) {
+					if (!rng.Start.IsNull() && !rng.Start.IsUnknown()) && (!rng.End.IsNull() && !rng.End.IsUnknown()) {
 						m["ip_addresses"] = map[string]interface{}{"range": map[string]interface{}{"start": rng.Start.ValueString(), "end": rng.End.ValueString()}}
 					}
 				}
 
 				// ports
-				if !(c.Ports.IsNull() || c.Ports.IsUnknown()) {
+				if !c.Ports.IsNull() && !c.Ports.IsUnknown() {
 					var ports struct {
 						List  types.List   `tfsdk:"list"`
 						Range types.Object `tfsdk:"range"`
 					}
 					_ = c.Ports.As(ctx, &ports, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-					if !(ports.List.IsNull() || ports.List.IsUnknown()) {
+					if !ports.List.IsNull() && !ports.List.IsUnknown() {
 						var pvals []int64
 						if err := ports.List.ElementsAs(ctx, &pvals, false); err == nil {
 							parr := make([]interface{}, 0, len(pvals))
@@ -154,20 +154,20 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 							}
 							m["ports"] = map[string]interface{}{"list": parr}
 						}
-					} else if !(ports.Range.IsNull() || ports.Range.IsUnknown()) {
+					} else if !ports.Range.IsNull() && !ports.Range.IsUnknown() {
 						var pr struct {
 							Start types.Int64 `tfsdk:"start"`
 							End   types.Int64 `tfsdk:"end"`
 						}
 						_ = ports.Range.As(ctx, &pr, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-						if !(pr.Start.IsNull() || pr.Start.IsUnknown()) && !(pr.End.IsNull() || pr.End.IsUnknown()) {
+						if (!pr.Start.IsNull() && !pr.Start.IsUnknown()) && (!pr.End.IsNull() && !pr.End.IsUnknown()) {
 							m["ports"] = map[string]interface{}{"range": map[string]interface{}{"start": pr.Start.ValueInt64(), "end": pr.End.ValueInt64()}}
 						}
 					}
 				}
 
 				// protocol
-				if !(c.Protocol.IsNull() || c.Protocol.IsUnknown()) && c.Protocol.ValueString() != "" {
+				if (!c.Protocol.IsNull() && !c.Protocol.IsUnknown()) && c.Protocol.ValueString() != "" {
 					m["protocol"] = strings.ToUpper(c.Protocol.ValueString())
 				} else {
 					m["protocol"] = "ANY"
@@ -353,7 +353,6 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 				} else {
 					tfObj.Field(i).Set(reflect.ValueOf(ov))
 				}
-				break
 			}
 			// Unhandled struct types will be ignored here.
 		case reflect.Int:

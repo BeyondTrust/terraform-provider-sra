@@ -58,7 +58,7 @@ func applyNetworkTunnelValidate(ctx context.Context, plan *models.NetworkTunnelJ
 						List types.List `tfsdk:"list"`
 					}
 					if ld := withPorts.Ports.As(ctx, &listOnly, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}); !ld.HasError() {
-						if !(listOnly.List.IsNull() || listOnly.List.IsUnknown()) {
+						if !listOnly.List.IsNull() && !listOnly.List.IsUnknown() {
 							var portVals []int64
 							if err := listOnly.List.ElementsAs(ctx, &portVals, false); err != nil || len(portVals) == 0 {
 								diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ports.list must be a non-empty list of port numbers"))
@@ -81,7 +81,7 @@ func applyNetworkTunnelValidate(ctx context.Context, plan *models.NetworkTunnelJ
 							} `tfsdk:"range"`
 						}
 						if rd := withPorts.Ports.As(ctx, &rangeOnly, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}); !rd.HasError() {
-							if !(rangeOnly.Range.Start.IsNull() || rangeOnly.Range.Start.IsUnknown() || rangeOnly.Range.End.IsNull() || rangeOnly.Range.End.IsUnknown()) {
+							if !rangeOnly.Range.Start.IsNull() && !rangeOnly.Range.Start.IsUnknown() && !rangeOnly.Range.End.IsNull() && !rangeOnly.Range.End.IsUnknown() {
 								start := rangeOnly.Range.Start.ValueInt64()
 								end := rangeOnly.Range.End.ValueInt64()
 								if start < 1 || end < 1 || start > 65535 || end > 65535 {
@@ -144,8 +144,8 @@ func applyNetworkTunnelValidate(ctx context.Context, plan *models.NetworkTunnelJ
 						return diags
 					}
 					// reuse same checks as above
-					listPresent := !(portsStruct.List.IsNull() || portsStruct.List.IsUnknown())
-					rangePresent := !(portsStruct.Range.Start.IsNull() || portsStruct.Range.Start.IsUnknown() || portsStruct.Range.End.IsNull() || portsStruct.Range.End.IsUnknown())
+					listPresent := !portsStruct.List.IsNull() && !portsStruct.List.IsUnknown()
+					rangePresent := !portsStruct.Range.Start.IsNull() && !portsStruct.Range.Start.IsUnknown() && !portsStruct.Range.End.IsNull() && !portsStruct.Range.End.IsUnknown()
 					if listPresent && rangePresent {
 						diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ports must contain either 'list' or 'range', not both"))
 						return diags
@@ -215,49 +215,6 @@ func applyNetworkTunnelValidate(ctx context.Context, plan *models.NetworkTunnelJ
 			}
 			diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ip_addresses must be an object"))
 			return diags
-		case types.Object:
-			// same handling as attr.Value case above
-			var obj types.Object = vv
-			var cidrOnly struct {
-				Cidr types.String `tfsdk:"cidr"`
-			}
-			if d := obj.As(ctx, &cidrOnly, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}); !d.HasError() {
-				if cidrOnly.Cidr.IsNull() || cidrOnly.Cidr.IsUnknown() || cidrOnly.Cidr.ValueString() == "" {
-					diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ip_addresses.cidr must be a non-empty string"))
-					return diags
-				}
-				break
-			}
-			var listOnly struct {
-				List types.List `tfsdk:"list"`
-			}
-			if d := obj.As(ctx, &listOnly, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}); !d.HasError() {
-				if listOnly.List.IsNull() || listOnly.List.IsUnknown() {
-					diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ip_addresses.list must be provided or other ip_addresses variant"))
-					return diags
-				}
-				var ips []string
-				if err := listOnly.List.ElementsAs(ctx, &ips, false); err != nil || len(ips) == 0 {
-					diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ip_addresses.list must be a non-empty list of strings"))
-					return diags
-				}
-				break
-			}
-			var rangeOnly struct {
-				Range struct {
-					Start types.String `tfsdk:"start"`
-					End   types.String `tfsdk:"end"`
-				} `tfsdk:"range"`
-			}
-			if d := obj.As(ctx, &rangeOnly, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}); !d.HasError() {
-				if rangeOnly.Range.Start.IsNull() || rangeOnly.Range.Start.IsUnknown() || rangeOnly.Range.End.IsNull() || rangeOnly.Range.End.IsUnknown() {
-					diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ip_addresses.range must include start and end"))
-					return diags
-				}
-				break
-			}
-			diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ip_addresses must contain one of: cidr, range, or list"))
-			return diags
 		default:
 			diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ip_addresses must be an object with cidr, range, or list"))
 			return diags
@@ -286,7 +243,7 @@ func applyNetworkTunnelValidate(ctx context.Context, plan *models.NetworkTunnelJ
 				List types.List `tfsdk:"list"`
 			}
 			if ld := objVal.As(ctx, &listOnly, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}); !ld.HasError() {
-				if !(listOnly.List.IsNull() || listOnly.List.IsUnknown()) {
+				if !listOnly.List.IsNull() && !listOnly.List.IsUnknown() {
 					var portVals []int64
 					if err := listOnly.List.ElementsAs(ctx, &portVals, false); err != nil || len(portVals) == 0 {
 						diags.Append(diag.NewErrorDiagnostic("filter_rules invalid", "ports.list must be a non-empty list of port numbers"))
@@ -309,7 +266,7 @@ func applyNetworkTunnelValidate(ctx context.Context, plan *models.NetworkTunnelJ
 					} `tfsdk:"range"`
 				}
 				if rd := objVal.As(ctx, &rangeOnly, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}); !rd.HasError() {
-					if !(rangeOnly.Range.Start.IsNull() || rangeOnly.Range.Start.IsUnknown() || rangeOnly.Range.End.IsNull() || rangeOnly.Range.End.IsUnknown()) {
+					if !rangeOnly.Range.Start.IsNull() && !rangeOnly.Range.Start.IsUnknown() && !rangeOnly.Range.End.IsNull() && !rangeOnly.Range.End.IsUnknown() {
 						start := rangeOnly.Range.Start.ValueInt64()
 						end := rangeOnly.Range.End.ValueInt64()
 						if start < 1 || end < 1 || start > 65535 || end > 65535 {

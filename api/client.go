@@ -121,7 +121,7 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 
 	if c.testLogger != nil || c.logCtx != nil {
 		// DEBUG: print request body so tests can show the exact JSON payload sent to the API
-		var urlStr string = "<nil>"
+		var urlStr = "<nil>"
 		if req.URL != nil {
 			urlStr = req.URL.String()
 		}
@@ -143,7 +143,7 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {

@@ -418,9 +418,10 @@ func assertAccount(t *testing.T, options *terraform.Options, key string, data te
 	assert.Nil(t, err)
 	assertAccountCommonValues(t, item, data.randomBits, data.groupID)
 	if data.testPublicKey {
-		if data.ssh == 1 {
+		switch data.ssh {
+		case 1:
 			assert.Equal(t, testPublicKey, item["public_key"])
-		} else if data.ssh == 2 {
+		case 2:
 			assert.True(t, strings.HasPrefix(item["public_key"], testPublicCAKey))
 		}
 	}
