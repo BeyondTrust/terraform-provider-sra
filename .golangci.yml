@@ -1,0 +1,10 @@
+version: "2"
+
+linters:
+  exclusions:
+    paths:
+      # The test/ directory holds the terratest E2E suite. It is not shipped in
+      # the provider and is not run by CI's unit-test job (go test ... | grep -v
+      # /test). Exclude it from linting; migrating it to the terratest 1.x API
+      # (SA1019 deprecations) is tracked as a separate task.
+      - ^test/
