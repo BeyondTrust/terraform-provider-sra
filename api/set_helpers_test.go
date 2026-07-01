@@ -199,3 +199,29 @@ func TestDiffGPJumpointLists(t *testing.T) {
 	assert.Equal(t, *toRemoveItem.GroupPolicyID, *toRemove.ToSlice()[0].GroupPolicyID)
 	assert.Equal(t, *noChangeItem.GroupPolicyID, *noChange.ToSlice()[0].GroupPolicyID)
 }
+
+func TestDiffGPLists_Generic(t *testing.T) {
+	t.Parallel()
+
+	type item struct {
+		Key   string
+		Value int
+	}
+	type itemKey struct{ Key string }
+
+	toKey := func(i item) itemKey { return itemKey{Key: i.Key} }
+	fromKey := func(k itemKey) item { return item{Key: k.Key} }
+
+	plan := []item{{Key: "add", Value: 1}, {Key: "keep", Value: 2}}
+	state := []item{{Key: "remove", Value: 3}, {Key: "keep", Value: 4}}
+
+	toAdd, toRemove, noChange := DiffGPLists(plan, state, toKey, fromKey)
+
+	assert.Equal(t, 1, toAdd.Cardinality())
+	assert.Equal(t, 1, toRemove.Cardinality())
+	assert.Equal(t, 1, noChange.Cardinality())
+
+	assert.Equal(t, "add", toAdd.ToSlice()[0].Key)
+	assert.Equal(t, "remove", toRemove.ToSlice()[0].Key)
+	assert.Equal(t, "keep", noChange.ToSlice()[0].Key)
+}
