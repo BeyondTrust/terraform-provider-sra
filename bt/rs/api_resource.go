@@ -190,6 +190,13 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 	})
 
 	if err != nil {
+		if api.IsNotFound(err) {
+			// The item was deleted out-of-band. Remove it from state so Terraform
+			// plans to recreate it (or drop it) instead of failing the refresh.
+			tflog.Debug(ctx, fmt.Sprintf("Item ID [%d] not found; removing from state", id))
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error reading item",
 			"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),

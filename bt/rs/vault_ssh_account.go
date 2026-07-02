@@ -156,7 +156,9 @@ func (r *vaultSSHAccountResource) Create(ctx context.Context, req resource.Creat
 
 func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	r.apiResource.Read(ctx, req, resp)
-	if resp.Diagnostics.HasError() {
+	// If the generic Read removed the resource from state (deleted out-of-band),
+	// stop — there is nothing left to refresh associations/memberships for.
+	if resp.Diagnostics.HasError() || resp.State.Raw.IsNull() {
 		return
 	}
 

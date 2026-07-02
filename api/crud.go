@@ -12,6 +12,14 @@ type APIResource interface {
 	Endpoint() string
 }
 
+// IsNotFound reports whether err represents a 404 from the API. Callers use it
+// to treat a resource as deleted (e.g. remove it from Terraform state) rather
+// than surfacing a hard error. The API layer returns status errors as plain
+// strings ("status: <code>, body: ..."), so this matches on that shape.
+func IsNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "status: 404")
+}
+
 func Get[I APIResource](c *APIClient) (*I, error) {
 	var item I
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.RootURL, item.Endpoint()), nil)
