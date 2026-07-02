@@ -290,7 +290,17 @@ func UpdateGPMemberships[T GPMembership](
 		return
 	}
 
-	d = respState.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
+	if tfGPList.IsNull() {
+		// The plan removed the attribute entirely (it is Optional, non-Computed on
+		// jump_group/jumpoint, so a removed block reads as null). The memberships
+		// were deleted above; write a null set — not an empty one — so the applied
+		// state matches the null plan and Terraform does not report a "provider
+		// produced inconsistent result after apply". tfGPStateList is guaranteed
+		// non-null here (we passed the both-null short-circuit above).
+		d = respState.SetAttribute(ctx, path.Root("group_policy_memberships"), types.SetNull(tfGPStateList.ElementType(ctx)))
+	} else {
+		d = respState.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
+	}
 	diags.Append(d...)
 	if diags.HasError() {
 		return
