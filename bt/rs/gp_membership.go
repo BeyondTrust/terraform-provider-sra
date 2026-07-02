@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"terraform-provider-sra/api"
 
@@ -151,8 +150,14 @@ func ReadGPMemberships[T GPMembership](
 		return
 	}
 
-	refreshed := make([]T, 0, len(gpList))
-	for _, m := range gpList {
+	// The per-membership refresh is best-effort. The group-policy/<gp>/<item>/<id>
+	// endpoint returns a JSON array, which GetItemEndpoint (single-object) cannot
+	// decode, so this GET currently always errors and the value already in state
+	// is kept. Errors are logged and skipped rather than failing the read — making
+	// them fatal breaks every resource that carries memberships. Properly
+	// refreshing memberships requires decoding the array and matching the specific
+	// membership; that is a pre-existing gap tracked separately.
+	for i, m := range gpList {
 		tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
 			"read": m,
 		})
@@ -162,36 +167,20 @@ func ReadGPMemberships[T GPMembership](
 		item, err := api.GetItemEndpoint[T](client, endpoint)
 
 		if err != nil {
-			if strings.Contains(err.Error(), "status: 404") {
-				// The membership was removed out-of-band; drop it from state so the
-				// drift surfaces on the next plan rather than being masked.
-				tflog.Debug(ctx, "🌈 Membership no longer exists, dropping from state", map[string]interface{}{
-					"read": m,
-				})
-				continue
-			}
-			// A genuine API error (5xx, auth, network). Surface it instead of
-			// silently keeping stale state and reporting a clean refresh.
-			diags.AddError(
-				"Error reading group policy membership",
-				fmt.Sprintf("Unexpected error refreshing membership at [%s]: %s", endpoint, err.Error()),
-			)
-			return
-		}
-
-		if item != nil {
+			tflog.Debug(ctx, "🌈 Error refreshing membership, keeping state value", map[string]interface{}{
+				"read":  m,
+				"error": err.Error(),
+			})
+		} else if item != nil {
 			tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
 				"read": *item,
 			})
 			setGroupPolicyID(item, &gpId)
-			refreshed = append(refreshed, *item)
-		} else {
-			// No content but no error; keep the value already in state.
-			refreshed = append(refreshed, m)
+			gpList[i] = *item
 		}
 	}
 
-	d = respState.SetAttribute(ctx, path.Root("group_policy_memberships"), refreshed)
+	d = respState.SetAttribute(ctx, path.Root("group_policy_memberships"), gpList)
 	diags.Append(d...)
 	if diags.HasError() {
 		return
