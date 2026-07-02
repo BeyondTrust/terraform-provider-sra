@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"terraform-provider-sra/api"
 
@@ -150,37 +151,47 @@ func ReadGPMemberships[T GPMembership](
 		return
 	}
 
-	// The per-membership refresh is best-effort. The group-policy/<gp>/<item>/<id>
-	// endpoint returns a JSON array, which GetItemEndpoint (single-object) cannot
-	// decode, so this GET currently always errors and the value already in state
-	// is kept. Errors are logged and skipped rather than failing the read — making
-	// them fatal breaks every resource that carries memberships. Properly
-	// refreshing memberships requires decoding the array and matching the specific
-	// membership; that is a pre-existing gap tracked separately.
-	for i, m := range gpList {
-		tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
-			"read": m,
-		})
+	// Each membership read returns a JSON array scoped to this entity under the
+	// given group policy (e.g. GET group-policy/<gp>/jump-group/<id> -> [{...}]).
+	// Decode the array, take the entity's membership (re-applying the group policy
+	// ID, which the response body omits), and drop memberships the API no longer
+	// reports so an out-of-band removal surfaces as drift instead of stale state.
+	refreshed := make([]T, 0, len(gpList))
+	for _, m := range gpList {
 		gpId := *getGroupPolicyID(&m)
 
 		endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
-		item, err := api.GetItemEndpoint[T](client, endpoint)
-
+		items, err := api.ListItemsEndpoint[T](client, endpoint)
 		if err != nil {
-			tflog.Debug(ctx, "🌈 Error refreshing membership, keeping state value", map[string]interface{}{
-				"read":  m,
-				"error": err.Error(),
-			})
-		} else if item != nil {
-			tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
-				"read": *item,
-			})
-			setGroupPolicyID(item, &gpId)
-			gpList[i] = *item
+			if strings.Contains(err.Error(), "status: 404") {
+				// Object-returning endpoints 404 for a removed membership (the
+				// array-returning ones return an empty list, handled below). Drop
+				// it either way so the removal surfaces as drift.
+				tflog.Debug(ctx, "🌈 Membership not found, dropping from state", map[string]interface{}{"read": m})
+				continue
+			}
+			// A genuine error (5xx/auth/network). Now that both response shapes
+			// decode, this is real — surface it rather than masking it.
+			diags.AddError(
+				"Error reading group policy membership",
+				fmt.Sprintf("Unexpected error refreshing membership at [%s]: %s", endpoint, err.Error()),
+			)
+			return
 		}
+
+		if len(items) == 0 {
+			// No longer a member of this group policy; drop it from state.
+			tflog.Debug(ctx, "🌈 Membership no longer present, dropping from state", map[string]interface{}{"read": m})
+			continue
+		}
+
+		item := items[0]
+		setGroupPolicyID(&item, &gpId)
+		tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{"read": item})
+		refreshed = append(refreshed, item)
 	}
 
-	d = respState.SetAttribute(ctx, path.Root("group_policy_memberships"), gpList)
+	d = respState.SetAttribute(ctx, path.Root("group_policy_memberships"), refreshed)
 	diags.Append(d...)
 	if diags.HasError() {
 		return

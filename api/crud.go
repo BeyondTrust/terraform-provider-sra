@@ -114,6 +114,39 @@ func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
 	return &item, nil
 }
 
+// ListItemsEndpoint performs a GET against a specific endpoint and returns the
+// result as a slice. The group-policy membership read endpoints are
+// inconsistent — group-policy/<gp>/jump-group/<id> returns a JSON array while
+// group-policy/<gp>/jumpoint/<id> returns a single JSON object — so this decodes
+// whichever shape the endpoint returns (a lone object becomes a one-element
+// slice). Returns an empty slice on a 204/no-content response.
+func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	if body == nil {
+		return nil, nil
+	}
+
+	items := []I{}
+	if err := json.Unmarshal(body, &items); err == nil {
+		return items, nil
+	}
+
+	// Endpoint returned a single object rather than an array; decode it as one.
+	var single I
+	if err := json.Unmarshal(body, &single); err != nil {
+		return nil, err
+	}
+	return []I{single}, nil
+}
+
 func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	c.LogString("🎯 CreateItem pre-marshalling: %+v", item)
 	rb, err := json.Marshal(item)

@@ -187,6 +187,42 @@ func TestUpdateGPMemberships_NoChangePreservesState(t *testing.T) {
 	assert.Equal(t, 1, len(out.Elements()))
 }
 
+// ReadGPMemberships decodes the array the membership endpoint returns, keeps
+// the memberships the API still reports, and drops ones it no longer does.
+func TestReadGPMemberships_RefreshesAndDropsRemoved(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/jump-group/") {
+			w.Header().Set("Content-Type", "application/json")
+			if strings.Contains(r.URL.Path, "group-policy/7/") {
+				// gp 7 still has the membership (scoped 1-element array)
+				_, _ = w.Write([]byte(`[{"jump_group_id":42,"jump_item_role_id":3,"jump_policy_id":0}]`))
+			} else {
+				// gp 8: no longer a member
+				_, _ = w.Write([]byte(`[]`))
+			}
+			return true
+		}
+		return false
+	})
+
+	sch := gpTestSchema()
+	state := tfsdk.State{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7"), gpMember("8")})}
+	respState := tfsdk.State{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7"), gpMember("8")})}
+	var diags diag.Diagnostics
+
+	_, getGP, setGP := gpJumpGroupCallbacks()
+	ReadGPMemberships[api.GroupPolicyJumpGroup](ctx, client, state, &respState, &diags, 42, getGP, setGP)
+
+	assert.False(t, diags.HasError())
+
+	var out types.Set
+	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
+	assert.False(t, out.IsNull())
+	assert.Equal(t, 1, len(out.Elements()), "gp 7 is kept; gp 8 (reported absent) is dropped")
+}
+
 // CreateGPMemberships writes the created memberships (with the plan's group
 // policy ID re-applied) to state.
 func TestCreateGPMemberships_WritesResults(t *testing.T) {
