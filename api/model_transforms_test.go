@@ -434,12 +434,17 @@ func TestCopyTFtoAPI_SliceField(t *testing.T) {
 	assert.NotNil(t, apiObj.ID)
 	assert.Equal(t, 5, *apiObj.ID)
 	assert.Equal(t, "test", apiObj.Name)
-	// The slice field is not currently handled by CopyTFtoAPI's switch — the Slice case
-	// exists but has no active code. The pointer gets allocated (non-nil) during the
-	// pointer-dereferencing step, but the underlying slice remains nil.
-	// After refactor, this assertion should change to verify the slice is populated.
-	assert.NotNil(t, apiObj.EmailList, "Current behavior: pointer is allocated but slice content is not populated")
-	assert.Nil(t, *apiObj.EmailList, "Current behavior: underlying slice is nil (slice handling is a no-op)")
+	// CopyTFtoAPI has no generic slice handling: the reflect.Slice case is an
+	// intentional no-op. No resource write-path sends a plain slice field through
+	// this function — FilterRules is special-cased above, membership sets are
+	// mapped via separate helpers, and the only *[]string API fields (JumpPolicy
+	// notification/approval lists) are data-source-only (read via CopyAPItoTF).
+	// This test characterizes that dormant behavior: the pointer is allocated
+	// during pointer-dereferencing but the slice stays nil. If a future resource
+	// needs to WRITE a slice field, implement the reflect.Slice case here and
+	// update this test to assert the populated slice.
+	assert.NotNil(t, apiObj.EmailList, "pointer allocated during pointer-deref step")
+	assert.Nil(t, *apiObj.EmailList, "generic slice write is an intentional, currently-unused no-op")
 }
 
 func TestCopyTFtoAPI_SliceFieldProductMismatch(t *testing.T) {
