@@ -58,7 +58,10 @@ type gpAccountGroupKey struct {
 type gpJumpGroupKey struct {
 	GroupPolicyID  string
 	JumpItemRoleID int
-	JumpPolicyID   int
+	// JumpPolicyID is optional (*int on the model). Track presence separately so
+	// a nil policy is distinct from 0 and survives the key round-trip.
+	JumpPolicyID    int
+	HasJumpPolicyID bool
 }
 
 type gpJumpointKey struct {
@@ -94,12 +97,21 @@ func DiffGPAccountGroupLists(planList []GroupPolicyVaultAccountGroup, stateList 
 func DiffGPJumpItemLists(planList []GroupPolicyJumpGroup, stateList []GroupPolicyJumpGroup) (mapset.Set[GroupPolicyJumpGroup], mapset.Set[GroupPolicyJumpGroup], mapset.Set[GroupPolicyJumpGroup]) {
 	return DiffGPLists(planList, stateList,
 		func(g GroupPolicyJumpGroup) gpJumpGroupKey {
-			return gpJumpGroupKey{GroupPolicyID: *g.GroupPolicyID, JumpItemRoleID: g.JumpItemRoleID, JumpPolicyID: *g.JumpPolicyID}
+			k := gpJumpGroupKey{GroupPolicyID: *g.GroupPolicyID, JumpItemRoleID: g.JumpItemRoleID}
+			if g.JumpPolicyID != nil {
+				k.JumpPolicyID = *g.JumpPolicyID
+				k.HasJumpPolicyID = true
+			}
+			return k
 		},
 		func(k gpJumpGroupKey) GroupPolicyJumpGroup {
 			id := k.GroupPolicyID
-			policyID := k.JumpPolicyID
-			return GroupPolicyJumpGroup{GroupPolicyID: &id, JumpItemRoleID: k.JumpItemRoleID, JumpPolicyID: &policyID}
+			g := GroupPolicyJumpGroup{GroupPolicyID: &id, JumpItemRoleID: k.JumpItemRoleID}
+			if k.HasJumpPolicyID {
+				policyID := k.JumpPolicyID
+				g.JumpPolicyID = &policyID
+			}
+			return g
 		},
 	)
 }
