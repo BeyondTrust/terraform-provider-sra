@@ -553,9 +553,6 @@ func (a GroupPolicyVaultAccountGroup) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account-group", *a.GroupPolicyID)
 }
 
-func (g *GroupPolicyVaultAccountGroup) GetGroupPolicyID() *string   { return g.GroupPolicyID }
-func (g *GroupPolicyVaultAccountGroup) SetGroupPolicyID(id *string) { g.GroupPolicyID = id }
-
 type GroupPolicyVaultAccount struct {
 	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
 	AccountID     *int    `tfsdk:"-" json:"account_id"`
@@ -565,9 +562,6 @@ type GroupPolicyVaultAccount struct {
 func (a GroupPolicyVaultAccount) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account", *a.GroupPolicyID)
 }
-
-func (g *GroupPolicyVaultAccount) GetGroupPolicyID() *string   { return g.GroupPolicyID }
-func (g *GroupPolicyVaultAccount) SetGroupPolicyID(id *string) { g.GroupPolicyID = id }
 
 type GroupPolicyProvision struct {
 	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
@@ -588,9 +582,6 @@ func (a GroupPolicyJumpGroup) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jump-group", *a.GroupPolicyID)
 }
 
-func (g *GroupPolicyJumpGroup) GetGroupPolicyID() *string   { return g.GroupPolicyID }
-func (g *GroupPolicyJumpGroup) SetGroupPolicyID(id *string) { g.GroupPolicyID = id }
-
 type GroupPolicyJumpoint struct {
 	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
 	JumpointID    *int    `tfsdk:"-" json:"jumpoint_id"`
@@ -599,9 +590,6 @@ type GroupPolicyJumpoint struct {
 func (a GroupPolicyJumpoint) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jumpoint", *a.GroupPolicyID)
 }
-
-func (g *GroupPolicyJumpoint) GetGroupPolicyID() *string   { return g.GroupPolicyID }
-func (g *GroupPolicyJumpoint) SetGroupPolicyID(id *string) { g.GroupPolicyID = id }
 
 type MechList struct {
 	Mechs       []string   `json:"mechs"`

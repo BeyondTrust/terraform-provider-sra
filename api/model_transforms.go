@@ -59,7 +59,9 @@ for logging purposes. The general idea for these is:
 		  * if not nil, then replace "field" with the value of the pointer so we can set the value we're pointing to instead of the pointer itself
 		    * if the destination is an API model, its pointer is likely nil, so we have to set the pointer to a new object of the appropriate type before dereferencing
 	4. Set the value on the destination. This conversion is done based on the type of the API model field, because those are standard Go types that have reflect mappings
-	    * Currently we only map int and string types. Other types will panic. Additional types will need to be added to the switch mappings as needed
+	    * We map string, int, bool, and slice types, plus special-cased structs (KeyInfo, FilterRules).
+	      Unhandled types are skipped with a logged error in CopyTFtoAPI and cause CopyAPItoTF to return
+	      an error (they no longer panic). Add new types to the switch mappings as needed.
 */
 
 func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value, product string) {
