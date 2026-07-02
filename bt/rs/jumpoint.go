@@ -2,13 +2,11 @@ package rs
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -130,9 +128,9 @@ func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		return
 	}
 
-	if api.IsRS() {
+	if r.ApiClient.IsRS() {
 		plan.ProtocolTunnelEnabled = types.BoolNull()
-	} else if api.IsPRA() && plan.ProtocolTunnelEnabled.IsUnknown() {
+	} else if r.ApiClient.IsPRA() && plan.ProtocolTunnelEnabled.IsUnknown() {
 		plan.ProtocolTunnelEnabled = types.BoolValue(true)
 	}
 
@@ -151,145 +149,40 @@ func (r *jumpointResource) Create(ctx context.Context, req resource.CreateReques
 	}
 	var tfId types.String
 	resp.State.GetAttribute(ctx, path.Root("id"), &tfId)
-	id, _ := strconv.Atoi(tfId.ValueString())
-
-	updateGP := func() {
-		// Group Policy Memberships
-
-		var tfGPList types.Set
-		diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		var gpList []api.GroupPolicyJumpoint
-		if tfGPList.IsNull() {
-			return
-		}
-		diags = tfGPList.ElementsAs(ctx, &gpList, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		toAdd := mapset.NewSet(gpList...)
-
-		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
-			"add": toAdd,
-
-			"tf":   tfGPList,
-			"list": gpList,
-		})
-
-		jpMembershipMutex.Lock()
-		defer jpMembershipMutex.Unlock()
-
-		results := []api.GroupPolicyJumpoint{}
-		needsProvision := mapset.NewSet[string]()
-		for m := range toAdd.Iterator().C {
-			m.JumpointID = &id
-			item, err := api.CreateItem(r.ApiClient, m)
-
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error adding item's group policy memberships",
-					"Unexpected adding membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-				)
-				return
-			}
-
-			item.GroupPolicyID = m.GroupPolicyID
-			results = append(results, *item)
-			needsProvision.Add(*m.GroupPolicyID)
-		}
-
-		for id := range needsProvision.Iter() {
-			p := api.GroupPolicyProvision{
-				GroupPolicyID: &id,
-			}
-			_, err := api.CreateItem(r.ApiClient, p)
-
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error provisioning item's group policy memberships",
-					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
-				)
-				return
-			}
-		}
-
-		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	id, err := strconv.Atoi(tfId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error parsing ID", "Could not parse jumpoint ID: "+err.Error())
+		return
 	}
 
-	updateGP()
+	CreateGPMemberships[api.GroupPolicyJumpoint](ctx, r.ApiClient, req.Plan, &resp.State, &resp.Diagnostics, id,
+		func(m *api.GroupPolicyJumpoint, entityID int) { m.JumpointID = &entityID },
+		func(m *api.GroupPolicyJumpoint) *string { return m.GroupPolicyID },
+		func(m *api.GroupPolicyJumpoint, gpID *string) { m.GroupPolicyID = gpID },
+		&jpMembershipMutex,
+	)
 }
 
 func (r *jumpointResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	r.apiResource.Read(ctx, req, resp)
-	if resp.Diagnostics.HasError() {
+	// If the generic Read removed the resource from state (deleted out-of-band),
+	// stop — there is nothing left to refresh memberships for.
+	if resp.Diagnostics.HasError() || resp.State.Raw.IsNull() {
 		return
 	}
 
 	var tfId types.String
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
-	id, _ := strconv.Atoi(tfId.ValueString())
-
-	{
-		// Group Policy Memberships
-
-		var tfGPList types.Set
-		diags := req.State.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		if tfGPList.IsNull() {
-			return
-		}
-
-		var gpList []api.GroupPolicyJumpoint
-		diags = tfGPList.ElementsAs(ctx, &gpList, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		for i, m := range gpList {
-			m.JumpointID = &id
-			tflog.Trace(ctx, "🌈 Reading item", map[string]interface{}{
-				"read": m,
-			})
-			gpId := *m.GroupPolicyID
-
-			endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), id)
-			item, err := api.GetItemEndpoint[api.GroupPolicyJumpoint](r.ApiClient, endpoint)
-
-			if err != nil {
-				tflog.Trace(ctx, "🌈 Error reading item item, skipping", map[string]interface{}{
-					"read":  m,
-					"error": err,
-				})
-			} else if item != nil {
-				tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{
-					"read": *item,
-				})
-				item.GroupPolicyID = &gpId
-				gpList[i] = *item
-			}
-		}
-
-		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), gpList)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	id, err := strconv.Atoi(tfId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error parsing ID", "Could not parse jumpoint ID: "+err.Error())
+		return
 	}
+
+	ReadGPMemberships[api.GroupPolicyJumpoint](ctx, r.ApiClient, req.State, &resp.State, &resp.Diagnostics, id,
+		func(m *api.GroupPolicyJumpoint) *string { return m.GroupPolicyID },
+		func(m *api.GroupPolicyJumpoint, gpID *string) { m.GroupPolicyID = gpID },
+	)
 }
 
 func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -299,118 +192,17 @@ func (r *jumpointResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 	var tfId types.String
 	req.State.GetAttribute(ctx, path.Root("id"), &tfId)
-	id, _ := strconv.Atoi(tfId.ValueString())
-
-	updateGP := func() {
-		// Group Policy Memberships
-
-		var tfGPList types.Set
-		diags := req.Plan.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		var gpList []api.GroupPolicyJumpoint
-		if tfGPList.IsNull() {
-			return
-		}
-		diags = tfGPList.ElementsAs(ctx, &gpList, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		var tfGPStateList types.Set
-		diags = req.State.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPStateList)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		var stateGPList []api.GroupPolicyJumpoint
-		if !tfGPStateList.IsNull() {
-			diags = tfGPStateList.ElementsAs(ctx, &stateGPList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-		}
-
-		toAdd, toRemove, noChange := api.DiffGPJumpointLists(gpList, stateGPList)
-
-		tflog.Trace(ctx, "🌈 Updating group policy memberships", map[string]interface{}{
-			"add":    toAdd,
-			"remove": toRemove,
-
-			"tf":    tfGPList,
-			"list":  gpList,
-			"state": stateGPList,
-		})
-
-		jpMembershipMutex.Lock()
-		defer jpMembershipMutex.Unlock()
-
-		needsProvision := mapset.NewSet[string]()
-		for m := range toRemove.Iterator().C {
-			m.JumpointID = &id
-			tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
-				"add":      m,
-				"gp":       m.GroupPolicyID,
-				"jumpoint": m.JumpointID,
-			})
-			endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), *m.JumpointID)
-			err := api.DeleteItemEndpoint[api.GroupPolicyJumpoint](r.ApiClient, endpoint)
-
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error updating item's group policy memberships",
-					"Unexpected deleting membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-				)
-				return
-			}
-			needsProvision.Add(*m.GroupPolicyID)
-		}
-
-		results := noChange.ToSlice()
-		for m := range toAdd.Iterator().C {
-			m.JumpointID = &id
-			item, err := api.CreateItem(r.ApiClient, m)
-
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error updating item's group policy memberships",
-					"Unexpected adding membership of item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-				)
-				return
-			}
-
-			item.GroupPolicyID = m.GroupPolicyID
-			results = append(results, *item)
-			needsProvision.Add(*m.GroupPolicyID)
-		}
-
-		for id := range needsProvision.Iter() {
-			p := api.GroupPolicyProvision{
-				GroupPolicyID: &id,
-			}
-			_, err := api.CreateItem(r.ApiClient, p)
-
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error provisioning item's group policy memberships",
-					"Unexpected response provisioning membership of item ID ["+*p.GroupPolicyID+"]: "+err.Error(),
-				)
-				return
-			}
-		}
-
-		diags = resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), results)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	id, err := strconv.Atoi(tfId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error parsing ID", "Could not parse jumpoint ID: "+err.Error())
+		return
 	}
 
-	updateGP()
+	UpdateGPMemberships[api.GroupPolicyJumpoint](ctx, r.ApiClient, req.Plan, req.State, &resp.State, &resp.Diagnostics, id,
+		func(m *api.GroupPolicyJumpoint, entityID int) { m.JumpointID = &entityID },
+		func(m *api.GroupPolicyJumpoint) *string { return m.GroupPolicyID },
+		func(m *api.GroupPolicyJumpoint, gpID *string) { m.GroupPolicyID = gpID },
+		api.DiffGPJumpointLists,
+		&jpMembershipMutex,
+	)
 }

@@ -31,10 +31,17 @@ func setEnvAndGetRandom(t *testing.T) string {
 		client_id := os.Getenv("BT_CLIENT_ID")
 		client_secret := os.Getenv("BT_CLIENT_SECRET")
 		t.Logf("🚀 Running tests against [%s]", os.Getenv("BT_API_HOST"))
-		client, _ = api.NewClient(os.Getenv("BT_API_HOST"), &client_id, &client_secret)
-		client.SetTest(t)
+		var err error
+		client, err = api.NewClient(os.Getenv("BT_API_HOST"), &client_id, &client_secret)
+		if err != nil {
+			t.Fatalf("could not create API client for BT_API_HOST [%s]: %v — check BT_API_HOST/BT_CLIENT_ID/BT_CLIENT_SECRET", os.Getenv("BT_API_HOST"), err)
+		}
+		client.SetTestLogger(t)
 
-		mechs, _ = api.Get[api.MechList](client)
+		mechs, err = api.Get[api.MechList](client)
+		if err != nil {
+			t.Fatalf("could not fetch mechs from BT_API_HOST [%s]: %v", os.Getenv("BT_API_HOST"), err)
+		}
 		t.Logf("Got mechs [%+v]", mechs)
 	}
 

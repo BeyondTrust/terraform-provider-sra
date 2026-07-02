@@ -158,7 +158,13 @@ func (d *vaultSSHAccountDataSource) Read(ctx context.Context, req datasource.Rea
 	tfObj := reflect.ValueOf(&account).Elem()
 	apiType := reflect.TypeOf(item).Elem()
 	apiObj := reflect.ValueOf(item).Elem()
-	api.CopyAPItoTF(ctx, apiObj, tfObj, apiType)
+	if err := api.CopyAPItoTF(ctx, apiObj, tfObj, apiType, d.apiClient.Product); err != nil {
+		resp.Diagnostics.AddError(
+			"Error converting SSH account API response",
+			"Unexpected error converting API response to Terraform state: "+err.Error(),
+		)
+		return
+	}
 
 	state.Account = &account
 

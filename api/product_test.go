@@ -7,26 +7,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestProductSetting(t *testing.T) {
-	// t.Parallel()
+func TestClientProductMethods(t *testing.T) {
+	t.Parallel()
 
-	SetProductIsRS(true)
-	assert.False(t, IsPRA())
-	assert.True(t, IsRS())
+	c := &APIClient{Product: ProductRS}
+	assert.True(t, c.IsRS())
+	assert.False(t, c.IsPRA())
+	assert.Equal(t, ProductRS, c.ProductName())
 
-	SetProductIsRS(false)
-	assert.True(t, IsPRA())
-	assert.False(t, IsRS())
+	c.Product = ProductPRA
+	assert.False(t, c.IsRS())
+	assert.True(t, c.IsPRA())
+	assert.Equal(t, ProductPRA, c.ProductName())
 }
 
-func TestProductName(t *testing.T) {
-	// t.Parallel()
+func TestConcurrentProductSafety(t *testing.T) {
+	t.Parallel()
 
-	SetProductIsRS(true)
-	assert.Equal(t, ProductRS, ProductName())
+	rs := &APIClient{Product: ProductRS}
+	pra := &APIClient{Product: ProductPRA}
 
-	SetProductIsRS(false)
-	assert.Equal(t, ProductPRA, ProductName())
+	assert.True(t, rs.IsRS())
+	assert.True(t, pra.IsPRA())
+	assert.False(t, rs.IsPRA())
+	assert.False(t, pra.IsRS())
 }
 
 type noInterface struct{}
@@ -70,15 +74,13 @@ func TestProductRestriction(t *testing.T) {
 
 	ctx := context.Background()
 
-	SetProductIsRS(true)
-	assert.False(t, IsProductAllowed(ctx, p))
-	assert.True(t, IsProductAllowed(ctx, r))
-	assert.True(t, IsProductAllowed(ctx, n))
-	assert.True(t, IsProductAllowed(ctx, a))
+	assert.False(t, IsProductAllowed(ctx, p, ProductRS))
+	assert.True(t, IsProductAllowed(ctx, r, ProductRS))
+	assert.True(t, IsProductAllowed(ctx, n, ProductRS))
+	assert.True(t, IsProductAllowed(ctx, a, ProductRS))
 
-	SetProductIsRS(false)
-	assert.True(t, IsProductAllowed(ctx, p))
-	assert.False(t, IsProductAllowed(ctx, r))
-	assert.True(t, IsProductAllowed(ctx, n))
-	assert.True(t, IsProductAllowed(ctx, a))
+	assert.True(t, IsProductAllowed(ctx, p, ProductPRA))
+	assert.False(t, IsProductAllowed(ctx, r, ProductPRA))
+	assert.True(t, IsProductAllowed(ctx, n, ProductPRA))
+	assert.True(t, IsProductAllowed(ctx, a, ProductPRA))
 }

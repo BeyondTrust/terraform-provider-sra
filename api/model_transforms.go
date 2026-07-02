@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 type NetworkConfig struct {
@@ -42,16 +42,6 @@ type PortRange struct {
 	End   types.Int64 `json:"end" tfsdk:"end"`
 }
 
-// Then convert using proper struct
-// func convertToStruct(obj tftypes.Value) (*NetworkConfig, error) {
-// 	var config NetworkConfig
-// 	err := tftypes.ValueAs(obj, &config)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &config, nil
-// }
-
 /*
 These functions do the actual copying from TF -> API and API -> TF. They take a context parameter first
 for logging purposes. The general idea for these is:
@@ -69,10 +59,12 @@ for logging purposes. The general idea for these is:
 		  * if not nil, then replace "field" with the value of the pointer so we can set the value we're pointing to instead of the pointer itself
 		    * if the destination is an API model, its pointer is likely nil, so we have to set the pointer to a new object of the appropriate type before dereferencing
 	4. Set the value on the destination. This conversion is done based on the type of the API model field, because those are standard Go types that have reflect mappings
-	    * Currently we only map int and string types. Other types will panic. Additional types will need to be added to the switch mappings as needed
+	    * We map string, int, bool, and slice types, plus special-cased structs (KeyInfo, FilterRules).
+	      Unhandled types are skipped with a logged error in CopyTFtoAPI and cause CopyAPItoTF to return
+	      an error (they no longer panic). Add new types to the switch mappings as needed.
 */
 
-func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value) {
+func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value, product string) {
 	for i := 0; i < tfObj.NumField(); i++ {
 		tfObjField := tfObj.Type().Field(i)
 		fieldName := tfObjField.Name
@@ -126,9 +118,9 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 				m := make(map[string]interface{})
 
 				// ip_addresses: check CIDR, list, range (all are terraform types)
-				if !(c.IPAddresses.CIDR.IsNull() || c.IPAddresses.CIDR.IsUnknown()) && c.IPAddresses.CIDR.ValueString() != "" {
+				if (!c.IPAddresses.CIDR.IsNull() && !c.IPAddresses.CIDR.IsUnknown()) && c.IPAddresses.CIDR.ValueString() != "" {
 					m["ip_addresses"] = map[string]interface{}{"cidr": c.IPAddresses.CIDR.ValueString()}
-				} else if !(c.IPAddresses.List.IsNull() || c.IPAddresses.List.IsUnknown()) {
+				} else if !c.IPAddresses.List.IsNull() && !c.IPAddresses.List.IsUnknown() {
 					var ips []string
 					if err := c.IPAddresses.List.ElementsAs(ctx, &ips, false); err == nil {
 						arr := make([]interface{}, 0, len(ips))
@@ -137,25 +129,25 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 						}
 						m["ip_addresses"] = map[string]interface{}{"list": arr}
 					}
-				} else if !(c.IPAddresses.Range.IsNull() || c.IPAddresses.Range.IsUnknown()) {
+				} else if !c.IPAddresses.Range.IsNull() && !c.IPAddresses.Range.IsUnknown() {
 					var rng struct {
 						Start types.String `tfsdk:"start"`
 						End   types.String `tfsdk:"end"`
 					}
 					_ = c.IPAddresses.Range.As(ctx, &rng, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-					if !(rng.Start.IsNull() || rng.Start.IsUnknown()) && !(rng.End.IsNull() || rng.End.IsUnknown()) {
+					if (!rng.Start.IsNull() && !rng.Start.IsUnknown()) && (!rng.End.IsNull() && !rng.End.IsUnknown()) {
 						m["ip_addresses"] = map[string]interface{}{"range": map[string]interface{}{"start": rng.Start.ValueString(), "end": rng.End.ValueString()}}
 					}
 				}
 
 				// ports
-				if !(c.Ports.IsNull() || c.Ports.IsUnknown()) {
+				if !c.Ports.IsNull() && !c.Ports.IsUnknown() {
 					var ports struct {
 						List  types.List   `tfsdk:"list"`
 						Range types.Object `tfsdk:"range"`
 					}
 					_ = c.Ports.As(ctx, &ports, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-					if !(ports.List.IsNull() || ports.List.IsUnknown()) {
+					if !ports.List.IsNull() && !ports.List.IsUnknown() {
 						var pvals []int64
 						if err := ports.List.ElementsAs(ctx, &pvals, false); err == nil {
 							parr := make([]interface{}, 0, len(pvals))
@@ -164,20 +156,20 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 							}
 							m["ports"] = map[string]interface{}{"list": parr}
 						}
-					} else if !(ports.Range.IsNull() || ports.Range.IsUnknown()) {
+					} else if !ports.Range.IsNull() && !ports.Range.IsUnknown() {
 						var pr struct {
 							Start types.Int64 `tfsdk:"start"`
 							End   types.Int64 `tfsdk:"end"`
 						}
 						_ = ports.Range.As(ctx, &pr, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-						if !(pr.Start.IsNull() || pr.Start.IsUnknown()) && !(pr.End.IsNull() || pr.End.IsUnknown()) {
+						if (!pr.Start.IsNull() && !pr.Start.IsUnknown()) && (!pr.End.IsNull() && !pr.End.IsUnknown()) {
 							m["ports"] = map[string]interface{}{"range": map[string]interface{}{"start": pr.Start.ValueInt64(), "end": pr.End.ValueInt64()}}
 						}
 					}
 				}
 
 				// protocol
-				if !(c.Protocol.IsNull() || c.Protocol.IsUnknown()) && c.Protocol.ValueString() != "" {
+				if (!c.Protocol.IsNull() && !c.Protocol.IsUnknown()) && c.Protocol.ValueString() != "" {
 					m["protocol"] = strings.ToUpper(c.Protocol.ValueString())
 				} else {
 					m["protocol"] = "ANY"
@@ -230,7 +222,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			}
 
 			// If destination is pointer to string and TF value is empty string, skip setting so field is omitted (omitempty) instead of sending "" (API may reject empty string as invalid).
-			if apiTypeField.Type.Elem().Kind() == reflect.String && tfObjField.Type.String() == "types.String" {
+			if apiTypeField.Type.Elem().Kind() == reflect.String && tfObjField.Type.String() == "basetypes.StringValue" {
 				val := tfField.Interface().(types.String)
 				if val.ValueString() == "" {
 					tflog.Debug(ctx, fmt.Sprintf("🍻 copyTFtoAPI skipping empty string pointer field %s", fieldName))
@@ -257,151 +249,7 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 			field.SetBool(val.ValueBool())
 
 		case reflect.Slice:
-			// Special-case for json.RawMessage on the API model (backed by []byte)
-			// if tfObjField.Name == "FilterRules" {
-			// 	val := tfField.Interface().(types.String)
-			// 	// If null/unknown/empty, leave API nil/empty
-			// 	if val.IsNull() || val.IsUnknown() || val.ValueString() == "" {
-			// 		// leave as nil/empty
-			// 	} else {
-			// 		var list []map[string]interface{}
-			// 		if err := json.Unmarshal([]byte(val.ValueString()), &list); err == nil {
-			// 			var outList []map[string]interface{}
-			// 			for _, item := range list {
-			// 				if v, ok := item["ip_addresses"]; ok {
-			// 					switch vv := v.(type) {
-			// 					case []interface{}:
-			// 						var cidrs []string
-			// 						var plain []interface{}
-			// 						for _, elem := range vv {
-			// 							if s, ok := elem.(string); ok && strings.Contains(s, "/") {
-			// 								cidrs = append(cidrs, s)
-			// 							} else {
-			// 								plain = append(plain, elem)
-			// 							}
-			// 						}
-			// 						if len(cidrs) > 0 && len(plain) == 0 {
-			// 							for _, c := range cidrs {
-			// 								ni := make(map[string]interface{}, len(item))
-			// 								for k, v := range item {
-			// 									if k == "ip_addresses" {
-			// 										continue
-			// 									}
-			// 									ni[k] = v
-			// 								}
-			// 								ni["ip_addresses"] = map[string]interface{}{"cidr": c}
-			// 								if p, ok := ni["protocol"]; ok {
-			// 									if ps, ok := p.(string); ok {
-			// 										ni["protocol"] = strings.ToUpper(ps)
-			// 									}
-			// 								} else {
-			// 									ni["protocol"] = "ANY"
-			// 								}
-			// 								if pp, ok := ni["ports"]; ok {
-			// 									switch pvv := pp.(type) {
-			// 									case []interface{}:
-			// 										ni["ports"] = map[string]interface{}{"list": pvv}
-			// 									case map[string]interface{}:
-			// 									default:
-			// 										ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 									}
-			// 								} else {
-			// 									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 								}
-			// 								outList = append(outList, ni)
-			// 							}
-			// 							continue
-			// 						}
-			// 						if len(cidrs) > 0 && len(plain) > 0 {
-			// 							ni := make(map[string]interface{}, len(item))
-			// 							for k, v := range item {
-			// 								if k == "ip_addresses" {
-			// 									continue
-			// 								}
-			// 								ni[k] = v
-			// 							}
-			// 							ni["ip_addresses"] = map[string]interface{}{"list": plain}
-			// 							if p, ok := ni["protocol"]; ok {
-			// 								if ps, ok := p.(string); ok {
-			// 									ni["protocol"] = strings.ToUpper(ps)
-			// 								}
-			// 							} else {
-			// 								ni["protocol"] = "ANY"
-			// 							}
-			// 							if pp, ok := ni["ports"]; ok {
-			// 								switch pvv := pp.(type) {
-			// 								case []interface{}:
-			// 									ni["ports"] = map[string]interface{}{"list": pvv}
-			// 								case map[string]interface{}:
-			// 								default:
-			// 									ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 								}
-			// 							} else {
-			// 								ni["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 							}
-			// 							outList = append(outList, ni)
-			// 							for _, c := range cidrs {
-			// 								ci := make(map[string]interface{}, len(item))
-			// 								for k, v := range item {
-			// 									if k == "ip_addresses" {
-			// 										continue
-			// 									}
-			// 									ci[k] = v
-			// 								}
-			// 								ci["ip_addresses"] = map[string]interface{}{"cidr": c}
-			// 								if p, ok := ci["protocol"]; ok {
-			// 									if ps, ok := p.(string); ok {
-			// 										ci["protocol"] = strings.ToUpper(ps)
-			// 									}
-			// 								} else {
-			// 									ci["protocol"] = "ANY"
-			// 								}
-			// 								if pp, ok := ci["ports"]; ok {
-			// 									switch pvv := pp.(type) {
-			// 									case []interface{}:
-			// 										ci["ports"] = map[string]interface{}{"list": pvv}
-			// 									case map[string]interface{}:
-			// 									default:
-			// 										ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 									}
-			// 								} else {
-			// 									ci["ports"] = map[string]interface{}{"list": []interface{}{}}
-			// 								}
-			// 								outList = append(outList, ci)
-			// 							}
-			// 							continue
-			// 						}
-			// 						item["ip_addresses"] = map[string]interface{}{"list": vv}
-			// 					case string:
-			// 						if strings.Contains(vv, "/") {
-			// 							item["ip_addresses"] = map[string]interface{}{"cidr": vv}
-			// 						} else {
-			// 							item["ip_addresses"] = map[string]interface{}{"list": []interface{}{vv}}
-			// 						}
-			// 					case map[string]interface{}:
-			// 					}
-			// 				}
-			// 				if v, ok := item["ports"]; ok {
-			// 					switch vv := v.(type) {
-			// 					case []interface{}:
-			// 						item["ports"] = map[string]interface{}{"list": vv}
-			// 					case map[string]interface{}:
-			// 					}
-			// 				}
-			// 				if v, ok := item["protocol"]; ok {
-			// 					if s, ok := v.(string); ok {
-			// 						item["protocol"] = strings.ToUpper(s)
-			// 					}
-			// 				}
-			// 				outList = append(outList, item)
-			// 			}
-			// 			newBytes, _ := json.Marshal(outList)
-			// 			field.Set(reflect.ValueOf([]byte(newBytes)))
-			// 		} else {
-			// 			field.Set(reflect.ValueOf([]byte("null")))
-			// 		}
-			// 	}
-			// }
+			// No active slice handling needed here (FilterRules is handled above)
 
 		default:
 			// Log detailed runtime information instead of panicking so we can
@@ -415,8 +263,44 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value)
 	}
 }
 
-func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type) {
-	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, IsRS()))
+// filterRulesObjectType is the Terraform element type for the network tunnel
+// jump FilterRules list. The API side is a *json.RawMessage; the TF side is a
+// types.List of these objects. It is defined once so every branch that must
+// produce a FilterRules value (including the null/empty/error cases) uses the
+// same element type — assigning any non-List value into the field panics.
+func filterRulesObjectType() types.ObjectType {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"ip_addresses": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"list": types.ListType{ElemType: types.StringType},
+					"cidr": types.StringType,
+					"range": types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"start": types.StringType,
+							"end":   types.StringType,
+						},
+					},
+				},
+			},
+			"ports": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"list": types.ListType{ElemType: types.Int64Type},
+					"range": types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"start": types.Int64Type,
+							"end":   types.Int64Type,
+						},
+					},
+				},
+			},
+			"protocol": types.StringType,
+		},
+	}
+}
+
+func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type, product string) error {
+	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, product == ProductRS))
 	for i := 0; i < tfObj.NumField(); i++ {
 		tfObjField := tfObj.Type().Field(i)
 		fieldName := tfObjField.Name
@@ -428,19 +312,12 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		field := apiObj.FieldByName(fieldName)
 		tflog.Debug(ctx, "🍺 copyAPItoTF field "+fieldName)
 
-		// FIXME (maybe?) The reflect library doesn't have a nice wrapper method for setting
-		// the Terraform types, and I didn't know enough about the other reflect
-		// methods to set the pointer directly in a way that works. So these
-		// ugly looking expressions get the raw pointer and set what it
-		// points to with the proper value from the source model
-		//
-		// The unsafe pointer of the address of the field is a pointer to the TF type… we're setting
-		// the dereferenced value of that. This is effectively what the nice reflect wrappers do
-		// *(*types.String)(tfObj.Field(i).Addr().UnsafePointer())
+		// Field values are set using reflect.ValueOf() which is the standard
+		// safe approach for setting struct fields via reflection.
 		if fieldName == "ID" {
 			val := field.Elem().Int()
 			tflog.Debug(ctx, fmt.Sprintf("🥃 ID [%d]", val))
-			*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(strconv.Itoa(int(val)))
+			tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(strconv.Itoa(int(val)))))
 			continue
 		}
 
@@ -468,19 +345,19 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 		switch fieldKind {
 		case reflect.String:
 			if setToNil {
-				*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
+				tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
 			} else {
 				// Special-case for FilterRules which may be a json.RawMessage on the API model
 				if tfObjField.Name == "FilterRules" {
 					// field is a reflect.Value referencing the RawMessage (string in JSON)
 					rawBytes := []byte(field.String())
 					if len(rawBytes) == 0 {
-						*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
+						tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
 					} else {
-						*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(string(rawBytes))
+						tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(string(rawBytes))))
 					}
 				} else {
-					*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(field.String())
+					tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(field.String())))
 				}
 			}
 		case reflect.Struct:
@@ -491,7 +368,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 					"installer_path": types.StringType,
 				}
 				if setToNil {
-					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = types.ObjectNull(attrTypes)
+					tfObj.Field(i).Set(reflect.ValueOf(types.ObjectNull(attrTypes)))
 					break
 				}
 				vals := map[string]attr.Value{
@@ -510,74 +387,56 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 				}
 				ov, diag := types.ObjectValue(attrTypes, vals)
 				if diag.HasError() {
-					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = types.ObjectNull(attrTypes)
+					tfObj.Field(i).Set(reflect.ValueOf(types.ObjectNull(attrTypes)))
 				} else {
-					*(*types.Object)(tfObj.Field(i).Addr().UnsafePointer()) = ov
+					tfObj.Field(i).Set(reflect.ValueOf(ov))
 				}
-				break
 			}
 			// Unhandled struct types will be ignored here.
 		case reflect.Int:
 			if setToNil {
-				*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Null()
+				tfObj.Field(i).Set(reflect.ValueOf(types.Int64Null()))
 			} else {
-				*(*types.Int64)(tfObj.Field(i).Addr().UnsafePointer()) = types.Int64Value(field.Int())
+				tfObj.Field(i).Set(reflect.ValueOf(types.Int64Value(field.Int())))
 			}
 		case reflect.Bool:
 			if setToNil {
-				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolNull()
+				tfObj.Field(i).Set(reflect.ValueOf(types.BoolNull()))
 			} else {
-				*(*types.Bool)(tfObj.Field(i).Addr().UnsafePointer()) = types.BoolValue(field.Bool())
+				tfObj.Field(i).Set(reflect.ValueOf(types.BoolValue(field.Bool())))
 			}
 		case reflect.Slice:
+			isFilterRules := tfObjField.Name == "FilterRules"
 			if setToNil {
-				*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()) = types.SetNull(types.StringType)
+				if isFilterRules {
+					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+				} else {
+					tfObj.Field(i).Set(reflect.ValueOf(types.SetNull(types.StringType)))
+				}
 			} else if field.Len() == 0 {
-				*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()) = types.SetValueMust(types.StringType, []attr.Value{})
+				if isFilterRules {
+					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+				} else {
+					tfObj.Field(i).Set(reflect.ValueOf(types.SetValueMust(types.StringType, []attr.Value{})))
+				}
 			} else {
 				// If this is the FilterRules field, the API will provide []byte (json.RawMessage). Convert back to a string.
-				if tfObjField.Name == "FilterRules" {
+				if isFilterRules {
 					rawBytes := field.Bytes()
 					if len(rawBytes) == 0 {
-						*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringNull()
+						tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
 					} else {
 						// Unmarshal into primitive maps so json.Unmarshal decodes strings/numbers
 						// rather than trying to decode into Terraform framework types.
 						var apiConfig []map[string]interface{}
 						if err := json.Unmarshal(rawBytes, &apiConfig); err != nil {
 							tflog.Warn(ctx, fmt.Sprintf("Failed to unmarshal FilterRules JSON into primitive maps: %v", err))
-							// Fallback: keep raw JSON as string in TF state so user can inspect it
-							*(*types.String)(tfObj.Field(i).Addr().UnsafePointer()) = types.StringValue(string(rawBytes))
+							// Can't represent raw JSON as a types.List; null the field. The warning
+							// above preserves the raw payload in logs for inspection.
+							tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
 						} else {
 							// Create the TF list value and set it
-							elemType := types.ObjectType{
-								AttrTypes: map[string]attr.Type{
-									"ip_addresses": types.ObjectType{
-										AttrTypes: map[string]attr.Type{
-											"list": types.ListType{ElemType: types.StringType},
-											"cidr": types.StringType,
-											"range": types.ObjectType{
-												AttrTypes: map[string]attr.Type{
-													"start": types.StringType,
-													"end":   types.StringType,
-												},
-											},
-										},
-									},
-									"ports": types.ObjectType{
-										AttrTypes: map[string]attr.Type{
-											"list": types.ListType{ElemType: types.Int64Type},
-											"range": types.ObjectType{
-												AttrTypes: map[string]attr.Type{
-													"start": types.Int64Type,
-													"end":   types.Int64Type,
-												},
-											},
-										},
-									},
-									"protocol": types.StringType,
-								},
-							}
+							elemType := filterRulesObjectType()
 							tflog.Debug(ctx, fmt.Sprintf("🎯 copyAPItoTF creating FilterRules list with primitive value %+v", apiConfig))
 							elems := make([]attr.Value, 0, len(apiConfig))
 							for idx, itm := range apiConfig {
@@ -726,7 +585,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 							if listDiags.HasError() {
 								tflog.Warn(ctx, fmt.Sprintf("Failed to create FilterRules list value: %v", listDiags))
 							}
-							*(*types.List)(tfObj.Field(i).Addr().UnsafePointer()) = listVal
+							tfObj.Field(i).Set(reflect.ValueOf(listVal))
 						}
 					}
 				} else {
@@ -738,19 +597,23 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 						case reflect.String:
 							rgList.Index(j).SetString(field.Index(j).Interface().(string))
 						default:
-							panic("Unhandled set type: " + field.Index(j).Kind().String())
+							return fmt.Errorf("unhandled set element type for field %s: %s", tfObjField.Name, field.Index(j).Kind().String())
 						}
 					}
 
 					v, err := types.SetValueFrom(ctx, types.StringType, goList)
 					if err != nil {
-						panic("Error converting go set to TF object: " + err.Errors()[0].Detail())
+						return fmt.Errorf("error converting set for field %s: %s", tfObjField.Name, err.Errors()[0].Detail())
 					}
-					*(*types.Set)(tfObj.Field(i).Addr().UnsafePointer()), _ = types.SetValueFrom(ctx, types.StringType, v)
+					// v is already the converted types.Set; assign it directly. The prior
+					// re-conversion (SetValueFrom on an already-converted Set) was redundant
+					// and silently discarded its error.
+					tfObj.Field(i).Set(reflect.ValueOf(v))
 				}
 			}
 		default:
-			panic("Unknown encoded type in struct: " + field.Kind().String())
+			return fmt.Errorf("unknown encoded type for field %s: %s", tfObjField.Name, fieldKind.String())
 		}
 	}
+	return nil
 }

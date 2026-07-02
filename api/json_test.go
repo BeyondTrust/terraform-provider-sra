@@ -45,6 +45,81 @@ func TestTimestampJson(t *testing.T) {
 	}
 }
 
+func TestTimestampUnmarshal_NullAndEmpty(t *testing.T) {
+	t.Parallel()
+
+	type tsTest struct {
+		Field Timestamp
+	}
+
+	// JSON null
+	var output tsTest
+	err := json.Unmarshal([]byte(`{"Field":null}`), &output)
+	assert.Nil(t, err)
+	assert.Equal(t, Timestamp(""), output.Field)
+
+	// Empty string
+	output = tsTest{}
+	err = json.Unmarshal([]byte(`{"Field":""}`), &output)
+	assert.Nil(t, err)
+	assert.Equal(t, Timestamp(""), output.Field)
+}
+
+func TestTimestampUnmarshal_QuotedNumeric(t *testing.T) {
+	t.Parallel()
+
+	type tsTest struct {
+		Field Timestamp
+	}
+
+	// Quoted numeric (unix seconds as string)
+	var output tsTest
+	err := json.Unmarshal([]byte(`{"Field":"412300020"}`), &output)
+	assert.Nil(t, err)
+	assert.Equal(t, Timestamp("1983-01-24T23:47:00Z"), output.Field)
+}
+
+func TestTimestampUnmarshal_UnquotedNumeric(t *testing.T) {
+	t.Parallel()
+
+	type tsTest struct {
+		Field Timestamp
+	}
+
+	// Unquoted numeric (unix seconds as number)
+	var output tsTest
+	err := json.Unmarshal([]byte(`{"Field":412300020}`), &output)
+	assert.Nil(t, err)
+	assert.Equal(t, Timestamp("1983-01-24T23:47:00Z"), output.Field)
+}
+
+func TestTimestampUnmarshal_QuotedRFC3339(t *testing.T) {
+	t.Parallel()
+
+	type tsTest struct {
+		Field Timestamp
+	}
+
+	var output tsTest
+	err := json.Unmarshal([]byte(`{"Field":"2024-06-15T10:30:00Z"}`), &output)
+	assert.Nil(t, err)
+	assert.Equal(t, Timestamp("2024-06-15T10:30:00Z"), output.Field)
+}
+
+func TestTimestampUnmarshal_Epoch(t *testing.T) {
+	t.Parallel()
+
+	type tsTest struct {
+		Field Timestamp
+	}
+
+	// Unix epoch as unquoted 0
+	var output tsTest
+	err := json.Unmarshal([]byte(`{"Field":0}`), &output)
+	assert.Nil(t, err)
+	assert.Equal(t, Timestamp("1970-01-01T00:00:00Z"), output.Field)
+}
+
 func TestConfigBool(t *testing.T) {
 	t.Parallel()
 

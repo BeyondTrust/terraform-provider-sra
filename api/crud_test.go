@@ -47,7 +47,7 @@ func TestGet(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -89,7 +89,7 @@ func TestPost(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -146,7 +146,7 @@ func TestListItems(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -195,7 +195,7 @@ func TestGetItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -244,7 +244,7 @@ func TestGetItemEndpoint(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -275,6 +275,7 @@ func TestCreateItem(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 
 			if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "test-resource/the_barricade") {
+				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				w.WriteHeader(http.StatusOK)
 				_, err := w.Write([]byte(contentString))
 				assert.Nil(t, err)
@@ -296,7 +297,7 @@ func TestCreateItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -353,7 +354,7 @@ func TestUpdateItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -405,7 +406,7 @@ func TestUpdateItemEndpoint(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -458,7 +459,7 @@ func TestDeleteItem(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{
@@ -510,7 +511,7 @@ func TestDeleteItemEndpoint(t *testing.T) {
 	clientID := "id"
 	clientSecret := "🤐"
 	c, err := NewClient(ts.URL, &clientID, &clientSecret)
-	c.SetTest(t)
+	c.SetTestLogger(t)
 	assert.Nil(t, err)
 
 	{

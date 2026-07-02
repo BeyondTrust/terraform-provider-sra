@@ -77,14 +77,14 @@ func (r jumpClientInstallerResource) ModifyPlan(ctx context.Context, req resourc
 		return
 	}
 
-	if api.IsPRA() {
+	if r.ApiClient.IsPRA() {
 		if plan.SessionPolicyID.IsUnknown() {
 			plan.SessionPolicyID = types.Int64Null()
 		}
 		if plan.AllowOverrideSessionPolicy.IsUnknown() {
 			plan.AllowOverrideSessionPolicy = types.BoolValue(false)
 		}
-	} else if api.IsRS() {
+	} else if r.ApiClient.IsRS() {
 		if plan.AttendedSessionPolicyID.IsUnknown() {
 			plan.AttendedSessionPolicyID = types.Int64Null()
 		}

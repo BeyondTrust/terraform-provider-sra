@@ -115,8 +115,8 @@ type JumpClientInstaller struct {
 	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
 	InstallerID                    types.String `tfsdk:"installer_id"`
 	KeyInfo                        types.Object `tfsdk:"key_info"`
-	ElevateInstall                 types.Bool   `tfsdk:"elevate_install"`
-	ElevatePrompt                  types.Bool   `tfsdk:"elevate_prompt"`
+	ElevateInstall                 types.Bool   `tfsdk:"elevate_install" sra:"persist_state"`
+	ElevatePrompt                  types.Bool   `tfsdk:"elevate_prompt" sra:"persist_state"`
 	ExpirationTimestamp            types.String `tfsdk:"expiration_timestamp"`
 	AllowOverrideJumpGroup         types.Bool   `tfsdk:"allow_override_jump_group"`
 	AllowOverrideJumpPolicy        types.Bool   `tfsdk:"allow_override_jump_policy"`

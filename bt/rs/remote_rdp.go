@@ -175,7 +175,7 @@ func (r *remoteRDPResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	/*
 		Here we are setting some things that get defaults if they are not supplied.
 	*/
-	if api.IsPRA() {
+	if r.ApiClient.IsPRA() {
 		if plan.SecureAppType.IsNull() || plan.SecureAppType.IsUnknown() || plan.SecureAppType.ValueString() == "" {
 			plan.SecureAppType = types.StringValue("")
 			plan.RemoteAppName = types.StringValue("")
