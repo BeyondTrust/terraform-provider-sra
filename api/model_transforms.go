@@ -603,8 +603,10 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 					if err != nil {
 						return fmt.Errorf("error converting set for field %s: %s", tfObjField.Name, err.Errors()[0].Detail())
 					}
-					setVal, _ := types.SetValueFrom(ctx, types.StringType, v)
-					tfObj.Field(i).Set(reflect.ValueOf(setVal))
+					// v is already the converted types.Set; assign it directly. The prior
+					// re-conversion (SetValueFrom on an already-converted Set) was redundant
+					// and silently discarded its error.
+					tfObj.Field(i).Set(reflect.ValueOf(v))
 				}
 			}
 		default:
