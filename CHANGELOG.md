@@ -6,6 +6,11 @@
 
 ### Fix
 - Compatibility fixes for network tunnel and jump client installer resources against 25.2 API changes.
+- Out-of-band deletions are now detected: a resource deleted outside Terraform is recreated on the next apply instead of failing the plan with a `404`.
+- `sra_jump_client_installer`: `elevate_install` / `elevate_prompt` no longer flip to `false` after apply (the create response does not echo them back).
+- `sra_network_tunnel_jump`: the provider no longer crashes when `filter_rules` is null, empty, or malformed.
+- `sra_jump_group` / `sra_jumpoint`: removing all `group_policy_memberships` now applies cleanly instead of erroring with an inconsistent-result; group policy membership refresh now works and detects drift.
+- API layer hardening: removed unsafe pointer usage and panics from the model transforms (no more provider crashes on unexpected types), moved product state onto the client (concurrency-safe), and checked previously-ignored ID-parse errors.
 
 ### Chore / Deps
 - Bump terraform-plugin-framework to 1.15.x and validators to 0.18.x.
@@ -14,10 +19,14 @@
 - Dependency updates: oauth2, net, crypto, circl, xz, deckarep/golang-set, testify and others.
 - GitHub Actions updates: checkout 5.x, download-artifact 5.x, upload-pages-artifact 4.x, upload-artifact 5.x/4.x, setup-go 5.5.0, goreleaser-action 6.4.0, golangci-lint-action 8.x, codeql-action 3.29.x, create-pull-request 7, ghaction-import-gpg 6.3.0.
 - go mod tidy & routine maintenance.
+- Refactor: extracted shared generic Group Policy membership and Jump Item Association CRUD helpers (removing ~1,200 lines of duplicated resource code) and genericized `DiffGPLists`; deleted dead code and replaced `golang.org/x/exp/slices` with the stdlib.
+- Promote `terraform-plugin-go` to a direct dependency (used by the new helper unit tests).
 
 ### CI / QA
 - Added Semgrep workflow & pinned GitHub Action SHAs for improved supply-chain security.
 - Narrowed CODEOWNERS.
+- Pinned the CI build/lint/E2E Go toolchain to `go.mod` (fixes the `go >= 1.26` build failures) and excluded the E2E `test/` directory from `golangci-lint`.
+- Resolved all `golangci-lint` findings and added extensive unit tests for the model transforms, `DiffGPLists`, and the Group Policy membership / Jump Item Association helpers.
 
 ---
 
