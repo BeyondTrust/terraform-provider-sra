@@ -361,11 +361,12 @@ type GroupPolicy struct {
 	InferiorJumpItemRoleID              int    `json:"inferior_jump_item_role_id"`
 	UnassignedJumpItemRoleID            int    `json:"unassigned_jump_item_role_id"`
 
-	PermAccessAllowed      *bool   `json:"perm_access_allowed,omitempty" sraproduct:"pra"`
-	AccessPermStatus       *string `json:"access_perm_status,omitempty" sraproduct:"pra"`
-	PermInviteExternalUser *bool   `json:"perm_invite_external_user,omitempty" sraproduct:"pra"`
-	PermWebJump            *bool   `json:"perm_web_jump,omitempty" sraproduct:"pra"`
-	PermProtocolTunnel     *bool   `json:"perm_protocol_tunnel,omitempty" sraproduct:"pra"`
+	PermAccessAllowed                *bool   `json:"perm_access_allowed,omitempty" sraproduct:"pra"`
+	AccessPermStatus                 *string `json:"access_perm_status,omitempty" sraproduct:"pra"`
+	PermInviteExternalUser           *bool   `json:"perm_invite_external_user,omitempty" sraproduct:"pra"`
+	PermWebJump                      *bool   `json:"perm_web_jump,omitempty" sraproduct:"pra"`
+	PermProtocolTunnel               *bool   `json:"perm_protocol_tunnel,omitempty" sraproduct:"pra"`
+	PermSdStaticPortForExternalTools *bool   `json:"perm_sd_static_port_for_external_tools,omitempty" sraproduct:"pra"`
 
 	PermSupportAllowed                 *string `json:"perm_support_allowed,omitempty" sraproduct:"rs"`
 	RepPermStatus                      *string `json:"rep_perm_status,omitempty" sraproduct:"rs"`
@@ -390,6 +391,22 @@ type GroupPolicy struct {
 
 func (GroupPolicy) Endpoint() string {
 	return "group-policy"
+}
+
+// GroupPolicyMember represents a user or group assigned to a group policy.
+// GroupPolicyID scopes the nested API endpoint and is never sent in the JSON
+// request body.
+type GroupPolicyMember struct {
+	GroupPolicyID      *string `json:"-"`
+	ID                 *int    `json:"id,omitempty"`
+	SecurityProviderID int     `json:"security_provider_id"`
+	DistinguishedName  *string `json:"distinguished_name,omitempty"`
+	GroupName          *string `json:"group_name,omitempty"`
+	UserID             *int    `json:"user_id,omitempty"`
+}
+
+func (a GroupPolicyMember) Endpoint() string {
+	return fmt.Sprintf("group-policy/%s/member", *a.GroupPolicyID)
 }
 
 type VaultAccount struct {

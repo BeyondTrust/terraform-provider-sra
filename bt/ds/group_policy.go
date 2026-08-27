@@ -173,6 +173,10 @@ func (d *groupPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaR
 							Optional:    true,
 							Description: "This field only applies to PRA",
 						},
+						"perm_sd_static_port_for_external_tools": schema.BoolAttribute{
+							Optional:    true,
+							Description: "This field only applies to PRA",
+						},
 						"default_jump_item_role_id": schema.Int64Attribute{
 							Optional: true,
 						},
