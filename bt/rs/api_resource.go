@@ -25,6 +25,7 @@ import (
 func ResourceList() []func() resource.Resource {
 	return []func() resource.Resource{
 		newGroupPolicyResource,
+		newGroupPolicyMemberResource,
 		newJumpGroupResource,
 		newJumpointResource,
 

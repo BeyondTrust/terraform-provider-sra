@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 var (
@@ -42,7 +43,7 @@ type groupPolicyResource struct {
 
 func (r *groupPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a Group Policy for either Privileged Remote Access (PRA) or Remote Support (RS). Product-specific attributes must only be configured for the matching appliance type.",
+		MarkdownDescription: "Manages a Group Policy for either Privileged Remote Access (PRA) or Remote Support (RS). Product-specific attributes must only be configured for the matching appliance type.\n\nOn PRA, enabling a Jump permission requires effective endpoint access: `perm_access_allowed` must be `true`, and `access_perm_status` must not be `not_defined`. The appliance otherwise normalizes enabled Jump permissions back to `false`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
@@ -164,6 +165,33 @@ func (r *groupPolicyResource) ModifyPlan(ctx context.Context, req resource.Modif
 			fmt.Sprintf("The %q attribute only applies to %s group policies, but the configured appliance is %s.", field.name, requiredProduct, r.ApiClient.ProductName()),
 		)
 	}
+
+	if !r.ApiClient.IsPRA() {
+		return
+	}
+
+	var plan models.GroupPolicy
+	diags = req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	enabledPermissions, accessConflict, statusConflict := praGroupPolicyAccessConflicts(plan)
+	if accessConflict {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("perm_access_allowed"),
+			"PRA Jump Permissions Require Endpoint Access",
+			fmt.Sprintf("Set perm_access_allowed to true when enabling these Jump permissions: %s. PRA normalizes them to false when endpoint access is disabled.", strings.Join(enabledPermissions, ", ")),
+		)
+	}
+	if statusConflict {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("access_perm_status"),
+			"PRA Jump Permissions Require Defined Access Permissions",
+			fmt.Sprintf("access_perm_status cannot be not_defined when enabling these Jump permissions: %s. Use defined or final, or omit the attribute and allow the API to select its documented default.", strings.Join(enabledPermissions, ", ")),
+		)
+	}
 }
 
 func (r *groupPolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -208,6 +236,37 @@ func configuredGroupPolicyFieldsForOtherProduct(config models.GroupPolicy, produ
 	}
 
 	return fields
+}
+
+func praGroupPolicyAccessConflicts(plan models.GroupPolicy) (enabledPermissions []string, accessConflict bool, statusConflict bool) {
+	permissions := []struct {
+		name  string
+		value types.Bool
+	}{
+		{name: "perm_jump_client", value: plan.PermJumpClient},
+		{name: "perm_local_jump", value: plan.PermLocalJump},
+		{name: "perm_remote_jump", value: plan.PermRemoteJump},
+		{name: "perm_remote_vnc", value: plan.PermRemoteVnc},
+		{name: "perm_remote_rdp", value: plan.PermRemoteRdp},
+		{name: "perm_shell_jump", value: plan.PermShellJump},
+		{name: "perm_web_jump", value: plan.PermWebJump},
+		{name: "perm_protocol_tunnel", value: plan.PermProtocolTunnel},
+		{name: "perm_sd_static_port_for_external_tools", value: plan.PermSdStaticPortForExternalTools},
+	}
+
+	for _, permission := range permissions {
+		if !permission.value.IsNull() && !permission.value.IsUnknown() && permission.value.ValueBool() {
+			enabledPermissions = append(enabledPermissions, permission.name)
+		}
+	}
+
+	if len(enabledPermissions) == 0 {
+		return enabledPermissions, false, false
+	}
+
+	accessConflict = plan.PermAccessAllowed.IsNull() || plan.PermAccessAllowed.IsUnknown() || !plan.PermAccessAllowed.ValueBool()
+	statusConflict = !plan.AccessPermStatus.IsNull() && !plan.AccessPermStatus.IsUnknown() && plan.AccessPermStatus.ValueString() == "not_defined"
+	return enabledPermissions, accessConflict, statusConflict
 }
 
 func defaultGroupPolicyBool(description string) schema.BoolAttribute {

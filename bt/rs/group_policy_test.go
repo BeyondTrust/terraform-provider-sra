@@ -72,6 +72,89 @@ func TestConfiguredGroupPolicyFieldsForOtherProduct(t *testing.T) {
 	assert.Equal(t, "pra", rsFields[0].product)
 }
 
+func TestPRAGroupPolicyAccessConflicts(t *testing.T) {
+	tests := map[string]struct {
+		plan           models.GroupPolicy
+		enabled        []string
+		accessConflict bool
+		statusConflict bool
+	}{
+		"no enabled jump permissions": {
+			plan: models.GroupPolicy{
+				PermAccessAllowed: types.BoolValue(false),
+				PermShellJump:     types.BoolValue(false),
+			},
+		},
+		"disabled access": {
+			plan: models.GroupPolicy{
+				PermAccessAllowed: types.BoolValue(false),
+				AccessPermStatus:  types.StringValue("defined"),
+				PermShellJump:     types.BoolValue(true),
+			},
+			enabled:        []string{"perm_shell_jump"},
+			accessConflict: true,
+		},
+		"unknown access defaults to disabled on create": {
+			plan: models.GroupPolicy{
+				PermAccessAllowed: types.BoolUnknown(),
+				AccessPermStatus:  types.StringUnknown(),
+				PermRemoteRdp:     types.BoolValue(true),
+			},
+			enabled:        []string{"perm_remote_rdp"},
+			accessConflict: true,
+		},
+		"undefined access status": {
+			plan: models.GroupPolicy{
+				PermAccessAllowed: types.BoolValue(true),
+				AccessPermStatus:  types.StringValue("not_defined"),
+				PermWebJump:       types.BoolValue(true),
+			},
+			enabled:        []string{"perm_web_jump"},
+			statusConflict: true,
+		},
+		"valid defined access": {
+			plan: models.GroupPolicy{
+				PermAccessAllowed:  types.BoolValue(true),
+				AccessPermStatus:   types.StringValue("final"),
+				PermJumpClient:     types.BoolValue(true),
+				PermProtocolTunnel: types.BoolValue(true),
+			},
+			enabled: []string{"perm_jump_client", "perm_protocol_tunnel"},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			enabled, accessConflict, statusConflict := praGroupPolicyAccessConflicts(test.plan)
+			assert.Equal(t, test.enabled, enabled)
+			assert.Equal(t, test.accessConflict, accessConflict)
+			assert.Equal(t, test.statusConflict, statusConflict)
+		})
+	}
+}
+
+func TestGroupPolicyModifyPlanRejectsJumpPermissionWithoutPRAAccess(t *testing.T) {
+	ctx := context.Background()
+	managed := &groupPolicyResource{apiResource: apiResource[api.GroupPolicy, models.GroupPolicy]{
+		ApiClient: &api.APIClient{Product: api.ProductPRA},
+	}}
+	sch := groupPolicyTestSchema(t, managed)
+	model := praGroupPolicyTestModel(types.StringUnknown(), "Invalid PRA Policy")
+	model.PermAccessAllowed = types.BoolValue(false)
+	model.PermShellJump = types.BoolValue(true)
+	plan := groupPolicyTestPlan(t, sch, model)
+
+	resp := resource.ModifyPlanResponse{Plan: plan}
+	managed.ModifyPlan(ctx, resource.ModifyPlanRequest{
+		Config: tfsdk.Config{Schema: sch, Raw: plan.Raw},
+		Plan:   plan,
+	}, &resp)
+
+	require.True(t, resp.Diagnostics.HasError())
+	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "perm_access_allowed")
+	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "perm_shell_jump")
+}
+
 func TestGroupPolicyResourceCRUDWithPRAFields(t *testing.T) {
 	ctx := context.Background()
 	var stored map[string]any

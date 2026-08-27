@@ -393,6 +393,22 @@ func (GroupPolicy) Endpoint() string {
 	return "group-policy"
 }
 
+// GroupPolicyMember represents a user or group assigned to a group policy.
+// GroupPolicyID scopes the nested API endpoint and is never sent in the JSON
+// request body.
+type GroupPolicyMember struct {
+	GroupPolicyID      *string `json:"-"`
+	ID                 *int    `json:"id,omitempty"`
+	SecurityProviderID int     `json:"security_provider_id"`
+	DistinguishedName  *string `json:"distinguished_name,omitempty"`
+	GroupName          *string `json:"group_name,omitempty"`
+	UserID             *int    `json:"user_id,omitempty"`
+}
+
+func (a GroupPolicyMember) Endpoint() string {
+	return fmt.Sprintf("group-policy/%s/member", *a.GroupPolicyID)
+}
+
 type VaultAccount struct {
 	ID             *int    `json:"id,omitempty"`
 	Type           string  `json:"type"`

@@ -129,6 +129,15 @@ type GroupPolicy struct {
 	PermConsoleIdleTimeout             types.Int64  `tfsdk:"perm_console_idle_timeout" sraproduct:"rs"`
 }
 
+type GroupPolicyMember struct {
+	ID                 types.String `tfsdk:"id"`
+	GroupPolicyID      types.String `tfsdk:"group_policy_id"`
+	SecurityProviderID types.Int64  `tfsdk:"security_provider_id"`
+	DistinguishedName  types.String `tfsdk:"distinguished_name"`
+	GroupName          types.String `tfsdk:"group_name"`
+	UserID             types.Int64  `tfsdk:"user_id"`
+}
+
 type JumpPolicy struct {
 	ID               types.String `tfsdk:"id"`
 	DisplayName      types.String `tfsdk:"display_name"`

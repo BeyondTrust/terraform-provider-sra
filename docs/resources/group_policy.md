@@ -4,11 +4,14 @@ page_title: "sra_group_policy Resource - sra"
 subcategory: ""
 description: |-
   Manages a Group Policy for either Privileged Remote Access (PRA) or Remote Support (RS). Product-specific attributes must only be configured for the matching appliance type.
+  On PRA, enabling a Jump permission requires effective endpoint access: perm_access_allowed must be true, and access_perm_status must not be not_defined. The appliance otherwise normalizes enabled Jump permissions back to false.
 ---
 
 # sra_group_policy (Resource)
 
 Manages a Group Policy for either Privileged Remote Access (PRA) or Remote Support (RS). Product-specific attributes must only be configured for the matching appliance type.
+
+On PRA, enabling a Jump permission requires effective endpoint access: `perm_access_allowed` must be `true`, and `access_perm_status` must not be `not_defined`. The appliance otherwise normalizes enabled Jump permissions back to `false`.
 
 ## Example Usage
 
@@ -16,8 +19,7 @@ Manages a Group Policy for either Privileged Remote Access (PRA) or Remote Suppo
 resource "sra_group_policy" "example" {
   name = "Terraform Managed Group Policy"
 
-  perm_jump_client          = true
-  perm_remote_rdp           = true
+  perm_collaborate          = true
   perm_session_idle_timeout = 900
 }
 ```

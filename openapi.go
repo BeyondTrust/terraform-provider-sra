@@ -50,6 +50,7 @@ var typeMap = map[string]string{
 
 	"docs/resources/jump_client_installer.md":           "JumpClientInstaller",
 	"docs/resources/group_policy.md":                    "GroupPolicy",
+	"docs/resources/group_policy_member.md":             "GroupPolicyMember",
 	"docs/resources/jump_group.md":                      "JumpGroup",
 	"docs/resources/jumpoint.md":                        "Jumpoint",
 	"docs/resources/protocol_tunnel_jump.md":            "ProtocolTunnelJumpItem",
