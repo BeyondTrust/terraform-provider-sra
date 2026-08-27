@@ -24,6 +24,7 @@ import (
 // Add new resource factory functions here.
 func ResourceList() []func() resource.Resource {
 	return []func() resource.Resource{
+		newGroupPolicyResource,
 		newJumpGroupResource,
 		newJumpointResource,
 
