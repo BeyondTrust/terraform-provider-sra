@@ -253,6 +253,7 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 
 	var item api.VaultUsernamePasswordAccount
 	api.CopyTFtoAPI(ctx, reflect.ValueOf(&plan).Elem(), reflect.ValueOf(&item).Elem(), r.ApiClient.Product)
+	stripVaultUsernamePasswordAccountReadOnlyFields(&item)
 	item.Password = password
 
 	updated, err := api.UpdateItem(r.ApiClient, item)
@@ -291,6 +292,12 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		api.DiffGPAccountLists,
 		&accountMembershipMutex,
 	)
+}
+
+func stripVaultUsernamePasswordAccountReadOnlyFields(item *api.VaultUsernamePasswordAccount) {
+	item.Personal = nil
+	item.OwnerUserID = nil
+	item.LastCheckoutTimestamp = nil
 }
 
 func vaultAccountPassword(config, plan models.VaultUsernamePasswordAccount, useWriteOnly bool, diagnostics *diag.Diagnostics) (string, bool) {

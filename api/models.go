@@ -419,7 +419,7 @@ type VaultUsernamePasswordAccount struct {
 
 	Username              string  `json:"username"`
 	Password              string  `json:"password,omitempty"`
-	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp,omitempty"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
