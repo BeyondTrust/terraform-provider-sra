@@ -2,11 +2,15 @@ package rs
 
 import (
 	"context"
+	"reflect"
 	"strconv"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -21,9 +25,10 @@ import (
 // These throw away variable declarations are to allow the compiler to
 // enforce compliance to these interfaces
 var (
-	_ resource.Resource                = &vaultUsernamePasswordAccountResource{}
-	_ resource.ResourceWithConfigure   = &vaultUsernamePasswordAccountResource{}
-	_ resource.ResourceWithImportState = &vaultUsernamePasswordAccountResource{}
+	_ resource.Resource                     = &vaultUsernamePasswordAccountResource{}
+	_ resource.ResourceWithConfigure        = &vaultUsernamePasswordAccountResource{}
+	_ resource.ResourceWithConfigValidators = &vaultUsernamePasswordAccountResource{}
+	_ resource.ResourceWithImportState      = &vaultUsernamePasswordAccountResource{}
 	// _ resource.ResourceWithModifyPlan  = &vaultUsernamePasswordAccountResource{}
 )
 
@@ -75,8 +80,22 @@ func (r *vaultUsernamePasswordAccountResource) Schema(_ context.Context, _ resou
 				Required: true,
 			},
 			"password": schema.StringAttribute{
-				Required:  true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Password stored in Terraform state. Use password_wo for ephemeral credentials.",
+			},
+			"password_wo": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				WriteOnly:   true,
+				Description: "Write-only password sent to BeyondTrust without being stored in Terraform plan or state.",
+			},
+			"password_wo_version": schema.Int64Attribute{
+				Optional:    true,
+				Description: "Version trigger for password_wo. Increment this value to update the password in BeyondTrust.",
+				Validators: []validator.Int64{
+					int64validator.AtLeast(1),
+				},
 			},
 			"last_checkout_timestamp": schema.StringAttribute{
 				Computed: true,
@@ -104,8 +123,57 @@ func (r *vaultUsernamePasswordAccountResource) Schema(_ context.Context, _ resou
 	}
 }
 
+func (r *vaultUsernamePasswordAccountResource) ConfigValidators(context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.ExactlyOneOf(
+			path.MatchRoot("password"),
+			path.MatchRoot("password_wo"),
+		),
+		resourcevalidator.RequiredTogether(
+			path.MatchRoot("password_wo"),
+			path.MatchRoot("password_wo_version"),
+		),
+		resourcevalidator.PreferWriteOnlyAttribute(
+			path.MatchRoot("password"),
+			path.MatchRoot("password_wo"),
+		),
+	}
+}
+
 func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	r.apiResource.Create(ctx, req, resp)
+	var plan models.VaultUsernamePasswordAccount
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var config models.VaultUsernamePasswordAccount
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	password, ok := vaultAccountPassword(config, plan, true, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+
+	var item api.VaultUsernamePasswordAccount
+	api.CopyTFtoAPI(ctx, reflect.ValueOf(&plan).Elem(), reflect.ValueOf(&item).Elem(), r.ApiClient.Product)
+	item.Password = password
+
+	created, err := api.CreateItem(r.ApiClient, item)
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating item", "Unexpected error: "+err.Error())
+		return
+	}
+
+	if err := api.CopyAPItoTF(ctx, reflect.ValueOf(created).Elem(), reflect.ValueOf(&plan).Elem(), reflect.TypeOf(created).Elem(), r.ApiClient.Product); err != nil {
+		resp.Diagnostics.AddError("Error converting API response", "Unexpected error converting API response to Terraform state: "+err.Error())
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -159,7 +227,46 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 }
 
 func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	r.apiResource.Update(ctx, req, resp)
+	var plan models.VaultUsernamePasswordAccount
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var state models.VaultUsernamePasswordAccount
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var config models.VaultUsernamePasswordAccount
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	passwordVersionChanged := !plan.PasswordWOVersion.Equal(state.PasswordWOVersion)
+	password, ok := vaultAccountPassword(config, plan, passwordVersionChanged, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+
+	var item api.VaultUsernamePasswordAccount
+	api.CopyTFtoAPI(ctx, reflect.ValueOf(&plan).Elem(), reflect.ValueOf(&item).Elem(), r.ApiClient.Product)
+	item.Password = password
+
+	updated, err := api.UpdateItem(r.ApiClient, item)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating item", "Unexpected error: "+err.Error())
+		return
+	}
+
+	if err := api.CopyAPItoTF(ctx, reflect.ValueOf(updated).Elem(), reflect.ValueOf(&plan).Elem(), reflect.TypeOf(updated).Elem(), r.ApiClient.Product); err != nil {
+		resp.Diagnostics.AddError("Error converting API response", "Unexpected error converting API response to Terraform state: "+err.Error())
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -184,4 +291,21 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		api.DiffGPAccountLists,
 		&accountMembershipMutex,
 	)
+}
+
+func vaultAccountPassword(config, plan models.VaultUsernamePasswordAccount, useWriteOnly bool, diagnostics *diag.Diagnostics) (string, bool) {
+	if !plan.Password.IsNull() && !plan.Password.IsUnknown() {
+		return plan.Password.ValueString(), true
+	}
+	if !useWriteOnly {
+		return "", true
+	}
+	if config.PasswordWO.IsNull() || config.PasswordWO.IsUnknown() {
+		diagnostics.AddError(
+			"Missing write-only Vault password",
+			"password_wo must be known when creating the account or changing password_wo_version.",
+		)
+		return "", false
+	}
+	return config.PasswordWO.ValueString(), true
 }

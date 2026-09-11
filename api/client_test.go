@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -11,6 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 )
+
+type recordingLogger struct {
+	messages []string
+}
+
+func (l *recordingLogger) Logf(format string, args ...any) {
+	l.messages = append(l.messages, fmt.Sprintf(format, args...))
+}
 
 func TestNewClient(t *testing.T) {
 	t.Parallel()
@@ -136,4 +145,29 @@ func TestDoRequest(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, []byte(contentString), body)
 	}
+}
+
+func TestDoRequestDoesNotLogRequestBody(t *testing.T) {
+	t.Parallel()
+
+	secret := "must-not-appear-in-logs"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	logger := &recordingLogger{}
+	client := &APIClient{
+		HTTPClient: server.Client(),
+		testLogger: logger,
+	}
+	request, err := http.NewRequest(http.MethodPost, server.URL, bytes.NewBufferString(secret))
+	assert.NoError(t, err)
+
+	_, err = client.doRequest(request)
+	assert.NoError(t, err)
+
+	logs := strings.Join(logger.messages, "\n")
+	assert.NotContains(t, logs, secret)
+	assert.Contains(t, logs, fmt.Sprintf("%d bytes", len(secret)))
 }
