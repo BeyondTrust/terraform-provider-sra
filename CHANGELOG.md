@@ -1,36 +1,72 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+**This file is maintained by hand.** Add your entry in the same pull request as
+the change — see [CONTRIBUTING.md](CONTRIBUTING.md#changelog). It was previously
+regenerated from commit messages by `git-chglog`, which overwrote hand-written
+entries on every release and dropped any commit using a scope (`chore(deps):`),
+so almost nothing was captured. That automation has been removed.
+
 <a name="Unreleased"></a>
 ## [Unreleased]
 
-### Feat
-- 25.2 API support: updated models and resources for new / changed Jump / Tunnel types (PostgreSQL / MySQL / Network / Protocol) and Jump Client Installer adjustments.
+### Fixed
 
-### Fix
-- Compatibility fixes for network tunnel and jump client installer resources against 25.2 API changes.
 - Out-of-band deletions are now detected: a resource deleted outside Terraform is recreated on the next apply instead of failing the plan with a `404`.
 - `sra_jump_client_installer`: `elevate_install` / `elevate_prompt` no longer flip to `false` after apply (the create response does not echo them back).
 - `sra_network_tunnel_jump`: the provider no longer crashes when `filter_rules` is null, empty, or malformed.
 - `sra_jump_group` / `sra_jumpoint`: removing all `group_policy_memberships` now applies cleanly instead of erroring with an inconsistent-result; group policy membership refresh now works and detects drift.
-- API layer hardening: removed unsafe pointer usage and panics from the model transforms (no more provider crashes on unexpected types), moved product state onto the client (concurrency-safe), and checked previously-ignored ID-parse errors.
 - `sra_vault_account_group`: errors reading the `jump_item_association` sub-resource are no longer silently swallowed; a read failure now raises a diagnostic instead of leaving stale state with no signal.
 - `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: an association-less account no longer has an empty `jump_item_association` fabricated into state on a transient API error.
 - Group policy membership refresh no longer reports a confusing "cannot unmarshal object" error when the API response is genuinely malformed; the real decode error is now surfaced.
-- Fixed a goroutine and read-lock leak on every group policy membership create/update/delete operation that returned an error mid-loop.
+- Fixed a goroutine and read-lock leak on every group policy membership operation that returned an error mid-loop.
+- API layer hardening: removed unsafe pointer usage and panics from the model transforms (no more provider crashes on unexpected types), moved product state onto the client (concurrency-safe), and checked previously-ignored ID-parse errors.
+- Provider documentation rendered `\"BT_API_HOST\"` with literal backslashes, and `web_jump`'s `username_format` lost its list of accepted values whenever docs were regenerated. Both are fixed at the schema, so `go generate ./...` is now lossless.
 
-### Chore / Deps
-- Bump terraform-plugin-framework to 1.15.x and validators to 0.18.x.
-- Bump terraform-plugin-docs to 0.22.x.
-- Bump terratest to 0.50.x.
-- Dependency updates: oauth2, net, crypto, circl, xz, deckarep/golang-set, testify and others.
-- GitHub Actions updates: checkout 5.x, download-artifact 5.x, upload-pages-artifact 4.x, upload-artifact 5.x/4.x, setup-go 5.5.0, goreleaser-action 6.4.0, golangci-lint-action 8.x, codeql-action 3.29.x, create-pull-request 7, ghaction-import-gpg 6.3.0.
-- go mod tidy & routine maintenance.
-- Refactor: extracted shared generic Group Policy membership and Jump Item Association CRUD helpers (removing ~1,200 lines of duplicated resource code) and genericized `DiffGPLists`; deleted dead code and replaced `golang.org/x/exp/slices` with the stdlib.
+### Known issues
+
+- `terraform import` of `sra_jump_client_installer` forces a destroy/recreate on the next plan. `elevate_install`, `elevate_prompt` and `valid_duration` are not refreshed from the API — the create response does not echo the first two, and `valid_duration` is request-only and never returned — so imported state holds no value for them and the next plan sees a difference on attributes that require replacement. Recreating an installer invalidates any copies already distributed.
+
+### Dependencies
+
+- Bump terratest to 1.0.x, terraform-plugin-docs to 0.24.x, pgx to 5.9.x, deckarep/golang-set to 2.9.x and spdystream to 0.5.1.
 - Promote `terraform-plugin-go` to a direct dependency (used by the new helper unit tests).
 
-### CI / QA
-- Added Semgrep workflow & pinned GitHub Action SHAs for improved supply-chain security.
-- Narrowed CODEOWNERS.
+### Internal
+
+- Extracted shared generic Group Policy membership and Jump Item Association CRUD helpers (removing ~1,200 lines of duplicated resource code) and genericized `DiffGPLists`; deleted dead code and replaced `golang.org/x/exp/slices` with the stdlib.
 - Pinned the CI build/lint/E2E Go toolchain to `go.mod` (fixes the `go >= 1.26` build failures) and excluded the E2E `test/` directory from `golangci-lint`.
-- Resolved all `golangci-lint` findings and added extensive unit tests for the model transforms, `DiffGPLists`, and the Group Policy membership / Jump Item Association helpers.
+- Resolved all `golangci-lint` findings and added unit tests for the model transforms, `DiffGPLists`, and the Group Policy membership / Jump Item Association helpers.
+- Removed the `git-chglog` release workflow and its `.chglog/` config; this file is now maintained by hand.
+
+<a name="v1.3.0"></a>
+## [v1.3.0] - 2025-09-15
+
+> Reconstructed after the fact. This release shipped without a changelog entry,
+> and its contents were mistakenly listed under `Unreleased` until now.
+
+### Added
+
+- 25.2 API support: updated models and resources for new / changed Jump / Tunnel types (PostgreSQL / MySQL / Network / Protocol) and Jump Client Installer adjustments.
+
+### Fixed
+
+- Compatibility fixes for network tunnel and jump client installer resources against 25.2 API changes.
+
+### Dependencies
+
+- Bump terraform-plugin-framework to 1.15.x and validators to 0.18.x, terraform-plugin-docs to 0.22.x, and terratest to 0.50.x.
+- Dependency updates: oauth2, net, crypto, circl, xz, deckarep/golang-set, testify and others.
+
+### Internal
+
+- Added the Semgrep workflow and pinned GitHub Action SHAs for supply-chain security.
+- Narrowed CODEOWNERS.
+- GitHub Actions updates: checkout, download-artifact, upload-pages-artifact, upload-artifact, setup-go, goreleaser-action, golangci-lint-action, codeql-action, create-pull-request, ghaction-import-gpg.
 
 ---
 
@@ -157,7 +193,8 @@
 <a name="v1.0.2"></a>
 ## [v1.0.2] - 2023-07-05
 
-[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.3.0...HEAD
+[v1.3.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.6...v1.1.0
 [v1.0.6]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.5...v1.0.6
