@@ -102,7 +102,16 @@ func CreateGPMemberships[T GPMembership](
 			return
 		}
 
-		result := *item
+		var result T
+		if item != nil {
+			result = *item
+		} else {
+			// CreateItem returns (nil, nil) on a 204 No Content. The membership
+			// was still created — echo the request back instead of dropping it,
+			// which would leave a live group-policy entitlement invisible to
+			// Terraform and produce an inconsistent-result error on the next plan.
+			result = m
+		}
 		setGroupPolicyID(&result, getGroupPolicyID(&m))
 		results = append(results, result)
 		needsProvision.Add(*getGroupPolicyID(&m))
@@ -297,7 +306,16 @@ func UpdateGPMemberships[T GPMembership](
 			return
 		}
 
-		result := *item
+		var result T
+		if item != nil {
+			result = *item
+		} else {
+			// CreateItem returns (nil, nil) on a 204 No Content. The membership
+			// was still created — echo the request back instead of dropping it,
+			// which would leave a live group-policy entitlement invisible to
+			// Terraform and produce an inconsistent-result error on the next plan.
+			result = m
+		}
 		setGroupPolicyID(&result, getGroupPolicyID(&m))
 		results = append(results, result)
 		needsProvision.Add(*getGroupPolicyID(&m))

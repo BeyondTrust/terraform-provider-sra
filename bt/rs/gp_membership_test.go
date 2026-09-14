@@ -246,3 +246,68 @@ func TestCreateGPMemberships_WritesResults(t *testing.T) {
 	assert.False(t, out.IsNull())
 	assert.Equal(t, 1, len(out.Elements()))
 }
+
+// A1: CreateItem returns (nil, nil) on a 204 No Content. The membership was
+// still created, so it must not be dropped from results (which would leave a
+// live group-policy entitlement invisible to Terraform).
+func TestCreateGPMemberships_204NoContentTolerated(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == http.MethodPost && !strings.HasSuffix(r.URL.Path, "/provision") {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		return false
+	})
+
+	sch := gpTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7")})}
+	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	var diags diag.Diagnostics
+
+	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
+	assert.NotPanics(t, func() {
+		CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, &respState, &diags, 42,
+			setEntityID, getGP, setGP, &sync.Mutex{})
+	})
+
+	assert.False(t, diags.HasError())
+
+	var out types.Set
+	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
+	assert.False(t, out.IsNull())
+	assert.Equal(t, 1, len(out.Elements()), "a 204 must still leave the membership present, not dropped")
+}
+
+// A1: same 204 tolerance, but through UpdateGPMemberships' toAdd loop.
+func TestUpdateGPMemberships_204NoContentTolerated(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == http.MethodPost && !strings.HasSuffix(r.URL.Path, "/provision") {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		return false
+	})
+
+	sch := gpTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7")})}
+	state := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	var diags diag.Diagnostics
+
+	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
+	assert.NotPanics(t, func() {
+		UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
+			setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+	})
+
+	assert.False(t, diags.HasError())
+
+	var out types.Set
+	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
+	assert.False(t, out.IsNull())
+	assert.Equal(t, 1, len(out.Elements()), "a 204 must still leave the membership present, not dropped")
+}

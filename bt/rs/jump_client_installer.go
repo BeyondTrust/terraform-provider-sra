@@ -68,6 +68,9 @@ func (r jumpClientInstallerResource) ModifyPlan(ctx context.Context, req resourc
 		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
+	if r.ApiClient == nil {
+		return
+	}
 	var plan models.JumpClientInstaller
 	diags := req.Plan.Get(ctx, &plan)
 	tflog.Debug(ctx, "Read plan")

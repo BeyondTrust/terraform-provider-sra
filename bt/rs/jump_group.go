@@ -96,6 +96,9 @@ func (r *jumpGroupResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
+	if r.ApiClient == nil {
+		return
+	}
 
 	/*
 		Here we are setting some things that get defaults if they are not supplied.
