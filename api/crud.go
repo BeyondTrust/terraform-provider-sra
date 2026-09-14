@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -143,8 +144,20 @@ func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error
 	}
 
 	items := []I{}
-	if err := json.Unmarshal(body, &items); err == nil {
+	arrErr := json.Unmarshal(body, &items)
+	if arrErr == nil {
 		return items, nil
+	}
+
+	// Only fall back to single-object decode when the top-level value isn't an
+	// array at all (encoding/json reports that as an UnmarshalTypeError whose
+	// Value is "object"). If the body is an array but one of its elements
+	// fails to decode, arrErr is the more useful diagnostic; the single-object
+	// decode below would otherwise mask it behind a confusing "cannot
+	// unmarshal object into Go value of type ..." error.
+	var typeErr *json.UnmarshalTypeError
+	if !errors.As(arrErr, &typeErr) || typeErr.Value != "object" {
+		return nil, arrErr
 	}
 
 	// Endpoint returned a single object rather than an array; decode it as one.
