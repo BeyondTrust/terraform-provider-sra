@@ -28,7 +28,7 @@ func provisionGroupPolicies(
 	diags *diag.Diagnostics,
 	needsProvision mapset.Set[string],
 ) {
-	for id := range needsProvision.Iter() {
+	for _, id := range needsProvision.ToSlice() {
 		p := api.GroupPolicyProvision{
 			GroupPolicyID: &id,
 		}
@@ -90,7 +90,7 @@ func CreateGPMemberships[T GPMembership](
 
 	results := []T{}
 	needsProvision := mapset.NewSet[string]()
-	for m := range toAdd.Iterator().C {
+	for _, m := range toAdd.ToSlice() {
 		setEntityID(&m, entityID)
 		item, err := api.CreateItem(client, m)
 
@@ -275,7 +275,7 @@ func UpdateGPMemberships[T GPMembership](
 	defer mu.Unlock()
 
 	needsProvision := mapset.NewSet[string]()
-	for m := range toRemove.Iterator().C {
+	for _, m := range toRemove.ToSlice() {
 		setEntityID(&m, entityID)
 		tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
 			"item": m,
@@ -294,7 +294,7 @@ func UpdateGPMemberships[T GPMembership](
 	}
 
 	results := noChange.ToSlice()
-	for m := range toAdd.Iterator().C {
+	for _, m := range toAdd.ToSlice() {
 		setEntityID(&m, entityID)
 		item, err := api.CreateItem(client, m)
 
