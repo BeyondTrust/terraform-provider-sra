@@ -3,6 +3,7 @@ package rs
 import (
 	"context"
 	"net/http"
+	"strings"
 	"terraform-provider-sra/api"
 	"testing"
 
@@ -186,4 +187,41 @@ func TestReadAccountJIA_NotFoundClears(t *testing.T) {
 	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
 	assert.False(t, d.HasError())
 	assert.Equal(t, "", apiSub.FilterType)
+}
+
+// Finding 9: CreateItem returns (nil, nil) on a 204 No Content — the
+// association WAS created, there is simply no body. The create path must
+// echo the accepted request rather than writing a zero-value association:
+// a zero value would put filter_type: "" into state, a value the attribute's
+// own contract forbids (Required + stringvalidator.OneOf, api_resource.go),
+// and fail the apply with an inconsistent-result error.
+func TestCreateAccountJIA_204NoContentTolerated(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		return false
+	})
+
+	sch := jiaTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: jiaRaw(true)}
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(false)}
+	var diags diag.Diagnostics
+
+	CreateAccountJIA(ctx, client, plan, &state, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+
+	var tfObj types.Object
+	d := state.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.False(t, tfObj.IsNull(), "a 204 must still leave the association present, not dropped")
+
+	var apiSub api.AccountJumpItemAssociation
+	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+	assert.False(t, d.HasError())
+	assert.Equal(t, "any_jump_items", apiSub.FilterType, "a 204 must echo the planned filter_type, not a zero-value fallback")
 }

@@ -197,6 +197,10 @@ func TestListItemsEndpoint(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`[{"Location":123}]`))
 			assert.Nil(t, err)
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "bad-nested-object"):
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`[{"Location":{"deep":1}}]`))
+			assert.Nil(t, err)
 		default:
 			assert.Fail(t, "Bad request", r.URL)
 		}
@@ -228,6 +232,19 @@ func TestListItemsEndpoint(t *testing.T) {
 		assert.Nil(t, resp)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "Location", "should report the array-decode error naming the field that failed")
+		}
+	}
+
+	// Finding 8: an array element that is itself object-shaped where a scalar
+	// field was expected also reports UnmarshalTypeError.Value == "object" —
+	// the same value the top-level single-object case reports. Without also
+	// checking Field (empty only at the root), this used to take the
+	// single-object fallback and mask the array-decode error.
+	{
+		resp, err := ListItemsEndpoint[testAPIResource](c, "bad-nested-object")
+		assert.Nil(t, resp)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "Location", "should report the array-decode error naming the field that failed, not the single-object fallback's error")
 		}
 	}
 }

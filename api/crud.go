@@ -151,12 +151,16 @@ func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error
 
 	// Only fall back to single-object decode when the top-level value isn't an
 	// array at all (encoding/json reports that as an UnmarshalTypeError whose
-	// Value is "object"). If the body is an array but one of its elements
-	// fails to decode, arrErr is the more useful diagnostic; the single-object
-	// decode below would otherwise mask it behind a confusing "cannot
-	// unmarshal object into Go value of type ..." error.
+	// Value is "object" and, because the error is at the root, Field is
+	// empty). If the body is an array but one of its elements fails to
+	// decode, arrErr is the more useful diagnostic; the single-object decode
+	// below would otherwise mask it behind a confusing "cannot unmarshal
+	// object into Go value of type ..." error. Value alone is not enough to
+	// tell the two apart: an array element that is itself object-shaped where
+	// a scalar field was expected also reports Value == "object", but with
+	// Field naming that element's field — checking Field == "" excludes it.
 	var typeErr *json.UnmarshalTypeError
-	if !errors.As(arrErr, &typeErr) || typeErr.Value != "object" {
+	if !errors.As(arrErr, &typeErr) || typeErr.Value != "object" || typeErr.Field != "" {
 		return nil, arrErr
 	}
 

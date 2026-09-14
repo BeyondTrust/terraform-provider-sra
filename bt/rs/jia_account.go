@@ -64,19 +64,20 @@ func CreateAccountJIA(
 		return
 	}
 
-	// CreateItem returns (nil, nil) on a 204 No Content. Guard against writing a
-	// nil association into state (which would produce an inconsistent-result
-	// error) by falling back to an empty association, mirroring UpdateAccountJIA.
-	if item != nil {
-		rb, _ := json.Marshal(item)
-		tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
-		d = state.SetAttribute(ctx, path.Root("jump_item_association"), item)
-	} else {
-		var empty api.AccountJumpItemAssociation
-		d = state.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+	// CreateItem returns (nil, nil) on a 204 No Content: the association WAS
+	// created, there is simply no body. Echo the accepted request rather than
+	// writing a zero-value association — that would put filter_type: "" into
+	// state, a value the attribute's own contract forbids (Required +
+	// stringvalidator.OneOf at api_resource.go), and fail the apply with an
+	// inconsistent-result error. Mirrors createdOrSent (gp_membership.go).
+	if item == nil {
+		item = &apiSub
 	}
+	rb, _ := json.Marshal(item)
+	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
+		"data": string(rb),
+	})
+	d = state.SetAttribute(ctx, path.Root("jump_item_association"), item)
 	diags.Append(d...)
 	if diags.HasError() {
 		return
