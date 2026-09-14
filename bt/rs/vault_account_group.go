@@ -252,6 +252,13 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		})
 
 		item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading item",
+				"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			)
+			return
+		}
 
 		if item != nil && !tfObj.IsNull() {
 			rb, _ := json.Marshal(item)
@@ -259,13 +266,6 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 				"data": string(rb),
 			})
 
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error reading item",
-					"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-				)
-				return
-			}
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 			resp.Diagnostics.Append(diags...)
 			if resp.Diagnostics.HasError() {
