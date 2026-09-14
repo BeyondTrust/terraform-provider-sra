@@ -124,10 +124,10 @@ func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
 }
 
 // ListItemsEndpoint performs a GET against a specific endpoint and returns the
-// result as a slice. The group-policy membership read endpoints are
-// inconsistent — group-policy/<gp>/jump-group/<id> returns a JSON array while
-// group-policy/<gp>/jumpoint/<id> returns a single JSON object — so this decodes
-// whichever shape the endpoint returns (a lone object becomes a one-element
+// result as a slice. The group-policy membership read endpoints document a
+// single JSON object in the spec, but the appliance has been observed
+// returning a JSON array for at least one of them — so this decodes whichever
+// shape the endpoint actually returns (a lone object becomes a one-element
 // slice). Returns an empty slice on a 204/no-content response.
 func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)

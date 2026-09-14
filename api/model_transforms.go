@@ -347,18 +347,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 			if setToNil {
 				tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
 			} else {
-				// Special-case for FilterRules which may be a json.RawMessage on the API model
-				if tfObjField.Name == "FilterRules" {
-					// field is a reflect.Value referencing the RawMessage (string in JSON)
-					rawBytes := []byte(field.String())
-					if len(rawBytes) == 0 {
-						tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
-					} else {
-						tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(string(rawBytes))))
-					}
-				} else {
-					tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(field.String())))
-				}
+				tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(field.String())))
 			}
 		case reflect.Struct:
 			if tfObjField.Name == "KeyInfo" {
@@ -484,6 +473,9 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 								}
 								ipObj, ipDiag := types.ObjectValue(ipAttrTypes, ipVals)
 								if ipDiag.HasError() {
+									// Unreachable by construction: ipVals is built entirely from
+									// ipAttrTypes' own attr types, so this ObjectValue call cannot
+									// mismatch. Left as defensive code.
 									tflog.Warn(ctx, fmt.Sprintf("Failed to create ip_addresses object for FilterRules[%d]: %v", idx, ipDiag))
 									continue
 								}
@@ -576,6 +568,10 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 								valMap := map[string]attr.Value{"ip_addresses": ipObj, "ports": portsObj, "protocol": protocolVal}
 								objVal, objDiag := types.ObjectValue(elemType.AttributeTypes(), valMap)
 								if objDiag.HasError() {
+									// Unreachable by construction: valMap carries exactly the three
+									// keys elemType declares (ip_addresses, ports, protocol), built
+									// from elemType's own attr types, so this ObjectValue call cannot
+									// mismatch. Left as defensive code.
 									tflog.Warn(ctx, fmt.Sprintf("Failed to create ObjectValue for FilterRules[%d]: %v", idx, objDiag))
 									continue
 								}
@@ -583,6 +579,9 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 							}
 							listVal, listDiags := types.ListValueFrom(ctx, elemType, elems)
 							if listDiags.HasError() {
+								// Unreachable by construction: every element in elems is exactly
+								// elemType (built via ObjectValue(elemType.AttributeTypes(), ...)
+								// above), so ListValueFrom cannot error here. Left as defensive code.
 								tflog.Warn(ctx, fmt.Sprintf("Failed to create FilterRules list value: %v", listDiags))
 							}
 							tfObj.Field(i).Set(reflect.ValueOf(listVal))

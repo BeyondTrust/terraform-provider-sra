@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"terraform-provider-sra/api"
 
@@ -130,8 +129,9 @@ func CreateGPMemberships[T GPMembership](
 }
 
 // ReadGPMemberships reads each group policy membership from state, refreshes
-// it from the API, and writes the updated list back to state. API errors are
-// logged and skipped rather than treated as failures.
+// it from the API, and writes the updated list back to state. A membership
+// the API no longer reports (or 404s) is dropped from state as drift; any
+// other API error aborts with a diagnostic.
 func ReadGPMemberships[T GPMembership](
 	ctx context.Context,
 	client *api.APIClient,
@@ -160,11 +160,13 @@ func ReadGPMemberships[T GPMembership](
 		return
 	}
 
-	// Each membership read returns a JSON array scoped to this entity under the
-	// given group policy (e.g. GET group-policy/<gp>/jump-group/<id> -> [{...}]).
-	// Decode the array, take the entity's membership (re-applying the group policy
-	// ID, which the response body omits), and drop memberships the API no longer
-	// reports so an out-of-band removal surfaces as drift instead of stale state.
+	// The spec documents a single JSON object for this GET, but the appliance
+	// has been observed returning a JSON array scoped to this entity instead
+	// (e.g. GET group-policy/<gp>/jump-group/<id> -> [{...}]); ListItemsEndpoint
+	// tolerates either shape. Decode the array, take the entity's membership
+	// (re-applying the group policy ID, which the response body omits), and
+	// drop memberships the API no longer reports so an out-of-band removal
+	// surfaces as drift instead of stale state.
 	refreshed := make([]T, 0, len(gpList))
 	for _, m := range gpList {
 		gpId := *getGroupPolicyID(&m)
@@ -172,7 +174,7 @@ func ReadGPMemberships[T GPMembership](
 		endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
 		items, err := api.ListItemsEndpoint[T](client, endpoint)
 		if err != nil {
-			if strings.Contains(err.Error(), "status: 404") {
+			if api.IsNotFound(err) {
 				// Object-returning endpoints 404 for a removed membership (the
 				// array-returning ones return an empty list, handled below). Drop
 				// it either way so the removal surfaces as drift.
