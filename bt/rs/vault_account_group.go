@@ -351,6 +351,16 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 			)
 			return
 		}
+
+		if item == nil {
+			// api.CreateItem answers (nil, nil) on a 204 No Content: the
+			// association was accepted, there is simply no body. Echo the request
+			// rather than writing null into an attribute the plan holds non-null
+			// (it carries a static filter_type default), which would fail the
+			// apply with an inconsistent-result error.
+			item = &apiSub
+		}
+
 		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {

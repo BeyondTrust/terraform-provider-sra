@@ -413,180 +413,176 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 				// If this is the FilterRules field, the API will provide []byte (json.RawMessage). Convert back to a string.
 				if isFilterRules {
 					rawBytes := field.Bytes()
-					if len(rawBytes) == 0 {
+					// Unmarshal into primitive maps so json.Unmarshal decodes strings/numbers
+					// rather than trying to decode into Terraform framework types.
+					var apiConfig []map[string]interface{}
+					if err := json.Unmarshal(rawBytes, &apiConfig); err != nil {
+						tflog.Warn(ctx, fmt.Sprintf("Failed to unmarshal FilterRules JSON into primitive maps: %v", err))
+						// Can't represent raw JSON as a types.List; null the field. The warning
+						// above preserves the raw payload in logs for inspection.
 						tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType)))
 					} else {
-						// Unmarshal into primitive maps so json.Unmarshal decodes strings/numbers
-						// rather than trying to decode into Terraform framework types.
-						var apiConfig []map[string]interface{}
-						if err := json.Unmarshal(rawBytes, &apiConfig); err != nil {
-							tflog.Warn(ctx, fmt.Sprintf("Failed to unmarshal FilterRules JSON into primitive maps: %v", err))
-							// Can't represent raw JSON as a types.List; null the field. The warning
-							// above preserves the raw payload in logs for inspection.
-							tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType)))
-						} else {
-							// Create the TF list value and set it
-							elemType := filterRulesObjectType
-							tflog.Debug(ctx, fmt.Sprintf("🎯 copyAPItoTF creating FilterRules list with primitive value %+v", apiConfig))
-							elems := make([]attr.Value, 0, len(apiConfig))
-							for idx, itm := range apiConfig {
-								// Build attr.Values explicitly to avoid framework trying to coerce map[string]interface{} -> ObjectType
-								// ip_addresses
-								ipObjType := elemType.AttrTypes["ip_addresses"].(types.ObjectType)
-								ipAttrTypes := ipObjType.AttrTypes
-								ipVals := make(map[string]attr.Value, len(ipAttrTypes))
+						// Create the TF list value and set it
+						elemType := filterRulesObjectType
+						tflog.Debug(ctx, fmt.Sprintf("🎯 copyAPItoTF creating FilterRules list with primitive value %+v", apiConfig))
+						elems := make([]attr.Value, 0, len(apiConfig))
+						for idx, itm := range apiConfig {
+							// Build attr.Values explicitly to avoid framework trying to coerce map[string]interface{} -> ObjectType
+							// ip_addresses
+							ipObjType := elemType.AttrTypes["ip_addresses"].(types.ObjectType)
+							ipAttrTypes := ipObjType.AttrTypes
+							ipVals := make(map[string]attr.Value, len(ipAttrTypes))
 
-								// defaults null
-								ipVals["cidr"] = types.StringNull()
-								ipVals["list"] = types.ListNull(types.StringType)
-								rangeType := ipAttrTypes["range"].(types.ObjectType)
-								ipVals["range"] = types.ObjectNull(rangeType.AttrTypes)
+							// defaults null
+							ipVals["cidr"] = types.StringNull()
+							ipVals["list"] = types.ListNull(types.StringType)
+							rangeType := ipAttrTypes["range"].(types.ObjectType)
+							ipVals["range"] = types.ObjectNull(rangeType.AttrTypes)
 
-								if rawIP, ok := itm["ip_addresses"]; ok {
-									if ipMap, ok := rawIP.(map[string]interface{}); ok {
-										if cidrRaw, ok := ipMap["cidr"].(string); ok && cidrRaw != "" {
-											ipVals["cidr"] = types.StringValue(cidrRaw)
-										}
-										if listRaw, ok := ipMap["list"].([]interface{}); ok {
-											strs := make([]string, 0, len(listRaw))
-											for _, v := range listRaw {
-												if s, ok := v.(string); ok {
-													strs = append(strs, s)
-												}
-											}
-											if len(strs) > 0 {
-												if lv, ld := types.ListValueFrom(ctx, types.StringType, strs); !ld.HasError() {
-													ipVals["list"] = lv
-												}
+							if rawIP, ok := itm["ip_addresses"]; ok {
+								if ipMap, ok := rawIP.(map[string]interface{}); ok {
+									if cidrRaw, ok := ipMap["cidr"].(string); ok && cidrRaw != "" {
+										ipVals["cidr"] = types.StringValue(cidrRaw)
+									}
+									if listRaw, ok := ipMap["list"].([]interface{}); ok {
+										strs := make([]string, 0, len(listRaw))
+										for _, v := range listRaw {
+											if s, ok := v.(string); ok {
+												strs = append(strs, s)
 											}
 										}
-										if rangeRaw, ok := ipMap["range"].(map[string]interface{}); ok {
-											startStr, _ := rangeRaw["start"].(string)
-											endStr, _ := rangeRaw["end"].(string)
-											if startStr != "" && endStr != "" {
-												rVals := map[string]attr.Value{"start": types.StringValue(startStr), "end": types.StringValue(endStr)}
-												if rObj, rDiag := types.ObjectValue(rangeType.AttrTypes, rVals); !rDiag.HasError() {
-													ipVals["range"] = rObj
-												}
+										if len(strs) > 0 {
+											if lv, ld := types.ListValueFrom(ctx, types.StringType, strs); !ld.HasError() {
+												ipVals["list"] = lv
+											}
+										}
+									}
+									if rangeRaw, ok := ipMap["range"].(map[string]interface{}); ok {
+										startStr, _ := rangeRaw["start"].(string)
+										endStr, _ := rangeRaw["end"].(string)
+										if startStr != "" && endStr != "" {
+											rVals := map[string]attr.Value{"start": types.StringValue(startStr), "end": types.StringValue(endStr)}
+											if rObj, rDiag := types.ObjectValue(rangeType.AttrTypes, rVals); !rDiag.HasError() {
+												ipVals["range"] = rObj
 											}
 										}
 									}
 								}
-								ipObj, ipDiag := types.ObjectValue(ipAttrTypes, ipVals)
-								if ipDiag.HasError() {
-									// Unreachable by construction: ipVals is built entirely from
-									// ipAttrTypes' own attr types, so this ObjectValue call cannot
-									// mismatch. Left as defensive code.
-									tflog.Warn(ctx, fmt.Sprintf("Failed to create ip_addresses object for FilterRules[%d]: %v", idx, ipDiag))
-									continue
-								}
+							}
+							ipObj, ipDiag := types.ObjectValue(ipAttrTypes, ipVals)
+							if ipDiag.HasError() {
+								// Unreachable by construction: ipVals is built entirely from
+								// ipAttrTypes' own attr types, so this ObjectValue call cannot
+								// mismatch. Left as defensive code.
+								tflog.Warn(ctx, fmt.Sprintf("Failed to create ip_addresses object for FilterRules[%d]: %v", idx, ipDiag))
+								continue
+							}
 
-								// ports (optional)
-								portsObjType := elemType.AttrTypes["ports"].(types.ObjectType)
-								portsAttrTypes := portsObjType.AttrTypes
-								portsVals := make(map[string]attr.Value, len(portsAttrTypes))
-								portsVals["list"] = types.ListNull(types.Int64Type)
-								portRangeType := portsAttrTypes["range"].(types.ObjectType)
-								portsVals["range"] = types.ObjectNull(portRangeType.AttrTypes)
-								portsPresent := false
-								if rawPorts, ok := itm["ports"]; ok {
-									if pMap, ok := rawPorts.(map[string]interface{}); ok {
-										if listRaw, ok := pMap["list"].([]interface{}); ok {
-											ints := make([]int64, 0, len(listRaw))
-											for _, v := range listRaw {
-												switch x := v.(type) {
-												case float64:
-													ints = append(ints, int64(x))
-												case int:
-													ints = append(ints, int64(x))
-												case int64:
-													ints = append(ints, x)
-												}
-											}
-											if len(ints) > 0 {
-												if lv, ld := types.ListValueFrom(ctx, types.Int64Type, ints); !ld.HasError() {
-													portsVals["list"] = lv
-													portsPresent = true
-												}
+							// ports (optional)
+							portsObjType := elemType.AttrTypes["ports"].(types.ObjectType)
+							portsAttrTypes := portsObjType.AttrTypes
+							portsVals := make(map[string]attr.Value, len(portsAttrTypes))
+							portsVals["list"] = types.ListNull(types.Int64Type)
+							portRangeType := portsAttrTypes["range"].(types.ObjectType)
+							portsVals["range"] = types.ObjectNull(portRangeType.AttrTypes)
+							portsPresent := false
+							if rawPorts, ok := itm["ports"]; ok {
+								if pMap, ok := rawPorts.(map[string]interface{}); ok {
+									if listRaw, ok := pMap["list"].([]interface{}); ok {
+										ints := make([]int64, 0, len(listRaw))
+										for _, v := range listRaw {
+											switch x := v.(type) {
+											case float64:
+												ints = append(ints, int64(x))
+											case int:
+												ints = append(ints, int64(x))
+											case int64:
+												ints = append(ints, x)
 											}
 										}
-										if rangeRaw, ok := pMap["range"].(map[string]interface{}); ok {
-											var startI, endI *int64
-											if v, ok := rangeRaw["start"]; ok {
-												switch x := v.(type) {
-												case float64:
-													v2 := int64(x)
-													startI = &v2
-												case int:
-													v2 := int64(x)
-													startI = &v2
-												case int64:
-													v2 := x
-													startI = &v2
-												}
+										if len(ints) > 0 {
+											if lv, ld := types.ListValueFrom(ctx, types.Int64Type, ints); !ld.HasError() {
+												portsVals["list"] = lv
+												portsPresent = true
 											}
-											if v, ok := rangeRaw["end"]; ok {
-												switch x := v.(type) {
-												case float64:
-													v2 := int64(x)
-													endI = &v2
-												case int:
-													v2 := int64(x)
-													endI = &v2
-												case int64:
-													v2 := x
-													endI = &v2
-												}
+										}
+									}
+									if rangeRaw, ok := pMap["range"].(map[string]interface{}); ok {
+										var startI, endI *int64
+										if v, ok := rangeRaw["start"]; ok {
+											switch x := v.(type) {
+											case float64:
+												v2 := int64(x)
+												startI = &v2
+											case int:
+												v2 := int64(x)
+												startI = &v2
+											case int64:
+												v2 := x
+												startI = &v2
 											}
-											if startI != nil && endI != nil {
-												rVals := map[string]attr.Value{"start": types.Int64Value(*startI), "end": types.Int64Value(*endI)}
-												if rObj, rDiag := types.ObjectValue(portRangeType.AttrTypes, rVals); !rDiag.HasError() {
-													portsVals["range"] = rObj
-													portsPresent = true
-												}
+										}
+										if v, ok := rangeRaw["end"]; ok {
+											switch x := v.(type) {
+											case float64:
+												v2 := int64(x)
+												endI = &v2
+											case int:
+												v2 := int64(x)
+												endI = &v2
+											case int64:
+												v2 := x
+												endI = &v2
+											}
+										}
+										if startI != nil && endI != nil {
+											rVals := map[string]attr.Value{"start": types.Int64Value(*startI), "end": types.Int64Value(*endI)}
+											if rObj, rDiag := types.ObjectValue(portRangeType.AttrTypes, rVals); !rDiag.HasError() {
+												portsVals["range"] = rObj
+												portsPresent = true
 											}
 										}
 									}
 								}
-								var portsObj attr.Value
-								if portsPresent {
-									if pObj, pDiag := types.ObjectValue(portsAttrTypes, portsVals); !pDiag.HasError() {
-										portsObj = pObj
-									} else {
-										portsObj = types.ObjectNull(portsAttrTypes)
-									}
+							}
+							var portsObj attr.Value
+							if portsPresent {
+								if pObj, pDiag := types.ObjectValue(portsAttrTypes, portsVals); !pDiag.HasError() {
+									portsObj = pObj
 								} else {
 									portsObj = types.ObjectNull(portsAttrTypes)
 								}
-
-								// protocol
-								prot := "ANY"
-								if pRaw, ok := itm["protocol"].(string); ok && pRaw != "" {
-									prot = strings.ToUpper(pRaw)
-								}
-								protocolVal := types.StringValue(prot)
-
-								valMap := map[string]attr.Value{"ip_addresses": ipObj, "ports": portsObj, "protocol": protocolVal}
-								objVal, objDiag := types.ObjectValue(elemType.AttributeTypes(), valMap)
-								if objDiag.HasError() {
-									// Unreachable by construction: valMap carries exactly the three
-									// keys elemType declares (ip_addresses, ports, protocol), built
-									// from elemType's own attr types, so this ObjectValue call cannot
-									// mismatch. Left as defensive code.
-									tflog.Warn(ctx, fmt.Sprintf("Failed to create ObjectValue for FilterRules[%d]: %v", idx, objDiag))
-									continue
-								}
-								elems = append(elems, objVal)
+							} else {
+								portsObj = types.ObjectNull(portsAttrTypes)
 							}
-							listVal, listDiags := types.ListValueFrom(ctx, elemType, elems)
-							if listDiags.HasError() {
-								// Unreachable by construction: every element in elems is exactly
-								// elemType (built via ObjectValue(elemType.AttributeTypes(), ...)
-								// above), so ListValueFrom cannot error here. Left as defensive code.
-								tflog.Warn(ctx, fmt.Sprintf("Failed to create FilterRules list value: %v", listDiags))
+
+							// protocol
+							prot := "ANY"
+							if pRaw, ok := itm["protocol"].(string); ok && pRaw != "" {
+								prot = strings.ToUpper(pRaw)
 							}
-							tfObj.Field(i).Set(reflect.ValueOf(listVal))
+							protocolVal := types.StringValue(prot)
+
+							valMap := map[string]attr.Value{"ip_addresses": ipObj, "ports": portsObj, "protocol": protocolVal}
+							objVal, objDiag := types.ObjectValue(elemType.AttrTypes, valMap)
+							if objDiag.HasError() {
+								// Unreachable by construction: valMap carries exactly the three
+								// keys elemType declares (ip_addresses, ports, protocol), built
+								// from elemType's own attr types, so this ObjectValue call cannot
+								// mismatch. Left as defensive code.
+								tflog.Warn(ctx, fmt.Sprintf("Failed to create ObjectValue for FilterRules[%d]: %v", idx, objDiag))
+								continue
+							}
+							elems = append(elems, objVal)
 						}
+						listVal, listDiags := types.ListValueFrom(ctx, elemType, elems)
+						if listDiags.HasError() {
+							// Unreachable by construction: every element in elems is exactly
+							// elemType (built via ObjectValue(elemType.AttrTypes, ...) above), so
+							// ListValueFrom cannot error here. Left as defensive code.
+							tflog.Warn(ctx, fmt.Sprintf("Failed to create FilterRules list value: %v", listDiags))
+						}
+						tfObj.Field(i).Set(reflect.ValueOf(listVal))
 					}
 				} else {
 					var goList []string

@@ -168,6 +168,17 @@ func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error
 	return []I{single}, nil
 }
 
+// CreateItem POSTs item to its endpoint.
+//
+// It returns (nil, nil) when the API answers 204 No Content: the item WAS
+// created, there is simply no body to decode. Callers that dereference or
+// store the result must handle a nil item — writing it straight into Terraform
+// state produces a null attribute and an "inconsistent result after apply".
+// Echo the request back instead; the server accepted it.
+//
+// Note the asymmetry with UpdateItemEndpoint, which does not check for an
+// empty body: a 204 on PATCH surfaces as "unexpected end of JSON input"
+// rather than (nil, nil).
 func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	c.LogString("🎯 CreateItem pre-marshalling: %+v", item)
 	rb, err := json.Marshal(item)

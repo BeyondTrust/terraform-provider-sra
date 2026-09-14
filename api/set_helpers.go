@@ -2,6 +2,24 @@ package api
 
 import mapset "github.com/deckarep/golang-set/v2"
 
+// keySet converts a list to a set of comparable keys.
+func keySet[T any, K comparable](items []T, toKey func(T) K) mapset.Set[K] {
+	s := mapset.NewSet[K]()
+	for _, item := range items {
+		s.Add(toKey(item))
+	}
+	return s
+}
+
+// mapSet converts a set of keys back to a set of the original type.
+func mapSet[K comparable, T comparable](keys mapset.Set[K], fromKey func(K) T) mapset.Set[T] {
+	out := mapset.NewSet[T]()
+	for _, k := range keys.ToSlice() {
+		out.Add(fromKey(k))
+	}
+	return out
+}
+
 // DiffGPLists computes the difference between two lists by converting each
 // element to a comparable key, performing set operations, then converting back.
 // Returns (toAdd, toRemove, noChange) sets of the original type T.
@@ -11,36 +29,12 @@ func DiffGPLists[T comparable, K comparable](
 	toKey func(T) K,
 	fromKey func(K) T,
 ) (toAdd, toRemove, noChange mapset.Set[T]) {
-	planKeys := make([]K, 0, len(planList))
-	for _, item := range planList {
-		planKeys = append(planKeys, toKey(item))
-	}
-	stateKeys := make([]K, 0, len(stateList))
-	for _, item := range stateList {
-		stateKeys = append(stateKeys, toKey(item))
-	}
+	planSet := keySet(planList, toKey)
+	stateSet := keySet(stateList, toKey)
 
-	planSet := mapset.NewSet(planKeys...)
-	stateSet := mapset.NewSet(stateKeys...)
-
-	addKeys := planSet.Difference(stateSet)
-	removeKeys := stateSet.Difference(planSet)
-	unchangedKeys := planSet.Intersect(stateSet)
-
-	toAdd = mapset.NewSet[T]()
-	for _, k := range addKeys.ToSlice() {
-		toAdd.Add(fromKey(k))
-	}
-	toRemove = mapset.NewSet[T]()
-	for _, k := range removeKeys.ToSlice() {
-		toRemove.Add(fromKey(k))
-	}
-	noChange = mapset.NewSet[T]()
-	for _, k := range unchangedKeys.ToSlice() {
-		noChange.Add(fromKey(k))
-	}
-
-	return toAdd, toRemove, noChange
+	return mapSet(planSet.Difference(stateSet), fromKey),
+		mapSet(stateSet.Difference(planSet), fromKey),
+		mapSet(planSet.Intersect(stateSet), fromKey)
 }
 
 // Key types used by the convenience wrappers below.

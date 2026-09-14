@@ -3,9 +3,6 @@ package rs
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
-	"strings"
-	"terraform-provider-sra/api"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -47,20 +44,10 @@ func a2TestSchema() schema.Schema {
 func TestApiResourceCreate_204NoContent(t *testing.T) {
 	ctx := context.Background()
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "oauth2/token") {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"x"}`))
-			return
-		}
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
 		w.WriteHeader(http.StatusNoContent)
-	}))
-	t.Cleanup(ts.Close)
-
-	id, secret := "id", "secret"
-	client, err := api.NewClient(ts.URL, &id, &secret)
-	assert.NoError(t, err)
-	client.SetTestLogger(t)
+		return true
+	})
 
 	r := &apiResource[a2TestAPIItem, a2TestTFItem]{ApiClient: client}
 

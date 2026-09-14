@@ -3,7 +3,6 @@ package rs
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
@@ -21,25 +20,15 @@ import (
 // backend error on that read without touching the primary resource read.
 func vagMockClient(t *testing.T, jiaStatus int) *api.APIClient {
 	t.Helper()
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasSuffix(r.URL.Path, "oauth2/token"):
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"x"}`))
-		case strings.HasSuffix(r.URL.Path, "/jump-item-association"):
+	return mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if strings.HasSuffix(r.URL.Path, "/jump-item-association") {
 			w.WriteHeader(jiaStatus)
-		default:
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"id":5,"name":"grp","description":""}`))
+			return true
 		}
-	}))
-	t.Cleanup(ts.Close)
-
-	id, secret := "id", "secret"
-	c, err := api.NewClient(ts.URL, &id, &secret)
-	assert.NoError(t, err)
-	c.SetTestLogger(t)
-	return c
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":5,"name":"grp","description":""}`))
+		return true
+	})
 }
 
 // S1 regression: GetItemEndpoint returns (nil, err) on every error path
