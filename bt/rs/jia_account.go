@@ -120,17 +120,32 @@ func ReadAccountJIA(
 
 	item, err := api.GetItemEndpoint[api.AccountJumpItemAssociation](client, apiSub.Endpoint())
 
-	var empty api.AccountJumpItemAssociation
-	if item == nil && (planIsGone || apiSub.FilterType == "") {
-		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
-		diags.Append(d...)
-		if diags.HasError() {
+	if err != nil {
+		if api.IsNotFound(err) {
+			// The association is gone (e.g. deleted out-of-band). Write an
+			// empty association rather than erroring.
+			var empty api.AccountJumpItemAssociation
+			d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+			diags.Append(d...)
 			return
 		}
-		return
-	}
-
-	if err != nil {
+		if planIsGone || apiSub.FilterType == "" {
+			// Documented tolerance, not an oversight: per the spec, this GET
+			// "cannot be used if the Account or Secret is inheriting Jump Item
+			// association criteria from its Account Group"
+			// (openapi/bt-pra-configuration.openapi.yaml:4596-4610), and the
+			// spec does not say what it returns in that case. planIsGone is
+			// exactly the inherit case. FilterType == "" additionally covers
+			// state already corrupted by the pre-fix bug (which wrote a
+			// zero-value association on any error); tolerating it here lets
+			// that state heal on the next successful read instead of hard-
+			// failing every refresh for the users it already hurt.
+			tflog.Debug(ctx, "🙀 Tolerating error reading account jump item association", map[string]interface{}{
+				"planIsGone": planIsGone,
+				"error":      err.Error(),
+			})
+			return
+		}
 		diags.AddError(
 			"Error reading item",
 			"Unexpected reading item ID ["+strconv.Itoa(accountID)+"]: "+err.Error(),
