@@ -268,35 +268,36 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 // types.List of these objects. It is defined once so every branch that must
 // produce a FilterRules value (including the null/empty/error cases) uses the
 // same element type — assigning any non-List value into the field panics.
-func filterRulesObjectType() types.ObjectType {
-	return types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"ip_addresses": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"list": types.ListType{ElemType: types.StringType},
-					"cidr": types.StringType,
-					"range": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"start": types.StringType,
-							"end":   types.StringType,
-						},
+// This is a package-level value (not rebuilt per call), so its AttrTypes map
+// is shared across concurrent resource operations; every use of it here is
+// read-only, and it must stay that way.
+var filterRulesObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"ip_addresses": types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"list": types.ListType{ElemType: types.StringType},
+				"cidr": types.StringType,
+				"range": types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"start": types.StringType,
+						"end":   types.StringType,
 					},
 				},
 			},
-			"ports": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"list": types.ListType{ElemType: types.Int64Type},
-					"range": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"start": types.Int64Type,
-							"end":   types.Int64Type,
-						},
-					},
-				},
-			},
-			"protocol": types.StringType,
 		},
-	}
+		"ports": types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"list": types.ListType{ElemType: types.Int64Type},
+				"range": types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"start": types.Int64Type,
+						"end":   types.Int64Type,
+					},
+				},
+			},
+		},
+		"protocol": types.StringType,
+	},
 }
 
 func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type, product string) error {
@@ -398,13 +399,13 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 			isFilterRules := tfObjField.Name == "FilterRules"
 			if setToNil {
 				if isFilterRules {
-					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType)))
 				} else {
 					tfObj.Field(i).Set(reflect.ValueOf(types.SetNull(types.StringType)))
 				}
 			} else if field.Len() == 0 {
 				if isFilterRules {
-					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+					tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType)))
 				} else {
 					tfObj.Field(i).Set(reflect.ValueOf(types.SetValueMust(types.StringType, []attr.Value{})))
 				}
@@ -413,7 +414,7 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 				if isFilterRules {
 					rawBytes := field.Bytes()
 					if len(rawBytes) == 0 {
-						tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+						tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType)))
 					} else {
 						// Unmarshal into primitive maps so json.Unmarshal decodes strings/numbers
 						// rather than trying to decode into Terraform framework types.
@@ -422,10 +423,10 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 							tflog.Warn(ctx, fmt.Sprintf("Failed to unmarshal FilterRules JSON into primitive maps: %v", err))
 							// Can't represent raw JSON as a types.List; null the field. The warning
 							// above preserves the raw payload in logs for inspection.
-							tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType())))
+							tfObj.Field(i).Set(reflect.ValueOf(types.ListNull(filterRulesObjectType)))
 						} else {
 							// Create the TF list value and set it
-							elemType := filterRulesObjectType()
+							elemType := filterRulesObjectType
 							tflog.Debug(ctx, fmt.Sprintf("🎯 copyAPItoTF creating FilterRules list with primitive value %+v", apiConfig))
 							elems := make([]attr.Value, 0, len(apiConfig))
 							for idx, itm := range apiConfig {

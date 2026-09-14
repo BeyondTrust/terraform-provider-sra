@@ -28,15 +28,15 @@ func DiffGPLists[T comparable, K comparable](
 	unchangedKeys := planSet.Intersect(stateSet)
 
 	toAdd = mapset.NewSet[T]()
-	for k := range addKeys.Iterator().C {
+	for _, k := range addKeys.ToSlice() {
 		toAdd.Add(fromKey(k))
 	}
 	toRemove = mapset.NewSet[T]()
-	for k := range removeKeys.Iterator().C {
+	for _, k := range removeKeys.ToSlice() {
 		toRemove.Add(fromKey(k))
 	}
 	noChange = mapset.NewSet[T]()
-	for k := range unchangedKeys.Iterator().C {
+	for _, k := range unchangedKeys.ToSlice() {
 		noChange.Add(fromKey(k))
 	}
 
@@ -45,12 +45,9 @@ func DiffGPLists[T comparable, K comparable](
 
 // Key types used by the convenience wrappers below.
 
-type gpAccountKey struct {
-	GroupPolicyID string
-	Role          string
-}
-
-type gpAccountGroupKey struct {
+// gpRoleKey is shared by the account and account-group membership types,
+// which are keyed identically (group policy ID + role).
+type gpRoleKey struct {
 	GroupPolicyID string
 	Role          string
 }
@@ -72,10 +69,10 @@ type gpJumpointKey struct {
 
 func DiffGPAccountLists(planList []GroupPolicyVaultAccount, stateList []GroupPolicyVaultAccount) (mapset.Set[GroupPolicyVaultAccount], mapset.Set[GroupPolicyVaultAccount], mapset.Set[GroupPolicyVaultAccount]) {
 	return DiffGPLists(planList, stateList,
-		func(g GroupPolicyVaultAccount) gpAccountKey {
-			return gpAccountKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
+		func(g GroupPolicyVaultAccount) gpRoleKey {
+			return gpRoleKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
 		},
-		func(k gpAccountKey) GroupPolicyVaultAccount {
+		func(k gpRoleKey) GroupPolicyVaultAccount {
 			id := k.GroupPolicyID
 			return GroupPolicyVaultAccount{GroupPolicyID: &id, Role: k.Role}
 		},
@@ -84,10 +81,10 @@ func DiffGPAccountLists(planList []GroupPolicyVaultAccount, stateList []GroupPol
 
 func DiffGPAccountGroupLists(planList []GroupPolicyVaultAccountGroup, stateList []GroupPolicyVaultAccountGroup) (mapset.Set[GroupPolicyVaultAccountGroup], mapset.Set[GroupPolicyVaultAccountGroup], mapset.Set[GroupPolicyVaultAccountGroup]) {
 	return DiffGPLists(planList, stateList,
-		func(g GroupPolicyVaultAccountGroup) gpAccountGroupKey {
-			return gpAccountGroupKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
+		func(g GroupPolicyVaultAccountGroup) gpRoleKey {
+			return gpRoleKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
 		},
-		func(k gpAccountGroupKey) GroupPolicyVaultAccountGroup {
+		func(k gpRoleKey) GroupPolicyVaultAccountGroup {
 			id := k.GroupPolicyID
 			return GroupPolicyVaultAccountGroup{GroupPolicyID: &id, Role: k.Role}
 		},
