@@ -103,6 +103,18 @@ type WebJump struct {
 	SessionPolicyID       types.Int64  `tfsdk:"session_policy_id"`
 }
 
+// UsernameFormatDescription documents web_jump's username_format attribute.
+// It lives in the schema rather than being injected from the OpenAPI specs like
+// most field docs, because username_format has no `description` key in either
+// spec (it is a bare enum). openapi.go leaves a field's generated line alone
+// when it finds no spec description, so this text survives `go generate ./...`.
+const UsernameFormatDescription = "One of the following:\n" +
+	"  * default\n" +
+	"  * username_only\n" +
+	"  * force_upn_format\n" +
+	"  * force_dlln_format\n" +
+	" _This field only applies to PRA_"
+
 type JumpClientInstaller struct {
 	ID                             types.String `tfsdk:"id"`
 	JumpGroupID                    types.Int64  `tfsdk:"jump_group_id"`
