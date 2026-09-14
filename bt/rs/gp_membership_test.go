@@ -221,6 +221,13 @@ func TestReadGPMemberships_RefreshesAndDropsRemoved(t *testing.T) {
 	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
 	assert.False(t, out.IsNull())
 	assert.Equal(t, 1, len(out.Elements()), "gp 7 is kept; gp 8 (reported absent) is dropped")
+
+	var refreshed []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &refreshed, false).HasError())
+	if assert.Len(t, refreshed, 1) {
+		assert.Equal(t, "7", *refreshed[0].GroupPolicyID)
+		assert.Equal(t, 3, refreshed[0].JumpItemRoleID, "the refreshed jump_item_role_id (3) must land in state, not state's original (0)")
+	}
 }
 
 // CreateGPMemberships writes the created memberships (with the plan's group

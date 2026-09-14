@@ -11,6 +11,10 @@
 - `sra_network_tunnel_jump`: the provider no longer crashes when `filter_rules` is null, empty, or malformed.
 - `sra_jump_group` / `sra_jumpoint`: removing all `group_policy_memberships` now applies cleanly instead of erroring with an inconsistent-result; group policy membership refresh now works and detects drift.
 - API layer hardening: removed unsafe pointer usage and panics from the model transforms (no more provider crashes on unexpected types), moved product state onto the client (concurrency-safe), and checked previously-ignored ID-parse errors.
+- `sra_vault_account_group`: errors reading the `jump_item_association` sub-resource are no longer silently swallowed; a read failure now raises a diagnostic instead of leaving stale state with no signal.
+- `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: an association-less account no longer has an empty `jump_item_association` fabricated into state on a transient API error.
+- Group policy membership refresh no longer reports a confusing "cannot unmarshal object" error when the API response is genuinely malformed; the real decode error is now surfaced.
+- Fixed a goroutine and read-lock leak on every group policy membership create/update/delete operation that returned an error mid-loop.
 
 ### Chore / Deps
 - Bump terraform-plugin-framework to 1.15.x and validators to 0.18.x.
