@@ -268,9 +268,28 @@ func CopyTFtoAPI(ctx context.Context, tfObj reflect.Value, apiObj reflect.Value,
 // types.List of these objects. It is defined once so every branch that must
 // produce a FilterRules value (including the null/empty/error cases) uses the
 // same element type — assigning any non-List value into the field panics.
-// This is a package-level value (not rebuilt per call), so its AttrTypes map
-// is shared across concurrent resource operations; every use of it here is
-// read-only, and it must stay that way.
+// NEVER WRITE TO THIS VALUE'S AttrTypes MAP.
+//
+// This is a package-level value rather than a per-call constructor, so the one
+// AttrTypes map below is shared by every caller. Terraform core runs resource
+// operations concurrently (-parallelism defaults to 10) and each one reaches
+// CopyAPItoTF, so concurrent reads are routine and safe. A single concurrent
+// write is not: Go detects it as "concurrent map read and map write" and
+// aborts the provider process mid-apply, surfacing to the practitioner as
+// "Plugin did not respond" — worst case after appliance state has already been
+// mutated, leaving Terraform with no record of what landed.
+//
+// The tempting change is a product-conditional attribute, e.g.
+//
+//	filterRulesObjectType.AttrTypes["some_pra_only_field"] = ...
+//
+// in an init() or lazily inside CopyAPItoTF. This file already branches PRA vs
+// RS on sraproduct tags, so that reads as the obvious next edit — it is one
+// line, it looks harmless against a package var, and it is not. Same for
+// delete() on the map or maps.Copy into it.
+//
+// If a caller ever genuinely needs a different shape, build a separate
+// ObjectType for it; do not mutate this one.
 var filterRulesObjectType = types.ObjectType{
 	AttrTypes: map[string]attr.Type{
 		"ip_addresses": types.ObjectType{
