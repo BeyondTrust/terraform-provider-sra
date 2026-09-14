@@ -90,6 +90,57 @@ func TestUpdateAccountJIA_DeleteTransition(t *testing.T) {
 
 	assert.False(t, diags.HasError())
 	assert.Equal(t, 1, deleted, "removing the association from the plan should issue a DELETE")
+
+	// The delete branch must write the empty association, not echo anything
+	// back (there is nothing to echo — the plan is gone). This guards against
+	// a future refactor routing the delete branch through the same
+	// createdOrSent resolution the create branch uses just below.
+	var tfObj types.Object
+	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.False(t, tfObj.IsNull(), "the delete transition should clear to an empty association, not remove it")
+
+	var apiSub api.AccountJumpItemAssociation
+	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+	assert.False(t, d.HasError())
+	assert.Equal(t, "", apiSub.FilterType, "a deleted association must clear filter_type, not carry over any prior value")
+}
+
+// The update-path CREATE branch (state absent, plan present) has the same
+// 204-zero-value hazard as CreateAccountJIA: api.CreateItem returns (nil, nil)
+// on a 204 No Content, and the association WAS created. This must resolve to
+// the echoed plan value, not a zero-value association — distinct from the
+// DELETE branch immediately above, which must NOT echo anything.
+func TestUpdateAccountJIA_CreatePath204NoContentTolerated(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		return false
+	})
+
+	sch := jiaTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: jiaRaw(true)}    // association added
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(false)} // association absent
+	respState := tfsdk.State{Schema: sch, Raw: jiaRaw(false)}
+	var diags diag.Diagnostics
+
+	UpdateAccountJIA(ctx, client, plan, state, &respState, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+
+	var tfObj types.Object
+	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.False(t, tfObj.IsNull(), "a 204 on create must still leave the association present, not dropped")
+
+	var apiSub api.AccountJumpItemAssociation
+	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+	assert.False(t, d.HasError())
+	assert.Equal(t, "any_jump_items", apiSub.FilterType, "a 204 on create must echo the planned filter_type, not a zero-value fallback")
 }
 
 // Both plan and state absent is a no-op: no API calls, no error.

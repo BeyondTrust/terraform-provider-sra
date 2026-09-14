@@ -69,15 +69,13 @@ func CreateAccountJIA(
 	// writing a zero-value association — that would put filter_type: "" into
 	// state, a value the attribute's own contract forbids (Required +
 	// stringvalidator.OneOf at api_resource.go), and fail the apply with an
-	// inconsistent-result error. Mirrors createdOrSent (gp_membership.go).
-	if item == nil {
-		item = &apiSub
-	}
-	rb, _ := json.Marshal(item)
+	// inconsistent-result error.
+	result := createdOrSent(item, apiSub)
+	rb, _ := json.Marshal(result)
 	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
 		"data": string(rb),
 	})
-	d = state.SetAttribute(ctx, path.Root("jump_item_association"), item)
+	d = state.SetAttribute(ctx, path.Root("jump_item_association"), result)
 	diags.Append(d...)
 	if diags.HasError() {
 		return
@@ -223,6 +221,16 @@ func UpdateAccountJIA(
 	} else if stateIsGone {
 		tflog.Trace(ctx, fmt.Sprintf("🦠 Creating item %+v", apiSub))
 		item, err = api.CreateItem(client, apiSub)
+		// CreateItem returns (nil, nil) on a 204 No Content: the association
+		// WAS created, there is simply no body. Resolve it to the echoed
+		// request here so the item != nil branch below always has a populated
+		// association to write — writing a zero value would put
+		// filter_type: "" into state, which the attribute's own contract
+		// forbids (Required + stringvalidator.OneOf, api_resource.go).
+		if err == nil {
+			resolved := createdOrSent(item, apiSub)
+			item = &resolved
+		}
 	} else {
 		tflog.Trace(ctx, fmt.Sprintf("🦠 Updating item %+v", apiSub))
 		item, err = api.UpdateItemEndpoint(client, apiSub, apiSub.Endpoint())
@@ -244,6 +252,11 @@ func UpdateAccountJIA(
 		})
 		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), item)
 	} else {
+		// item is nil here only via the delete branch above (!stateIsGone &&
+		// planIsGone) — the create branch now always resolves item to a
+		// non-nil value before reaching this point. Do not "unify" the two:
+		// the association was just deleted from the appliance, so state must
+		// reflect its absence, not echo the request back into existence.
 		var empty api.AccountJumpItemAssociation
 		tflog.Trace(ctx, fmt.Sprintf("🦠 Setting empty item in plan %+v", empty))
 		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
