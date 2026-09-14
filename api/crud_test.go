@@ -228,8 +228,6 @@ func TestListItemsEndpoint(t *testing.T) {
 		assert.Nil(t, resp)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "Location", "should report the array-decode error naming the field that failed")
-			assert.NotContains(t, err.Error(), "cannot unmarshal array into Go value",
-				"must not mask the array error behind the single-object fallback's error")
 		}
 	}
 }

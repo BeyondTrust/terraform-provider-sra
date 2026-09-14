@@ -53,9 +53,16 @@ var (
 )
 
 func gpMember(gpID string) tftypes.Value {
+	return gpMemberWithRole(gpID, 0)
+}
+
+// gpMemberWithRole is gpMember with an explicit jump_item_role_id, so a test
+// can tell "the planned value was echoed" apart from "a zero-value fallback
+// happened to also read 0".
+func gpMemberWithRole(gpID string, roleID int64) tftypes.Value {
 	return tftypes.NewValue(gpMemberObjType, map[string]tftypes.Value{
 		"group_policy_id":   tftypes.NewValue(tftypes.String, gpID),
-		"jump_item_role_id": tftypes.NewValue(tftypes.Number, big.NewFloat(0)),
+		"jump_item_role_id": tftypes.NewValue(tftypes.Number, big.NewFloat(float64(roleID))),
 		"jump_policy_id":    tftypes.NewValue(tftypes.Number, nil),
 	})
 }
@@ -269,7 +276,10 @@ func TestCreateGPMemberships_204NoContentTolerated(t *testing.T) {
 	})
 
 	sch := gpTestSchema()
-	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7")})}
+	// jump_item_role_id is planned as 5 (never 0) so this test can tell "the
+	// planned value was echoed" apart from "a zero-value T fallback happened
+	// to read back 0".
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMemberWithRole("7", 5)})}
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
 	var diags diag.Diagnostics
 
@@ -284,7 +294,16 @@ func TestCreateGPMemberships_204NoContentTolerated(t *testing.T) {
 	var out types.Set
 	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
 	assert.False(t, out.IsNull())
-	assert.Equal(t, 1, len(out.Elements()), "a 204 must still leave the membership present, not dropped")
+
+	// JumpGroupID is `tfsdk:"-"` (the entity linkage, not part of Terraform
+	// state) so ElementsAs never populates it — assert only the fields the
+	// schema actually round-trips.
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1, "a 204 must still leave the membership present, not dropped") {
+		assert.Equal(t, "7", *stored[0].GroupPolicyID, "the 204'd membership must keep the planned group policy ID")
+		assert.Equal(t, 5, stored[0].JumpItemRoleID, "and the planned jump_item_role_id, not a zero-value fallback")
+	}
 }
 
 // A1: same 204 tolerance, but through UpdateGPMemberships' toAdd loop.
@@ -300,7 +319,10 @@ func TestUpdateGPMemberships_204NoContentTolerated(t *testing.T) {
 	})
 
 	sch := gpTestSchema()
-	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7")})}
+	// jump_item_role_id is planned as 5 (never 0) so this test can tell "the
+	// planned value was echoed" apart from "a zero-value T fallback happened
+	// to read back 0".
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMemberWithRole("7", 5)})}
 	state := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
 	var diags diag.Diagnostics
@@ -316,5 +338,14 @@ func TestUpdateGPMemberships_204NoContentTolerated(t *testing.T) {
 	var out types.Set
 	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
 	assert.False(t, out.IsNull())
-	assert.Equal(t, 1, len(out.Elements()), "a 204 must still leave the membership present, not dropped")
+
+	// JumpGroupID is `tfsdk:"-"` (the entity linkage, not part of Terraform
+	// state) so ElementsAs never populates it — assert only the fields the
+	// schema actually round-trips.
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1, "a 204 must still leave the membership present, not dropped") {
+		assert.Equal(t, "7", *stored[0].GroupPolicyID, "the 204'd membership must keep the planned group policy ID")
+		assert.Equal(t, 5, stored[0].JumpItemRoleID, "and the planned jump_item_role_id, not a zero-value fallback")
+	}
 }
