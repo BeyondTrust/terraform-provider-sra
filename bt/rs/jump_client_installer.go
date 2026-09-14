@@ -45,6 +45,10 @@ func (r *jumpClientInstallerResource) Schema(_ context.Context, _ resource.Schem
 		deleted and recreated in response to any changes to the Terraform configuration, which
 		will invalidate any existing copies of the installer.
 
+		*NOTE*: ` + "`elevate_install`" + `, ` + "`elevate_prompt`" + `, and ` + "`valid_duration`" + ` are not refreshed
+		from the API after creation. Running ` + "`terraform import`" + ` against an existing installer will therefore
+		show a difference on these fields on the next plan, forcing the installer to be destroyed and recreated.
+
 		For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance.
 `,
 		Attributes: jciSchema,

@@ -124,7 +124,13 @@ type JumpClientInstaller struct {
 	AllowOverrideTag               types.Bool   `tfsdk:"allow_override_tag"`
 	AllowOverrideComments          types.Bool   `tfsdk:"allow_override_comments"`
 	AllowOverrideMaxOfflineMinutes types.Bool   `tfsdk:"allow_override_max_offline_minutes"`
-	ValidDuration                  types.Int64  `tfsdk:"valid_duration" sra:"persist_state"`
+	// ValidDuration is request-only: it appears once per spec, inside the
+	// installer POST body (PRA openapi/bt-pra-configuration.openapi.yaml:602,
+	// RS openapi/bt-rs-configuration.openapi.yaml:627), and is absent from the
+	// JumpClientInstaller component schema (PRA :7805) that both the 201 and
+	// the GET return. There is no read response to trust it from, so it keeps
+	// sra:"persist_state" permanently — do not move it to persist_create.
+	ValidDuration types.Int64 `tfsdk:"valid_duration" sra:"persist_state"`
 
 	SessionPolicyID            types.Int64 `tfsdk:"session_policy_id" sraproduct:"pra"`
 	AllowOverrideSessionPolicy types.Bool  `tfsdk:"allow_override_session_policy" sraproduct:"pra"`
