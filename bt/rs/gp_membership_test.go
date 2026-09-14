@@ -194,6 +194,45 @@ func TestUpdateGPMemberships_NoChangePreservesState(t *testing.T) {
 	assert.Equal(t, 1, len(out.Elements()))
 }
 
+// UpdateGPMemberships writes the created memberships (with the plan's group
+// policy ID re-applied) to state via the toAdd loop's with-body path.
+//
+// This must NOT be folded into TestUpdateGPMemberships_204NoContentTolerated:
+// on a 204, createdOrSent(nil, m) returns the plan value m, which already
+// carries GroupPolicyID, so re-applying it there is a no-op that cannot catch
+// a broken setGroupPolicyID. Here the mock returns a body, so
+// api.GroupPolicyJumpGroup's `json:"-"` GroupPolicyID arrives nil from the
+// API and setGroupPolicyID is the only thing that puts it back.
+func TestUpdateGPMemberships_WritesResults(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, nil)
+
+	sch := gpTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7")})}
+	state := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	var diags diag.Diagnostics
+
+	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
+	UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
+		setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+
+	assert.False(t, diags.HasError())
+
+	var out types.Set
+	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
+	assert.False(t, out.IsNull())
+
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1) {
+		if assert.NotNil(t, stored[0].GroupPolicyID, "the plan group policy ID must be re-applied; the response body omits it (json:\"-\")") {
+			assert.Equal(t, "7", *stored[0].GroupPolicyID)
+		}
+	}
+}
+
 // ReadGPMemberships decodes the array the membership endpoint returns, keeps
 // the memberships the API still reports, and drops ones it no longer does.
 func TestReadGPMemberships_RefreshesAndDropsRemoved(t *testing.T) {
@@ -258,7 +297,14 @@ func TestCreateGPMemberships_WritesResults(t *testing.T) {
 	var out types.Set
 	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
 	assert.False(t, out.IsNull())
-	assert.Equal(t, 1, len(out.Elements()))
+
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1) {
+		if assert.NotNil(t, stored[0].GroupPolicyID, "the plan group policy ID must be re-applied; the response body omits it (json:\"-\")") {
+			assert.Equal(t, "7", *stored[0].GroupPolicyID)
+		}
+	}
 }
 
 // A1: CreateItem returns (nil, nil) on a 204 No Content. The membership was
