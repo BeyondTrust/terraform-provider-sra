@@ -22,17 +22,25 @@ so almost nothing was captured. That automation has been removed.
 - `sra_jump_group` / `sra_jumpoint`: removing all `group_policy_memberships` now applies cleanly instead of erroring with an inconsistent-result; group policy membership refresh now works and detects drift.
 - `sra_vault_account_group`: errors reading the `jump_item_association` sub-resource are no longer silently swallowed; a read failure now raises a diagnostic instead of leaving stale state with no signal.
 - `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: an association-less account no longer has an empty `jump_item_association` fabricated into state on a transient API error.
+- `sra_vault_account_group`: Update issued a `POST` to the `jump_item_association` sub-resource whenever state held no association — exactly the case left by a fresh `terraform import` — but the endpoint documents only `GET`/`PATCH`, so the apply failed. Update now always `PATCH`es.
 - Group policy membership refresh no longer reports a confusing "cannot unmarshal object" error when the API response is genuinely malformed; the real decode error is now surfaced.
 - Fixed a goroutine and read-lock leak on every group policy membership operation that returned an error mid-loop.
 - API layer hardening: removed unsafe pointer usage and panics from the model transforms (no more provider crashes on unexpected types), moved product state onto the client (concurrency-safe), and checked previously-ignored ID-parse errors.
-- Provider documentation rendered `\"BT_API_HOST\"` with literal backslashes, and `web_jump`'s `username_format` lost its list of accepted values whenever docs were regenerated. Both are fixed at the schema, so `go generate ./...` is now lossless.
+- Provider documentation rendered `\"BT_API_HOST\"` with literal backslashes, and `web_jump`'s `username_format` lost its list of accepted values whenever docs were regenerated. Both are fixed at the schema, so `go generate ./...` is now lossless (the index page's frontmatter summary renders as flat text under tfplugindocs 0.24; the page body is unaffected).
+- `sra_postgresql_tunnel_jump`: documentation was published under a filename that did not resolve on the Terraform Registry.
+- `sra_protocol_tunnel_jump`: corrected a `useranme` typo in the usage example.
 
 ### Known issues
 
 - `terraform import` of `sra_jump_client_installer` forces a destroy/recreate on the next plan. `elevate_install`, `elevate_prompt` and `valid_duration` are not refreshed from the API — the create response does not echo the first two, and `valid_duration` is request-only and never returned — so imported state holds no value for them and the next plan sees a difference on attributes that require replacement. Recreating an installer invalidates any copies already distributed.
 
+### Changed
+
+- Raised the minimum Go version needed to build the provider from source to 1.26.0 (previously 1.23.7 with a 1.24.1 toolchain pin).
+
 ### Dependencies
 
+- Bump terraform-plugin-framework to 1.19.0, terraform-plugin-framework-validators to 0.19.0, terraform-plugin-log to 0.10.0, and terraform-plugin-go to 0.31.0.
 - Bump terratest to 1.0.x, terraform-plugin-docs to 0.24.x, pgx to 5.9.x, deckarep/golang-set to 2.9.x and spdystream to 0.5.1.
 - Promote `terraform-plugin-go` to a direct dependency (used by the new helper unit tests).
 

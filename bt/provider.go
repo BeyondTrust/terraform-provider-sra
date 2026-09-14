@@ -40,6 +40,13 @@ func (p *sraProvider) Metadata(_ context.Context, _ provider.MetadataRequest, re
 
 func (p *sraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		// tfplugindocs v0.24 reuses this same MarkdownDescription for the
+		// Registry page's frontmatter `description:` summary, but flattens it
+		// to plain text: the Markdown heading/list syntax is stripped and the
+		// "Use Cases" bullets collapse onto one run-on line. That affects only
+		// the frontmatter summary — `go generate ./...` still reproduces this
+		// string faithfully as docs/index.md's page body. Don't "fix" the
+		// bullets below on account of how the frontmatter renders.
 		MarkdownDescription: `
 # BeyondTrust SRA Terraform Provider
 
