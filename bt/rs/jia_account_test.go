@@ -361,3 +361,53 @@ func TestAccountJIA_OutOfBandDeletionRecreatesWithPOST(t *testing.T) {
 	assert.False(t, d.HasError())
 	assert.False(t, tfObj.IsNull(), "the re-created association must be back in state")
 }
+
+// jiaRawUnknown is the plan shape Terraform produces when a configuration drops
+// the jump_item_association block: the attribute is Optional + Computed, so core
+// copies the prior state value into the proposed new state and the framework
+// then marks it unknown.
+func jiaRawUnknown() tftypes.Value {
+	return tftypes.NewValue(jiaSchemaType, map[string]tftypes.Value{
+		"jump_item_association": tftypes.NewValue(jiaInnerType, tftypes.UnknownValue),
+	})
+}
+
+// Removing a jump_item_association block from configuration must DELETE, and the
+// planned value that expresses the removal is unknown rather than null.
+//
+// This pins the IsUnknown() half of planIsGone, which nothing else does — every
+// other test here reaches the delete arm through a null plan, so dropping
+// IsUnknown() leaves them all green. Without the fold, an unknown falls into the
+// !planIsGone branch, tfObj.As runs with UnhandledUnknownAsEmpty, and the
+// provider PATCHes filter_type: "" — reintroducing the value this whole change
+// exists to keep out.
+func TestUpdateAccountJIA_UnknownPlanIsARemoval(t *testing.T) {
+	ctx := context.Background()
+
+	var methods []string
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if !strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			return false
+		}
+		methods = append(methods, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	})
+
+	sch := jiaTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: jiaRawUnknown()}
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(true)}
+	respState := tfsdk.State{Schema: sch, Raw: jiaRaw(true)}
+	var diags diag.Diagnostics
+
+	UpdateAccountJIA(ctx, client, plan, state, &respState, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+	assert.Equal(t, []string{http.MethodDelete}, methods,
+		"an unknown planned association means the block was removed, so it must DELETE and nothing else")
+
+	var tfObj types.Object
+	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.True(t, tfObj.IsNull(), "and the removal must leave state absent, not unknown or empty")
+}
