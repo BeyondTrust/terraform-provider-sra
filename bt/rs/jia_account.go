@@ -117,10 +117,16 @@ func ReadAccountJIA(
 
 	if err != nil {
 		if api.IsNotFound(err) {
-			// The association is gone (e.g. deleted out-of-band). Write an
-			// empty association rather than erroring.
-			var empty api.AccountJumpItemAssociation
-			d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+			// No association: either it was deleted out of band, or the account
+			// never had one (this GET 404s in both cases — measured).
+			//
+			// Write a null object, not a zero-value struct. A zero-value struct
+			// serialises to filter_type: "", which is outside the set the
+			// attribute declares, and which UpdateAccountJIA's stateIsGone check
+			// (IsNull || IsUnknown) does not recognise as absence. Null is how the
+			// create path already represents this, one function above.
+			d = respState.SetAttribute(ctx, path.Root("jump_item_association"),
+				types.ObjectNull(tfObj.AttributeTypes(ctx)))
 			diags.Append(d...)
 			return
 		}
