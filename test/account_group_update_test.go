@@ -2,10 +2,14 @@ package test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
+
+	"terraform-provider-sra/api"
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,7 +54,7 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 		terraform.Destroy(t, test_structure.LoadTerraformOptions(t, testFolder))
 	})
 
-	var groupPolicyID string
+	var groupPolicyID, accountGroupID string
 
 	test_structure.RunTestStage(t, "setup", func() {
 		terraformOptions := withMembership(t, true)
@@ -58,12 +62,17 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 
 		groupPolicyID = terraform.OutputMap(t, terraformOptions, "gp")["id"]
 		require.NotEmpty(t, groupPolicyID, "could not read the group policy id from outputs")
+
+		accountGroupID = terraform.OutputMap(t, terraformOptions, "group")["id"]
+		require.NotEmpty(t, accountGroupID, "could not read the account group id from outputs")
 	})
 
 	test_structure.RunTestStage(t, "Membership is present after the initial apply", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		assertSoleMembership(t, extractJson(t, terraformOptions, "group"), groupPolicyID,
 			"the account group should start with one membership")
+		assert.True(t, membershipLiveOnAppliance(t, groupPolicyID, accountGroupID),
+			"the membership should exist on the appliance, not just in state")
 	})
 
 	test_structure.RunTestStage(t, "Removing the last membership writes null, not an empty set", func() {
@@ -74,6 +83,9 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 		terraform.Apply(t, terraformOptions)
 
 		assertNoGPMembership(t, extractJson(t, terraformOptions, "group"))
+		assert.False(t, membershipLiveOnAppliance(t, groupPolicyID, accountGroupID),
+			"the membership is gone from state but still live on the appliance — "+
+				"the remove path recorded the removal without performing it")
 
 		// And the removal must be genuinely clean: re-planning the same config
 		// must produce no diff. An empty-vs-null mismatch that somehow survived
@@ -88,5 +100,33 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 
 		assertSoleMembership(t, extractJson(t, terraformOptions, "group"), groupPolicyID,
 			"the membership should have been re-created")
+		assert.True(t, membershipLiveOnAppliance(t, groupPolicyID, accountGroupID),
+			"the membership should have been re-created on the appliance, not just in state")
 	})
+}
+
+// membershipLiveOnAppliance asks the appliance directly whether the group policy
+// membership still exists, bypassing Terraform state entirely.
+//
+// This is the difference between testing that the provider RECORDED a removal and
+// testing that it PERFORMED one. After step 2 the state attribute is null, and
+// ReadGPMemberships returns early on a null attribute (bt/rs/gp_membership.go:141),
+// so a refresh never queries this endpoint -- meaning a regression where
+// UpdateGPMemberships writes types.SetNull correctly but skips or swallows its
+// DeleteItem calls would leave the membership live and still show a clean plan.
+func membershipLiveOnAppliance(t *testing.T, groupPolicyID, accountGroupID string) bool {
+	t.Helper()
+
+	id, err := strconv.Atoi(accountGroupID)
+	require.NoError(t, err, "unusable account group id %q", accountGroupID)
+
+	endpoint := fmt.Sprintf("group-policy/%s/vault-account-group/%d", groupPolicyID, id)
+	items, err := api.ListItemsEndpoint[api.GroupPolicyVaultAccountGroup](freshClient(t), endpoint)
+	if api.IsNotFound(err) {
+		// Object-returning endpoints 404 for a removed membership; array-returning
+		// ones answer with an empty list. Both mean "gone".
+		return false
+	}
+	require.NoError(t, err, "could not read memberships for account group %d from the appliance", id)
+	return len(items) > 0
 }
