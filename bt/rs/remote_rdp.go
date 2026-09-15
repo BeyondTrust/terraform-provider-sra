@@ -164,6 +164,9 @@ func (r *remoteRDPResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
+	if r.ApiClient == nil {
+		return
+	}
 	var plan models.RemoteRDP
 	diags := req.Plan.Get(ctx, &plan)
 	tflog.Debug(ctx, "Read plan")

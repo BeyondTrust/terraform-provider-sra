@@ -103,6 +103,18 @@ type WebJump struct {
 	SessionPolicyID       types.Int64  `tfsdk:"session_policy_id"`
 }
 
+// UsernameFormatDescription documents web_jump's username_format attribute.
+// It lives in the schema rather than being injected from the OpenAPI specs like
+// most field docs, because username_format has no `description` key in either
+// spec (it is a bare enum). openapi.go leaves a field's generated line alone
+// when it finds no spec description, so this text survives `go generate ./...`.
+const UsernameFormatDescription = "One of the following:\n" +
+	"  * default\n" +
+	"  * username_only\n" +
+	"  * force_upn_format\n" +
+	"  * force_dlln_format\n" +
+	" _This field only applies to PRA_"
+
 type JumpClientInstaller struct {
 	ID                             types.String `tfsdk:"id"`
 	JumpGroupID                    types.Int64  `tfsdk:"jump_group_id"`
@@ -124,7 +136,13 @@ type JumpClientInstaller struct {
 	AllowOverrideTag               types.Bool   `tfsdk:"allow_override_tag"`
 	AllowOverrideComments          types.Bool   `tfsdk:"allow_override_comments"`
 	AllowOverrideMaxOfflineMinutes types.Bool   `tfsdk:"allow_override_max_offline_minutes"`
-	ValidDuration                  types.Int64  `tfsdk:"valid_duration" sra:"persist_state"`
+	// ValidDuration is request-only: it appears once per spec, inside the
+	// installer POST body (PRA openapi/bt-pra-configuration.openapi.yaml:602,
+	// RS openapi/bt-rs-configuration.openapi.yaml:627), and is absent from the
+	// JumpClientInstaller component schema (PRA :7805) that both the 201 and
+	// the GET return. There is no read response to trust it from, so it keeps
+	// sra:"persist_state" permanently — do not move it to persist_create.
+	ValidDuration types.Int64 `tfsdk:"valid_duration" sra:"persist_state"`
 
 	SessionPolicyID            types.Int64 `tfsdk:"session_policy_id" sraproduct:"pra"`
 	AllowOverrideSessionPolicy types.Bool  `tfsdk:"allow_override_session_policy" sraproduct:"pra"`

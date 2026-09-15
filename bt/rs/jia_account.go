@@ -64,19 +64,18 @@ func CreateAccountJIA(
 		return
 	}
 
-	// CreateItem returns (nil, nil) on a 204 No Content. Guard against writing a
-	// nil association into state (which would produce an inconsistent-result
-	// error) by falling back to an empty association, mirroring UpdateAccountJIA.
-	if item != nil {
-		rb, _ := json.Marshal(item)
-		tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
-		d = state.SetAttribute(ctx, path.Root("jump_item_association"), item)
-	} else {
-		var empty api.AccountJumpItemAssociation
-		d = state.SetAttribute(ctx, path.Root("jump_item_association"), empty)
-	}
+	// CreateItem returns (nil, nil) on a 204 No Content: the association WAS
+	// created, there is simply no body. Echo the accepted request rather than
+	// writing a zero-value association — that would put filter_type: "" into
+	// state, a value the attribute's own contract forbids (Required +
+	// stringvalidator.OneOf at api_resource.go), and fail the apply with an
+	// inconsistent-result error.
+	result := createdOrSent(item, apiSub)
+	rb, _ := json.Marshal(result)
+	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
+		"data": string(rb),
+	})
+	d = state.SetAttribute(ctx, path.Root("jump_item_association"), result)
 	diags.Append(d...)
 	if diags.HasError() {
 		return
@@ -120,17 +119,32 @@ func ReadAccountJIA(
 
 	item, err := api.GetItemEndpoint[api.AccountJumpItemAssociation](client, apiSub.Endpoint())
 
-	var empty api.AccountJumpItemAssociation
-	if item == nil && (planIsGone || apiSub.FilterType == "") {
-		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
-		diags.Append(d...)
-		if diags.HasError() {
+	if err != nil {
+		if api.IsNotFound(err) {
+			// The association is gone (e.g. deleted out-of-band). Write an
+			// empty association rather than erroring.
+			var empty api.AccountJumpItemAssociation
+			d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+			diags.Append(d...)
 			return
 		}
-		return
-	}
-
-	if err != nil {
+		if planIsGone || apiSub.FilterType == "" {
+			// Documented tolerance, not an oversight: per the spec, this GET
+			// "cannot be used if the Account or Secret is inheriting Jump Item
+			// association criteria from its Account Group"
+			// (openapi/bt-pra-configuration.openapi.yaml:4596-4610), and the
+			// spec does not say what it returns in that case. planIsGone is
+			// exactly the inherit case. FilterType == "" additionally covers
+			// state already corrupted by the pre-fix bug (which wrote a
+			// zero-value association on any error); tolerating it here lets
+			// that state heal on the next successful read instead of hard-
+			// failing every refresh for the users it already hurt.
+			tflog.Debug(ctx, "🙀 Tolerating error reading account jump item association", map[string]interface{}{
+				"planIsGone": planIsGone,
+				"error":      err.Error(),
+			})
+			return
+		}
 		diags.AddError(
 			"Error reading item",
 			"Unexpected reading item ID ["+strconv.Itoa(accountID)+"]: "+err.Error(),
@@ -207,6 +221,16 @@ func UpdateAccountJIA(
 	} else if stateIsGone {
 		tflog.Trace(ctx, fmt.Sprintf("🦠 Creating item %+v", apiSub))
 		item, err = api.CreateItem(client, apiSub)
+		// CreateItem returns (nil, nil) on a 204 No Content: the association
+		// WAS created, there is simply no body. Resolve it to the echoed
+		// request here so the item != nil branch below always has a populated
+		// association to write — writing a zero value would put
+		// filter_type: "" into state, which the attribute's own contract
+		// forbids (Required + stringvalidator.OneOf, api_resource.go).
+		if err == nil {
+			resolved := createdOrSent(item, apiSub)
+			item = &resolved
+		}
 	} else {
 		tflog.Trace(ctx, fmt.Sprintf("🦠 Updating item %+v", apiSub))
 		item, err = api.UpdateItemEndpoint(client, apiSub, apiSub.Endpoint())
@@ -228,6 +252,11 @@ func UpdateAccountJIA(
 		})
 		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), item)
 	} else {
+		// item is nil here only via the delete branch above (!stateIsGone &&
+		// planIsGone) — the create branch now always resolves item to a
+		// non-nil value before reaching this point. Do not "unify" the two:
+		// the association was just deleted from the appliance, so state must
+		// reflect its absence, not echo the request back into existence.
 		var empty api.AccountJumpItemAssociation
 		tflog.Trace(ctx, fmt.Sprintf("🦠 Setting empty item in plan %+v", empty))
 		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
