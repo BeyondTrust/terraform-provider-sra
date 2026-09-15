@@ -1,10 +1,12 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"terraform-provider-sra/api"
@@ -19,6 +21,10 @@ import (
 // re-import failed and left it detached.
 type importGuard struct {
 	addr string // resource address; also the label in recovery messages
+
+	// randomBits is this run's unique naming marker. The guard refuses to delete
+	// anything that does not carry it -- see the ownership check below.
+	randomBits string
 
 	// orphanID is set ONLY by reimport's error branch. Non-empty means "the
 	// import failed and this id is detached from state", which is the single
@@ -58,11 +64,39 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 			t.Errorf("orphan recovery: %s has unusable id %q — LEAKED on the appliance", g.addr, g.orphanID)
 			return
 		}
-		switch err := api.DeleteItem[I](freshClient(t), &id); {
+
+		c := freshClient(t)
+
+		// Confirm ownership BEFORE deleting. The type parameter I and the address
+		// string are supplied independently by the caller, and DeleteItem derives
+		// its path solely from I.Endpoint() -- so a mis-paired case (say
+		// sra_jump_group's address with api.VaultAccountGroup) would delete a
+		// same-numbered object in a DIFFERENT id namespace, on a shared appliance,
+		// and report success. The same applies if an outputKey were ever pointed at
+		// a datasource rather than a managed resource. Every fixture names its
+		// resources with the run's randomBits, so requiring that marker turns both
+		// mistakes into a loud refusal instead of a silent deletion.
+		item, err := api.GetItem[I](c, &id)
+		switch {
+		case api.IsNotFound(err):
+			return // already gone: destroy reclaimed it, or it was never created
+		case err != nil:
+			t.Errorf("orphan recovery: could not read %s %d to confirm ownership — LEAKED on the appliance: %v", g.addr, id, err)
+			return
+		}
+		blob, err := json.Marshal(item)
+		if err != nil || !strings.Contains(string(blob), g.randomBits) {
+			t.Errorf("orphan recovery REFUSED for %s %d: object does not carry this run's marker %q, so it is not ours to delete. "+
+				"Check the case's API type matches its address. Nothing was deleted; if an object really did leak, remove it by hand.",
+				g.addr, id, g.randomBits)
+			return
+		}
+
+		switch err := api.DeleteItem[I](c, &id); {
 		case err == nil:
 			t.Logf("orphan recovery: reclaimed %s %d", g.addr, id)
 		case api.IsNotFound(err):
-			// Already gone: destroy reclaimed it, or it was never created.
+			// Raced with something else that removed it. Still the desired end state.
 		default:
 			t.Errorf("orphan recovery FAILED for %s %d — LEAKED on the appliance: %v", g.addr, id, err)
 		}
@@ -152,7 +186,7 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 	var id string
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath()))
 
-	guard := &importGuard{addr: "sra_vault_account_group.new_account_group_jia"}
+	guard := &importGuard{addr: "sra_vault_account_group.new_account_group_jia", randomBits: randomBits}
 	guardImportOrphan[api.VaultAccountGroup](t, guard)
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
@@ -265,7 +299,7 @@ func TestImportRoundTrip(t *testing.T) {
 			randomBits := setEnvAndGetRandom(t)
 			testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/%s", productPath(), tc.fixture))
 
-			guard := &importGuard{addr: tc.addr}
+			guard := &importGuard{addr: tc.addr, randomBits: randomBits}
 			tc.guard(t, guard)
 
 			defer test_structure.RunTestStage(t, "teardown", func() {
