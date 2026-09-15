@@ -557,6 +557,11 @@ type GroupPolicyVaultAccountGroup struct {
 // the escape means a path segment stays a single path segment even if that
 // constraint is ever relaxed. http.NewRequest preserves the path verbatim — Go
 // resolves dot-segments only in ResolveReference, never in Parse.
+//
+// PathEscape is not sufficient on its own: it escapes separators but leaves a bare
+// "." or ".." unchanged, since neither needs escaping to be a legal segment. The
+// schema validator is what rejects those. Each layer covers what the other does
+// not, which is why both are here.
 func (a GroupPolicyVaultAccountGroup) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account-group", url.PathEscape(*a.GroupPolicyID))
 }

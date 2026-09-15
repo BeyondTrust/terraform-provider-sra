@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -173,13 +174,10 @@ func TestSensitiveValuePatternsLeaveOtherFieldsAlone(t *testing.T) {
 // tflog pipeline — that MaskLogRegexes accepts them and redacts both the message
 // and structured fields.
 //
-// What this does NOT cover: the production wiring. It builds its own context and
-// applies the mask itself, so deleting the MaskLogRegexes call in bt/provider.go
-// leaves this test green. Driving provider.Configure far enough to assert the
-// returned context carries the mask would need a tfsdk.Config and a live
-// BT_API_HOST, since Configure also constructs an API client — so the wiring is
-// verified by reading it, not by a test. The source-level fixes are the actual
-// remedy; this only shows the backstop's patterns function if reached.
+// This covers the patterns, not the wiring: it builds its own context and applies
+// the mask itself, so deleting the MaskLogRegexes call in bt/provider.go leaves
+// this test green. TestConfigureWiresRedactionIntoTheAPIClient in package bt covers
+// that, and does fail when the call is removed.
 func TestSensitiveValuePatternsWorkThroughTflog(t *testing.T) {
 	var buf bytes.Buffer
 	ctx := tflogtest.RootLogger(context.Background(), &buf)
@@ -197,4 +195,86 @@ func TestSensitiveValuePatternsWorkThroughTflog(t *testing.T) {
 		"the backstop must redact credentials in both messages and structured fields")
 	assert.Contains(t, buf.String(), "someone",
 		"it must not be so broad that ordinary fields disappear")
+}
+
+// TestSensitiveValuePatternsRedactGoStructRendering covers the shape the JSON
+// patterns cannot match, and the shape most likely to come back: fmt rendering a
+// struct. Three of the call sites removed on this branch were exactly this —
+// `%+v` of the item and of the Terraform plan.
+//
+// Password and Token are plain strings so fmt prints their values; PrivateKey and
+// PrivateKeyPassphrase are pointers, which fmt renders as an address, so they
+// cannot leak this way. Both are asserted so the distinction is recorded.
+func TestSensitiveValuePatternsRedactGoStructRendering(t *testing.T) {
+	pass := canary
+
+	for _, tc := range []struct {
+		name  string
+		item  any
+		leaks bool
+		why   string
+	}{
+		{
+			"plain string field", VaultUsernamePasswordAccount{Username: "someone", Password: canary}, true,
+			"Password is a plain string, so %+v prints the value",
+		},
+		{
+			"token field", VaultTokenAccount{Token: canary}, true,
+			"Token is a plain string too",
+		},
+		{
+			"pointer fields", VaultSSHAccount{Username: "someone", PrivateKey: &pass, PrivateKeyPassphrase: &pass}, false,
+			"fmt prints a pointer field as an address, so the value never appears",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendered := fmt.Sprintf("%+v", tc.item)
+			require.Equal(t, tc.leaks, strings.Contains(rendered, canary),
+				"fixture assumption wrong (%s): %s", tc.why, rendered)
+
+			out := redact(rendered)
+			assert.NotContains(t, out, canary, "the struct rendering must be redacted: %s", out)
+		})
+	}
+}
+
+// TestSensitiveValuePatternsDoNotSwallowTheStructTail pins why the struct pattern
+// stops at whitespace or a brace rather than using \S+. A greedy pattern would
+// consume the closing brace and everything fmt renders after it.
+func TestSensitiveValuePatternsDoNotSwallowTheStructTail(t *testing.T) {
+	rendered := fmt.Sprintf("%+v", struct {
+		Password string
+		Keep     string
+	}{canary, "keep-me"})
+
+	out := redact(rendered)
+	assert.NotContains(t, out, canary)
+	assert.Contains(t, out, "keep-me", "a following field must survive redaction: %s", out)
+}
+
+// TestSensitiveGoFieldsExistOnTheModels stops the struct-form patterns drifting
+// away from the structs they describe. A renamed field would leave a pattern
+// matching nothing, silently, and no other test would notice — the redaction tests
+// construct their own fixtures rather than enumerating fields.
+func TestSensitiveGoFieldsExistOnTheModels(t *testing.T) {
+	models := []any{
+		VaultUsernamePasswordAccount{},
+		VaultSSHAccount{},
+		VaultTokenAccount{},
+		VaultSecret{},
+	}
+
+	found := map[string]bool{}
+	for _, m := range models {
+		typ := reflect.TypeOf(m)
+		for i := 0; i < typ.NumField(); i++ {
+			found[typ.Field(i).Name] = true
+		}
+	}
+
+	for _, field := range sensitiveGoFields {
+		assert.True(t, found[field],
+			"%q is in sensitiveGoFields but is not a field on any credential-bearing model — "+
+				"the pattern for it now matches nothing", field)
+	}
 }
