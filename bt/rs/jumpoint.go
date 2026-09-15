@@ -119,6 +119,9 @@ func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
+	if r.ApiClient == nil {
+		return
+	}
 	var plan models.Jumpoint
 	diags := req.Plan.Get(ctx, &plan)
 	tflog.Debug(ctx, "Read plan")
