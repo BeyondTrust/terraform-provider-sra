@@ -8,6 +8,19 @@ on:
 permissions:
   contents: none
 
+# Serialise E2E runs per ref so two pushes to the same PR cannot drive two
+# suites at the same appliance simultaneously.
+#
+# cancel-in-progress is deliberately false. These jobs create real Jump Items,
+# Jump Groups and Vault accounts and rely on terraform destroy to clean up;
+# cancelling mid-apply skips that teardown and strands those resources on the
+# appliance. GitHub still cancels a *pending* run when a newer one queues, so
+# this serialises without letting a backlog build: the in-flight run finishes
+# and tears down, the newest queued run supersedes any older waiting one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build_for_terratest:
     runs-on: ubuntu-latest
