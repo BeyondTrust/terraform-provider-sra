@@ -80,13 +80,9 @@ func TestGroupPolicyIDValidatorIgnoresNullAndUnknown(t *testing.T) {
 	}
 }
 
-// TestLogItemRecordsTypeNotContent guards the generic Read and Update paths.
-//
-// Those handlers previously marshalled the item into a log field. They carry
-// every resource type, including the vault accounts whose payload is the
-// credential — an update builds that struct straight from the plan, so the
-// plaintext password was in it. Create was fixed first and this pair was missed,
-// which is exactly the kind of gap a per-call-site rule leaves behind.
+// TestLogItemRecordsTypeNotContent guards the generic handlers, which carry every
+// resource type and build their item from the Terraform plan. The invariant is
+// that an item's values never reach a log field; only its type does.
 func TestLogItemRecordsTypeNotContent(t *testing.T) {
 	const canary = "c4n4ryPasswordValue"
 

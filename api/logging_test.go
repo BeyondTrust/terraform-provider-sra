@@ -62,11 +62,9 @@ func redact(s string) string {
 	return s
 }
 
-// TestDoRequestDoesNotLogRequestBody is the regression guard for the request path.
-//
-// doRequest used to log the full outbound body. For the vault account resources
-// that body is the credential the provider exists to protect, and this log lands
-// in `TF_LOG=DEBUG` output, which is routinely attached to support tickets.
+// TestDoRequestDoesNotLogRequestBody is the regression guard for the request path:
+// request bodies are not the provider's to write into its log. Debug output is
+// routinely shared, and these bodies carry attribute values.
 func TestDoRequestDoesNotLogRequestBody(t *testing.T) {
 	c, log := newTestClient(t, `{"id":1}`)
 
@@ -277,4 +275,63 @@ func TestSensitiveGoFieldsExistOnTheModels(t *testing.T) {
 			"%q is in sensitiveGoFields but is not a field on any credential-bearing model — "+
 				"the pattern for it now matches nothing", field)
 	}
+
+	// And the other direction, which is the one that actually protects: any field
+	// whose json tag is a known credential key must have its Go name listed, or the
+	// struct-rendered form of that field goes unredacted. Checking only the first
+	// direction would pass while a new credential field went uncovered.
+	listed := map[string]bool{}
+	for _, f := range sensitiveGoFields {
+		listed[f] = true
+	}
+	jsonKeys := map[string]bool{}
+	for _, k := range sensitiveJSONKeys {
+		jsonKeys[k] = true
+	}
+	for _, m := range models {
+		typ := reflect.TypeOf(m)
+		for i := 0; i < typ.NumField(); i++ {
+			f := typ.Field(i)
+			key := strings.Split(f.Tag.Get("json"), ",")[0]
+			if jsonKeys[key] {
+				assert.True(t, listed[f.Name],
+					"%s.%s has credential json tag %q but its Go name is not in sensitiveGoFields, "+
+						"so a %%+v render of it is not redacted", typ.Name(), f.Name, key)
+			}
+		}
+	}
+}
+
+// TestSensitiveValuePatternsRedactQuotedStructValues covers the shape a Terraform
+// plan produces. types.String has a String method, so fmt renders the field as
+// `Password:"secret"` — and a value with spaces inside those quotes truncated the
+// match until the quoted alternative was added.
+func TestSensitiveValuePatternsRedactQuotedStructValues(t *testing.T) {
+	for _, tc := range []struct{ name, in string }{
+		{"value with spaces", `Password:"` + canary + ` with spaces" Keep:x`},
+		{"value with an escaped quote", `Password:"ab\"cd ` + canary + `" Keep:x`},
+		{"unquoted value", `{Username:someone Password:` + canary + ` Keep:x}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := redact(tc.in)
+			assert.NotContains(t, out, canary, "value must not survive: %s", out)
+			assert.Contains(t, out, "Keep:x", "the following field must survive: %s", out)
+		})
+	}
+}
+
+// TestSensitiveValuePatternsCannotRedactPlainV records a limit rather than a
+// behaviour, because it is the limit most likely to be mistaken for coverage.
+//
+// %v omits field names, so there is nothing for a Field: pattern to anchor on and
+// no pattern can ever match. The plan and state call sites removed from
+// bt/rs/api_resource.go used exactly this form. Not logging the struct is the only
+// defence — hence logItem, which takes no format string.
+func TestSensitiveValuePatternsCannotRedactPlainV(t *testing.T) {
+	rendered := fmt.Sprintf("%v", VaultUsernamePasswordAccount{Username: "someone", Password: canary})
+	require.Contains(t, rendered, canary, "fixture assumption: %%v prints the value")
+
+	assert.Contains(t, redact(rendered), canary,
+		"if this ever starts passing, the patterns gained %%v coverage and the scope "+
+			"comment in api/logging.go should be updated to say so")
 }

@@ -373,11 +373,10 @@ func groupPolicyIDValidators() []validator.String {
 
 // logItem records that an item was handled, without recording the item.
 //
-// The generic Read and Update paths carry every resource type, including the
-// vault accounts whose payload is the credential itself — an update marshals the
-// plan straight from configuration, so the plaintext password is in that struct.
-// Logging the type and endpoint keeps the trace useful for following a request
-// through the provider; the body itself is not the provider's to write out.
+// The generic paths carry every resource type, and build their item from the
+// Terraform plan — so the struct holds whatever the configuration set, including
+// write-only attributes. Logging the type keeps the trace useful for following a
+// request through the provider; the values are not the provider's to write out.
 func logItem(ctx context.Context, msg string, item any) {
 	// Type only. Endpoint() is deliberately NOT called here: several
 	// implementations dereference an ID that is not yet populated at the point
