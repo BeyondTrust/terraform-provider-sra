@@ -244,6 +244,42 @@ func TestVaultSSHKey(t *testing.T) {
 		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
 			"an association-less vault account left a perpetual diff")
 	})
+	// Then change an unrelated attribute and apply again. Every other apply in
+	// this suite reloads identical options, so it drives Update with a plan
+	// equal to state -- which never reaches the arm this exercises.
+	//
+	// jump_item_association is Optional + Computed with no default, so for the
+	// five accounts that omit the block the planned value is unknown as soon as
+	// anything else on the resource changes. UpdateAccountJIA has nothing to do
+	// with the appliance in that case, but it must still resolve the unknown
+	// before returning: an unknown left in applied state fails the apply with
+	// "provider returned invalid result object after apply", and it fails AFTER
+	// the account PATCH has already been sent.
+	//
+	// terraform.Apply failing is the assertion. name is Required with no
+	// RequiresReplace, so this updates in place rather than recreating.
+	test_structure.RunTestStage(t, "Changing an unrelated attribute applies cleanly", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Renamed Name",
+			},
+		})
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+
+		// This apply is the assertion: terraform.Apply fails the test on a
+		// provider error, and the failure mode above is exactly that.
+		terraform.Apply(t, terraformOptions)
+
+		// The second settles the list datasource output, which still carries the
+		// pre-rename name and would otherwise exit 2 on "Changes to Outputs" --
+		// the same prerequisite the stage above carries, for the same reason.
+		terraform.Apply(t, terraformOptions)
+
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+			"renaming left a perpetual diff")
+	})
 }
 
 func TestVaultUserPass(t *testing.T) {

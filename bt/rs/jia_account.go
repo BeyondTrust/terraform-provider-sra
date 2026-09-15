@@ -217,6 +217,16 @@ func UpdateAccountJIA(
 	})
 
 	if planIsGone && stateIsGone {
+		// Nothing to do on the appliance, but returning bare is not safe: the
+		// planned value is unknown whenever the config omits the block and any
+		// other attribute changed, and an unknown left in the applied state is
+		// rejected with "provider returned invalid result object after apply"
+		// — after the account PATCH has already been sent. Resolve it to null,
+		// which is what absence is. CreateAccountJIA does the same, for the same
+		// reason, at the top of this file.
+		d = respState.SetAttribute(ctx, path.Root("jump_item_association"),
+			types.ObjectNull(tfObj.AttributeTypes(ctx)))
+		diags.Append(d...)
 		return
 	}
 

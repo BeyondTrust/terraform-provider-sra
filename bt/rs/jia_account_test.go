@@ -410,3 +410,43 @@ func TestUpdateAccountJIA_UnknownPlanIsARemoval(t *testing.T) {
 	assert.False(t, d.HasError())
 	assert.True(t, tfObj.IsNull(), "and the removal must leave state absent, not unknown or empty")
 }
+
+// The no-op arm still has to write. An account whose config omits the block
+// plans that attribute as unknown as soon as any OTHER attribute changes, so
+// this arm runs with plan unknown and state null — and returning without
+// writing leaves the unknown in the applied state, which Terraform rejects with
+// "provider returned invalid result object after apply", after the account PATCH
+// has already gone to the appliance.
+//
+// Measured against a live appliance 2026-09-15: changing only `description` on a
+// vault SSH account with no jump_item_association block reproduced exactly that
+// error. TestUpdateAccountJIA_NoOp covers the plan-null/state-null pair and
+// cannot see this, because a null plan leaves a null behind either way.
+func TestUpdateAccountJIA_NoOpResolvesAnUnknownPlan(t *testing.T) {
+	ctx := context.Background()
+
+	var calls int
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			calls++
+		}
+		return false
+	})
+
+	sch := jiaTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: jiaRawUnknown()} // config omits the block
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(false)} // and there is no association
+	respState := tfsdk.State{Schema: sch, Raw: jiaRawUnknown()}
+	var diags diag.Diagnostics
+
+	UpdateAccountJIA(ctx, client, plan, state, &respState, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+	assert.Equal(t, 0, calls, "there is nothing to create, update or delete")
+
+	var tfObj types.Object
+	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.False(t, tfObj.IsUnknown(), "an unknown left in applied state fails the apply outright")
+	assert.True(t, tfObj.IsNull(), "and the value it resolves to is null, because there is no association")
+}
