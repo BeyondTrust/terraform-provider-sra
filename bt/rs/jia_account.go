@@ -49,9 +49,7 @@ func CreateAccountJIA(
 	}
 
 	apiSub.ID = &accountID
-	tflog.Debug(ctx, fmt.Sprintf("🙀 Creating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-		"data": apiSub,
-	})
+	tflog.Debug(ctx, fmt.Sprintf("🙀 Creating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 	item, err := api.CreateItem(client, apiSub)
 
@@ -108,7 +106,6 @@ func ReadAccountJIA(
 
 	apiSub.ID = &accountID
 	tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-		"data":          apiSub,
 		"planIsNull":    tfObj.IsNull(),
 		"planIsUnknown": tfObj.IsUnknown(),
 	})
@@ -209,7 +206,6 @@ func UpdateAccountJIA(
 
 	apiSub.ID = &accountID
 	tflog.Debug(ctx, fmt.Sprintf("🤷🏻‍♂️ Updating Account Jump Associations with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-		"data":           apiSub,
 		"planIsNull":     tfObj.IsNull(),
 		"planIsUnknown":  tfObj.IsUnknown(),
 		"stateIsNull":    tfStateObj.IsNull(),

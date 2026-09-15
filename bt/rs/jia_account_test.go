@@ -1,6 +1,7 @@
 package rs
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/hashicorp/terraform-plugin-log/tflogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -466,4 +468,76 @@ func TestUpdateAccountJIA_NoOpResolvesAnUnknownPlan(t *testing.T) {
 	assert.False(t, d.HasError())
 	assert.False(t, tfObj.IsUnknown(), "an unknown left in applied state fails the apply outright")
 	assert.True(t, tfObj.IsNull(), "and the value it resolves to is null, because there is no association")
+}
+
+// The association's criteria say which Jump Items a stored credential may be
+// injected into. That is infrastructure scope rather than a secret, but it has
+// no business in a debug log either, and the repo's logging convention is to
+// record the type via logItem rather than the value.
+//
+// Masking cannot be the safety net here: it rides on a context, and a resource
+// handler's context is built per RPC rather than inherited from the one the
+// provider configured. So the only thing keeping scope out of these lines is the
+// call sites not passing it, which is exactly what this test pins.
+//
+// The canary contains no character json.Marshal would escape. A value with a
+// quote or backslash serialises differently from its Go form, so NotContains
+// against the raw string would pass while the value sat in the output escaped.
+func TestAccountJIAHandlersDoNotLogAssociationScope(t *testing.T) {
+	const canary = "c4n4ryJumpItemTagMustNotBeLogged"
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if !strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			return false
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	})
+
+	sch := jiaTestSchema()
+	withTag := tftypes.NewValue(jiaSchemaType, map[string]tftypes.Value{
+		"jump_item_association": tftypes.NewValue(jiaInnerType, map[string]tftypes.Value{
+			"filter_type": tftypes.NewValue(tftypes.String, "criteria"),
+			"criteria": tftypes.NewValue(jiaCriteriaType, map[string]tftypes.Value{
+				"shared_jump_groups": tftypes.NewValue(tftypes.Set{ElementType: tftypes.Number}, nil),
+				"host":               tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, nil),
+				"name":               tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, nil),
+				"tag": tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, []tftypes.Value{
+					tftypes.NewValue(tftypes.String, canary),
+				}),
+				"comment": tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, nil),
+			}),
+			"jump_items": tftypes.NewValue(tftypes.Set{ElementType: jiaJumpItemType}, nil),
+		}),
+	})
+
+	for _, tc := range []struct {
+		name string
+		run  func(ctx context.Context, diags *diag.Diagnostics)
+	}{
+		{"create", func(ctx context.Context, diags *diag.Diagnostics) {
+			state := tfsdk.State{Schema: sch, Raw: withTag}
+			CreateAccountJIA(ctx, client, tfsdk.Plan{Schema: sch, Raw: withTag}, &state, diags, 99)
+		}},
+		{"read", func(ctx context.Context, diags *diag.Diagnostics) {
+			respState := tfsdk.State{Schema: sch, Raw: withTag}
+			ReadAccountJIA(ctx, client, tfsdk.State{Schema: sch, Raw: withTag}, &respState, diags, 99)
+		}},
+		{"update", func(ctx context.Context, diags *diag.Diagnostics) {
+			respState := tfsdk.State{Schema: sch, Raw: withTag}
+			UpdateAccountJIA(ctx, client, tfsdk.Plan{Schema: sch, Raw: withTag},
+				tfsdk.State{Schema: sch, Raw: withTag}, &respState, diags, 99)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			ctx := tflogtest.RootLogger(context.Background(), &buf)
+			var diags diag.Diagnostics
+			tc.run(ctx, &diags)
+
+			require.NotEmpty(t, buf.String(), "nothing was logged, so this would pass vacuously")
+			assert.NotContains(t, buf.String(), canary,
+				"the %s handler logged the association's criteria: %s", tc.name, buf.String())
+		})
+	}
 }
