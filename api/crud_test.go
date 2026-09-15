@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -608,4 +609,54 @@ func TestDeleteItemEndpoint(t *testing.T) {
 		err := DeleteItemEndpoint[testAPIResource](c, "error")
 		assert.Equal(t, "status: 400, body: error", err.Error())
 	}
+}
+
+// IsNotFound decides whether a resource gets dropped from Terraform state, so a
+// false positive silently discards a record of something that still exists.
+//
+// It used to be strings.Contains(err.Error(), "status: 404") against a message
+// that interpolates the response body, so any error whose body mentioned that
+// text answered yes. The appliance returns JSON bodies it does not promise the
+// shape of, and echoes request content in some error paths, so this is reachable
+// rather than theoretical.
+func TestIsNotFoundReadsTheStatusNotTheBody(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"a real 404", &StatusError{Status: http.StatusNotFound, Body: `{"message":"Not Found"}`}, true},
+		{"a 500 whose body quotes a 404", &StatusError{Status: http.StatusInternalServerError,
+			Body: `{"message":"upstream said status: 404, body: gone"}`}, false},
+		{"a 422 echoing a submitted field", &StatusError{Status: http.StatusUnprocessableEntity,
+			Body: `{"errors":{"name":["status: 404 is not a valid name"]}}`}, false},
+		{"a wrapped 404", fmt.Errorf("reading item: %w",
+			&StatusError{Status: http.StatusNotFound, Body: ""}), true},
+		{"a transport error", errors.New("dial tcp: connection refused"), false},
+		{"no error at all", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, IsNotFound(tc.err))
+		})
+	}
+}
+
+// The message is part of the interface: it reaches operators through provider
+// diagnostics, and both the 401 recovery tests and the CRUD error tests assert
+// on its exact text.
+func TestStatusErrorKeepsTheEstablishedMessage(t *testing.T) {
+	err := &StatusError{Status: http.StatusTeapot, Body: "short and stout"}
+	assert.Equal(t, "status: 418, body: short and stout", err.Error())
+	assert.Equal(t, fmt.Sprintf("status: %d, body: %s", http.StatusTeapot, "short and stout"), err.Error(),
+		"the format must stay identical to what fmt.Errorf produced before")
+}
+
+// HasStatus is what lets a caller branch on a code other than 404 — the vault
+// secret data source tolerates a 422 from check-in this way.
+func TestHasStatusMatchesOnlyTheGivenCode(t *testing.T) {
+	err := &StatusError{Status: http.StatusUnprocessableEntity, Body: "cannot check in"}
+	assert.True(t, HasStatus(err, http.StatusUnprocessableEntity))
+	assert.False(t, HasStatus(err, http.StatusNotFound))
+	assert.False(t, HasStatus(errors.New("status: 422, body: not a StatusError"), http.StatusUnprocessableEntity),
+		"a lookalike string must not satisfy a typed check")
 }

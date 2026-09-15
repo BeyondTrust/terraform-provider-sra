@@ -13,12 +13,35 @@ type APIResource interface {
 	Endpoint() string
 }
 
+// StatusError is a non-2xx response from the API.
+//
+// The status code is carried as a field rather than left to be recovered from
+// the message, because the message embeds the response body: a body that happens
+// to contain "status: 404" would otherwise read as a 404, and the branches that
+// ask are the ones that drop a resource from Terraform state.
+//
+// Error() keeps the format the API layer has always produced. Diagnostics
+// surface it to operators verbatim, so the wording is part of the interface.
+type StatusError struct {
+	Status int
+	Body   string
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("status: %d, body: %s", e.Status, e.Body)
+}
+
+// HasStatus reports whether err is an API status error carrying the given code.
+func HasStatus(err error, status int) bool {
+	var statusErr *StatusError
+	return errors.As(err, &statusErr) && statusErr.Status == status
+}
+
 // IsNotFound reports whether err represents a 404 from the API. Callers use it
 // to treat a resource as deleted (e.g. remove it from Terraform state) rather
-// than surfacing a hard error. The API layer returns status errors as plain
-// strings ("status: <code>, body: ..."), so this matches on that shape.
+// than surfacing a hard error.
 func IsNotFound(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "status: 404")
+	return HasStatus(err, http.StatusNotFound)
 }
 
 func Get[I APIResource](c *APIClient) (*I, error) {

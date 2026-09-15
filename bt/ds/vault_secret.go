@@ -3,8 +3,8 @@ package ds
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
-	"strings"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -149,7 +149,7 @@ func (d *vaultSecretDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	_, err = api.Post(d.apiClient, "check-in", *item, true)
 	// If checking it back in isn't allowed… just ignore that
-	if err != nil && !strings.HasPrefix(err.Error(), "status: 422") {
+	if err != nil && !api.HasStatus(err, http.StatusUnprocessableEntity) {
 		resp.Diagnostics.AddError(
 			"Error checking in account",
 			"Error checking in the account with id ID ["+strconv.Itoa(id)+"]. Please ensure the account can be checked in.\n"+err.Error(),
