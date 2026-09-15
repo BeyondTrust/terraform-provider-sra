@@ -287,6 +287,7 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		// delete it. Either the import null-gate was closed (good -- rebuild this
 		// test around a resource that still diffs after import, since this one no
 		// longer exercises Update), or something else made the fixture converge.
+		// The gap itself is documented under "Known issues" in CHANGELOG.md.
 		require.Equal(t, 2, terraform.PlanExitCode(t, terraformOptions),
 			"post-import plan is CLEAN, so the apply below is a no-op and no longer exercises Update. "+
 				"If readJIA's import null-gate was fixed, this test must be rebuilt around a resource "+
@@ -303,8 +304,9 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		// ReadGPMemberships has the equivalent early return on a null state set
 		// (bt/rs/gp_membership.go:141). Both are pre-existing and deliberately out
 		// of scope here -- fixing them changes refresh behaviour for every existing
-		// account group, not just imported ones. TestImportRoundTrip covers the
-		// clean-plan property on resources that do not have this gap.
+		// account group, not just imported ones (documented under "Known issues" in
+		// CHANGELOG.md). TestImportRoundTrip covers the clean-plan property on
+		// resources that do not have this gap.
 		terraform.Apply(t, terraformOptions)
 	})
 

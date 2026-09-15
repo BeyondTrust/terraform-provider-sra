@@ -36,6 +36,12 @@ so almost nothing was captured. That automation has been removed.
 
   Verified against a live appliance on 2026-09-15: an installer created with `elevate_install: true` and `elevate_prompt: true` is returned as `false` for both by the `POST` **and** by a subsequent `GET /jump-client/installer/{id}`, and `valid_duration` is absent from the read response entirely. Because the API never reports the real values, there is no read the provider could trust; the fields are deliberately excluded from refresh instead. Import these resources only if you are prepared for the first apply to replace them.
 
+- `terraform import` of `sra_vault_account_group` does not round-trip: the first plan after import always shows a difference on `jump_item_association` and `group_policy_memberships`, and the first apply rewrites them.
+
+  Both attributes are read back from the API on refresh, but the provider only writes them into state when the pre-refresh value is already non-null (`readJIA` at `bt/rs/vault_account_group.go:263`, and the equivalent early return in `ReadGPMemberships`). After `terraform import`, state holds only `id`, so both stay null while the configuration declares them — and `jump_item_association` additionally carries a non-null schema default. The import itself succeeds and the subsequent apply is not destructive; it PATCHes the association into place.
+
+  Not fixed because the guard is not import-specific: removing it changes refresh behaviour for every existing account group, not just imported ones. Tracked for a future release.
+
 ### Changed
 
 - Raised the minimum Go version needed to build the provider from source to 1.26.0 (previously 1.23.7 with a 1.24.1 toolchain pin).
