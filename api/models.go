@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 )
 
 // Models should be named like ResourceName. This name is mapped to snake_case for the
@@ -549,8 +550,15 @@ type GroupPolicyVaultAccountGroup struct {
 	Role           string  `tfsdk:"role" json:"role"`
 }
 
+// The group policy ID is interpolated into the request path. It is a
+// practitioner-supplied string, so it is escaped here rather than trusted: the
+// schema constrains it to digits (see the group_policy_id validators on the
+// resources that expose it), and PathEscape is a no-op for conforming input, but
+// the escape means a path segment stays a single path segment even if that
+// constraint is ever relaxed. http.NewRequest preserves the path verbatim — Go
+// resolves dot-segments only in ResolveReference, never in Parse.
 func (a GroupPolicyVaultAccountGroup) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/vault-account-group", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/vault-account-group", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyVaultAccount struct {
@@ -560,7 +568,7 @@ type GroupPolicyVaultAccount struct {
 }
 
 func (a GroupPolicyVaultAccount) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/vault-account", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/vault-account", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyProvision struct {
@@ -568,7 +576,7 @@ type GroupPolicyProvision struct {
 }
 
 func (a GroupPolicyProvision) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/provision", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/provision", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyJumpGroup struct {
@@ -579,7 +587,7 @@ type GroupPolicyJumpGroup struct {
 }
 
 func (a GroupPolicyJumpGroup) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/jump-group", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/jump-group", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyJumpoint struct {
@@ -588,7 +596,7 @@ type GroupPolicyJumpoint struct {
 }
 
 func (a GroupPolicyJumpoint) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/jumpoint", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/jumpoint", url.PathEscape(*a.GroupPolicyID))
 }
 
 type MechList struct {

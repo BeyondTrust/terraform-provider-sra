@@ -90,6 +90,7 @@ func (r *vaultUsernamePasswordAccountResource) Schema(_ context.Context, _ resou
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Account is a member of",
+							Validators:  groupPolicyIDValidators(),
 						},
 						"role": schema.StringAttribute{
 							Required: true,
