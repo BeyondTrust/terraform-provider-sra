@@ -395,7 +395,6 @@ func jumpGroupTypeValidator() []validator.String {
 func accountJumpItemAssociationSchema() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		Optional: true,
-		Computed: true,
 		Attributes: map[string]schema.Attribute{
 			"filter_type": schema.StringAttribute{
 				Required: true,

@@ -2,8 +2,11 @@ package test
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
+
+	"terraform-provider-sra/api"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -279,6 +282,73 @@ func TestVaultSSHKey(t *testing.T) {
 
 		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
 			"renaming left a perpetual diff")
+	})
+
+	// An association attached outside Terraform, to an account whose
+	// configuration declares no jump_item_association block, must be ANNOUNCED
+	// in the plan before it is removed.
+	//
+	// The association is what scopes where a stored credential may be injected,
+	// so removing one widens nothing but narrows the operator's visibility of a
+	// real access boundary. Terraform removing it is correct -- the configuration
+	// is the source of truth and it says there is no association -- but doing so
+	// without saying so is not.
+	//
+	// While the attribute was Optional + Computed, this plan rendered as
+	// "jump_item_association = (known after apply)" under "1 to change", and the
+	// association was gone after the apply with nothing having warned. The
+	// attribute is Optional-only now, so the plan renders the removal.
+	//
+	// Runs last: it mutates an account out of band and then converges it, so it
+	// must not run before the assertions above.
+	test_structure.RunTestStage(t, "An out-of-band association is announced before removal", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		accountID, err := strconv.Atoi(terraform.OutputMap(t, terraformOptions, "stand_alone")["id"])
+		require.NoError(t, err, "could not read the stand_alone account id from outputs")
+
+		// A fresh client: the package-level one has been invalidated by the
+		// applies above (see freshClient).
+		// Lower case deliberately: the appliance normalises tag case, so a mixed-case
+		// canary comes back lowered and a naive Contains would miss it.
+		const tag = "outofbandscope"
+		// Every slice here is an empty slice rather than nil, and that is not
+		// belt-and-braces. None of these fields carries omitempty, so a nil slice
+		// marshals to an explicit null and the appliance answers
+		// 422 "This value must be an array." -- separately for jump_items and for
+		// each unset criteria field. Omitting a key entirely is accepted; sending
+		// null is not. The same shape is why the provider cannot currently create
+		// an association with a bare filter_type.
+		_, err = api.CreateItem(freshClient(t), api.AccountJumpItemAssociation{
+			ID:         &accountID,
+			FilterType: "criteria",
+			Criteria: &api.JumpItemAssociationCriteria{
+				Tag:              []string{tag},
+				SharedJumpGroups: []int{},
+				Host:             []string{},
+				Name:             []string{},
+				Comment:          []string{},
+			},
+			JumpItems: []api.InjectableJumpItem{},
+		})
+		require.NoError(t, err, "could not attach an association out of band")
+
+		// -no-color, because Terraform interleaves ANSI escapes between the "-"
+		// and the attribute name: the coloured output contains no literal
+		// "- jump_item_association" to match on.
+		terraformOptions.NoColor = true
+		planOutput := terraform.Plan(t, terraformOptions)
+
+		assert.Contains(t, planOutput, "- jump_item_association",
+			"the plan must show the association being REMOVED, not replaced by an unknown: %s", planOutput)
+		assert.Contains(t, planOutput, tag,
+			"the plan must name the scope it is about to drop, so an operator can see what is lost")
+
+		// And it really is removed, so the fixture converges rather than leaving
+		// residue for the teardown to trip over.
+		terraform.Apply(t, terraformOptions)
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+			"the account should be settled once the out-of-band association is gone")
 	})
 }
 

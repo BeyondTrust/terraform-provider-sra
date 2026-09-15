@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -540,4 +541,57 @@ func TestAccountJIAHandlersDoNotLogAssociationScope(t *testing.T) {
 				"the %s handler logged the association's criteria: %s", tc.name, buf.String())
 		})
 	}
+}
+
+// jump_item_association must be Optional and NOT Computed on the three vault
+// ACCOUNT resources, and Computed on the account GROUP resource.
+//
+// The distinction is not stylistic. Computed tells Terraform the provider will
+// supply a value when the configuration does not, so for a null config the
+// planned value becomes unknown rather than null, and a plan that is in fact
+// removing an association renders it as "(known after apply)" under "1 to
+// change". Measured against a live appliance: an account imported with an
+// association, whose configuration declares no block, had that association
+// deleted by an apply that changed only its description, with nothing in the
+// plan saying so. Without Computed the same plan renders the removal.
+//
+// The account group is the opposite case and keeps Computed: it carries an
+// objectdefault, so it really does supply a value the configuration omits, and
+// the framework rejects a default on a non-computed attribute outright.
+func TestJumpItemAssociationIsComputedOnlyWhereItSuppliesAValue(t *testing.T) {
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name string
+		res  resource.Resource
+	}{
+		{"sra_vault_ssh_account", &vaultSSHAccountResource{}},
+		{"sra_vault_token_account", &vaultTokenAccountResource{}},
+		{"sra_vault_username_password_account", &vaultUsernamePasswordAccountResource{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var resp resource.SchemaResponse
+			tc.res.Schema(ctx, resource.SchemaRequest{}, &resp)
+			require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+
+			attr, ok := resp.Schema.Attributes["jump_item_association"]
+			require.True(t, ok, "attribute missing from the schema")
+
+			assert.True(t, attr.IsOptional(), "must stay settable")
+			assert.False(t, attr.IsComputed(),
+				"Computed here makes a removal plan as (known after apply), so an association "+
+					"is deleted without the plan announcing it")
+		})
+	}
+
+	t.Run("sra_vault_account_group keeps it", func(t *testing.T) {
+		var resp resource.SchemaResponse
+		(&vaultAccountGroupResource{}).Schema(ctx, resource.SchemaRequest{}, &resp)
+		require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+
+		attr, ok := resp.Schema.Attributes["jump_item_association"]
+		require.True(t, ok, "attribute missing from the schema")
+		assert.True(t, attr.IsComputed(),
+			"this resource carries an objectdefault, which the framework requires be Computed")
+	})
 }
