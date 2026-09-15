@@ -16,6 +16,8 @@ so almost nothing was captured. That automation has been removed.
 
 ### Fixed
 
+- The provider now recovers when the appliance stops accepting its API token, instead of failing part-way through an apply. The appliance retains a bounded number of concurrent tokens per set of credentials and evicts the oldest, so a long-running or concurrent workflow — several `terraform` commands under one service account, or parallel workspaces — could have its token invalidated while still in use. That surfaced as a bare `status: 401` diagnostic with nothing to act on, after resources had already been created. The client now re-authenticates once and replays the request; if that also fails the original error is returned, so genuinely bad credentials still fail fast rather than looping.
+- Creating an API client no longer requests two tokens where one is needed, which halves this provider's contribution to the limit described above.
 - Out-of-band deletions are now detected: a resource deleted outside Terraform is recreated on the next apply instead of failing the plan with a `404`.
 - `sra_jump_client_installer`: `elevate_install` / `elevate_prompt` no longer flip to `false` after apply (the create response does not echo them back).
 - `sra_network_tunnel_jump`: the provider no longer crashes when `filter_rules` is null, empty, or malformed.
