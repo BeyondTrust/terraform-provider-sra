@@ -154,7 +154,7 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
 	}
 
-	if res.StatusCode == http.StatusNoContent {
+	if res.StatusCode == http.StatusNoContent || len(bytes.TrimSpace(body)) == 0 {
 		return nil, nil
 	}
 

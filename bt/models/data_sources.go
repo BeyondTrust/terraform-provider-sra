@@ -101,11 +101,12 @@ type GroupPolicy struct {
 	InferiorJumpItemRoleID              types.Int64  `tfsdk:"inferior_jump_item_role_id"`
 	UnassignedJumpItemRoleID            types.Int64  `tfsdk:"unassigned_jump_item_role_id"`
 
-	PermAccessAllowed      types.Bool   `tfsdk:"perm_access_allowed" sraproduct:"pra"`
-	AccessPermStatus       types.String `tfsdk:"access_perm_status" sraproduct:"pra"`
-	PermInviteExternalUser types.Bool   `tfsdk:"perm_invite_external_user" sraproduct:"pra"`
-	PermWebJump            types.Bool   `tfsdk:"perm_web_jump" sraproduct:"pra"`
-	PermProtocolTunnel     types.Bool   `tfsdk:"perm_protocol_tunnel" sraproduct:"pra"`
+	PermAccessAllowed                types.Bool   `tfsdk:"perm_access_allowed" sraproduct:"pra"`
+	AccessPermStatus                 types.String `tfsdk:"access_perm_status" sraproduct:"pra"`
+	PermInviteExternalUser           types.Bool   `tfsdk:"perm_invite_external_user" sraproduct:"pra"`
+	PermWebJump                      types.Bool   `tfsdk:"perm_web_jump" sraproduct:"pra"`
+	PermProtocolTunnel               types.Bool   `tfsdk:"perm_protocol_tunnel" sraproduct:"pra"`
+	PermSdStaticPortForExternalTools types.Bool   `tfsdk:"perm_sd_static_port_for_external_tools" sraproduct:"pra"`
 
 	PermSupportAllowed                 types.String `tfsdk:"perm_support_allowed" sraproduct:"rs"`
 	RepPermStatus                      types.String `tfsdk:"rep_perm_status" sraproduct:"rs"`
@@ -126,6 +127,15 @@ type GroupPolicy struct {
 	PermLocalRDP                       types.Bool   `tfsdk:"perm_local_rdp" sraproduct:"rs"`
 	PermVpro                           types.Bool   `tfsdk:"perm_vpro" sraproduct:"rs"`
 	PermConsoleIdleTimeout             types.Int64  `tfsdk:"perm_console_idle_timeout" sraproduct:"rs"`
+}
+
+type GroupPolicyMember struct {
+	ID                 types.String `tfsdk:"id"`
+	GroupPolicyID      types.String `tfsdk:"group_policy_id"`
+	SecurityProviderID types.Int64  `tfsdk:"security_provider_id"`
+	DistinguishedName  types.String `tfsdk:"distinguished_name"`
+	GroupName          types.String `tfsdk:"group_name"`
+	UserID             types.Int64  `tfsdk:"user_id"`
 }
 
 type JumpPolicy struct {

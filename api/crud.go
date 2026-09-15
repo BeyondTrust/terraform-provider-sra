@@ -128,10 +128,18 @@ func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
 // group-policy/<gp>/jumpoint/<id> returns a single JSON object — so this decodes
 // whichever shape the endpoint returns (a lone object becomes a one-element
 // slice). Returns an empty slice on a 204/no-content response.
-func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error) {
+func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string, query ...map[string]string) ([]I, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(query) > 0 {
+		q := req.URL.Query()
+		for k, v := range query[0] {
+			q.Add(k, v)
+		}
+		req.URL.RawQuery = q.Encode()
 	}
 
 	body, err := c.doRequest(req)

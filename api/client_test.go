@@ -88,6 +88,8 @@ func TestDoRequest(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 				_, err := w.Write([]byte(""))
 				assert.Nil(t, err)
+			} else if strings.HasSuffix(r.URL.Path, "created-empty") {
+				w.WriteHeader(http.StatusCreated)
 			} else if strings.HasSuffix(r.URL.Path, "content") {
 				w.WriteHeader(http.StatusOK)
 				_, err := w.Write([]byte(contentString))
@@ -123,6 +125,14 @@ func TestDoRequest(t *testing.T) {
 
 	{
 		req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.RootURL, "no-content"), nil)
+		assert.Nil(t, err)
+		body, err := c.doRequest(req)
+		assert.Nil(t, body)
+		assert.Nil(t, err)
+	}
+
+	{
+		req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", c.RootURL, "created-empty"), nil)
 		assert.Nil(t, err)
 		body, err := c.doRequest(req)
 		assert.Nil(t, body)
