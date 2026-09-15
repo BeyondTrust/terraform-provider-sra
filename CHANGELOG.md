@@ -32,7 +32,9 @@ so almost nothing was captured. That automation has been removed.
 
 ### Known issues
 
-- `terraform import` of `sra_jump_client_installer` forces a destroy/recreate on the next plan. `elevate_install`, `elevate_prompt` and `valid_duration` are not refreshed from the API — the create response does not echo the first two, and `valid_duration` is request-only and never returned — so imported state holds no value for them and the next plan sees a difference on attributes that require replacement. Recreating an installer invalidates any copies already distributed.
+- `terraform import` of `sra_jump_client_installer` forces a destroy/recreate on the next plan, and this cannot be fixed provider-side. `elevate_install`, `elevate_prompt` and `valid_duration` are never refreshed from the API, so imported state holds no value for them and the next plan sees a difference on attributes that require replacement. Recreating an installer invalidates any copies already distributed.
+
+  Verified against a live appliance on 2026-09-15: an installer created with `elevate_install: true` and `elevate_prompt: true` is returned as `false` for both by the `POST` **and** by a subsequent `GET /jump-client/installer/{id}`, and `valid_duration` is absent from the read response entirely. Because the API never reports the real values, there is no read the provider could trust; the fields are deliberately excluded from refresh instead. Import these resources only if you are prepared for the first apply to replace them.
 
 ### Changed
 

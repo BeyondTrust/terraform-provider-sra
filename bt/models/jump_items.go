@@ -116,17 +116,34 @@ const UsernameFormatDescription = "One of the following:\n" +
 	" _This field only applies to PRA_"
 
 type JumpClientInstaller struct {
-	ID                             types.String `tfsdk:"id"`
-	JumpGroupID                    types.Int64  `tfsdk:"jump_group_id"`
-	Name                           types.String `tfsdk:"name"`
-	Tag                            types.String `tfsdk:"tag"`
-	Comments                       types.String `tfsdk:"comments"`
-	JumpPolicyID                   types.Int64  `tfsdk:"jump_policy_id"`
-	ConnectionType                 types.String `tfsdk:"connection_type"`
-	JumpGroupType                  types.String `tfsdk:"jump_group_type"`
-	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
-	InstallerID                    types.String `tfsdk:"installer_id"`
-	KeyInfo                        types.Object `tfsdk:"key_info"`
+	ID                types.String `tfsdk:"id"`
+	JumpGroupID       types.Int64  `tfsdk:"jump_group_id"`
+	Name              types.String `tfsdk:"name"`
+	Tag               types.String `tfsdk:"tag"`
+	Comments          types.String `tfsdk:"comments"`
+	JumpPolicyID      types.Int64  `tfsdk:"jump_policy_id"`
+	ConnectionType    types.String `tfsdk:"connection_type"`
+	JumpGroupType     types.String `tfsdk:"jump_group_type"`
+	MaxOfflineMinutes types.Int64  `tfsdk:"max_offline_minutes"`
+	InstallerID       types.String `tfsdk:"installer_id"`
+	KeyInfo           types.Object `tfsdk:"key_info"`
+	// ElevateInstall and ElevatePrompt keep sra:"persist_state" permanently.
+	//
+	// Both appear in the JumpClientInstaller component schema (PRA
+	// openapi/bt-pra-configuration.openapi.yaml:7870,:7874) that the create 201
+	// and the GET both $ref, so the contract says they are readable. The
+	// appliance does not honour that. Probed against a live instance on
+	// 2026-09-15: an installer created with both set to true came back false
+	// from the POST response AND from GET /jump-client/installer/{id}.
+	//
+	// So do not "fix" refresh for these by trusting the read. Copying the GET
+	// value into state would write false over the schema's true default on
+	// every refresh, and since jumpClientInstallerResource.ModifyPlan marks
+	// every optional attribute RequiresReplace, that destroys and recreates
+	// every installer sitting at the default on the next plan — invalidating
+	// every already-distributed copy, every cycle. Not refreshing them is the
+	// lesser evil; the resulting terraform import limitation is documented
+	// under Known issues in CHANGELOG.md.
 	ElevateInstall                 types.Bool   `tfsdk:"elevate_install" sra:"persist_state"`
 	ElevatePrompt                  types.Bool   `tfsdk:"elevate_prompt" sra:"persist_state"`
 	ExpirationTimestamp            types.String `tfsdk:"expiration_timestamp"`
