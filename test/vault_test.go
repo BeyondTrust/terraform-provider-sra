@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Jeffail/gabs"
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -218,6 +219,28 @@ func TestVaultSSHKey(t *testing.T) {
 		singleFilter := terraform.OutputMap(t, terraformOptions, "single_filter")
 		assert.Equal(t, base["id"], singleFilter["id"])
 		assert.Equal(t, testPublicKey, singleFilter["public_key"])
+	})
+
+	// Five of the seven accounts in this fixture carry no jump_item_association,
+	// which is the case this stage exists for. The provider has to represent that
+	// absence as a null object: a zero-value struct instead refreshes into state
+	// as filter_type: "", a value no configuration can produce and one the
+	// attribute does not declare, so every later plan proposes a change that
+	// applying cannot settle.
+	//
+	// Nothing else in the suite would notice. terraform.Apply does not fail on a
+	// dirty plan, so the applies above stay green either way -- it takes an
+	// explicit exit-code assertion to see it.
+	//
+	// Both applies above are load-bearing rather than incidental: the list
+	// datasource only resolves on the second, and a plan taken before that
+	// reports "Changes to Outputs" and exits 2 for reasons unrelated to anything
+	// asserted here.
+	test_structure.RunTestStage(t, "Accounts with no jump item association plan clean", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+			"an association-less vault account left a perpetual diff")
 	})
 }
 
