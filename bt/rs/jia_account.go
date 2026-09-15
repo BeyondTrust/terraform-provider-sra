@@ -2,7 +2,6 @@ package rs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"terraform-provider-sra/api"
@@ -71,10 +70,7 @@ func CreateAccountJIA(
 	// stringvalidator.OneOf at api_resource.go), and fail the apply with an
 	// inconsistent-result error.
 	result := createdOrSent(item, apiSub)
-	rb, _ := json.Marshal(result)
-	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+	logItem(ctx, "🙀 got item", result)
 	d = state.SetAttribute(ctx, path.Root("jump_item_association"), result)
 	diags.Append(d...)
 	if diags.HasError() {
@@ -152,10 +148,7 @@ func ReadAccountJIA(
 		return
 	}
 
-	rb, _ := json.Marshal(item)
-	tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+	logItem(ctx, "🙀 got item", item)
 	d = respState.SetAttribute(ctx, path.Root("jump_item_association"), item)
 	diags.Append(d...)
 	if diags.HasError() {
@@ -216,10 +209,10 @@ func UpdateAccountJIA(
 	var item *api.AccountJumpItemAssociation
 	var err error
 	if !stateIsGone && planIsGone {
-		tflog.Trace(ctx, fmt.Sprintf("🦠 Deleting item %+v", apiSub))
+		logItem(ctx, "🦠 Deleting item", apiSub)
 		err = api.DeleteItemEndpoint[api.AccountJumpItemAssociation](client, apiSub.Endpoint())
 	} else if stateIsGone {
-		tflog.Trace(ctx, fmt.Sprintf("🦠 Creating item %+v", apiSub))
+		logItem(ctx, "🦠 Creating item", apiSub)
 		item, err = api.CreateItem(client, apiSub)
 		// CreateItem returns (nil, nil) on a 204 No Content: the association
 		// WAS created, there is simply no body. Resolve it to the echoed
@@ -232,7 +225,7 @@ func UpdateAccountJIA(
 			item = &resolved
 		}
 	} else {
-		tflog.Trace(ctx, fmt.Sprintf("🦠 Updating item %+v", apiSub))
+		logItem(ctx, "🦠 Updating item", apiSub)
 		item, err = api.UpdateItemEndpoint(client, apiSub, apiSub.Endpoint())
 	}
 
@@ -245,11 +238,8 @@ func UpdateAccountJIA(
 	}
 
 	if item != nil {
-		tflog.Trace(ctx, fmt.Sprintf("🦠 Setting item in plan %+v", item))
-		rb, _ := json.Marshal(item)
-		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
+		logItem(ctx, "🦠 Setting item in plan", item)
+		logItem(ctx, "🙀 got item", item)
 		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), item)
 	} else {
 		// item is nil here only via the delete branch above (!stateIsGone &&
@@ -258,7 +248,7 @@ func UpdateAccountJIA(
 		// the association was just deleted from the appliance, so state must
 		// reflect its absence, not echo the request back into existence.
 		var empty api.AccountJumpItemAssociation
-		tflog.Trace(ctx, fmt.Sprintf("🦠 Setting empty item in plan %+v", empty))
+		logItem(ctx, "🦠 Setting empty item in plan", empty)
 		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
 	}
 	diags.Append(d...)

@@ -105,6 +105,7 @@ func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Jumpoint is a member of",
+							Validators:  groupPolicyIDValidators(),
 						},
 					},
 				},

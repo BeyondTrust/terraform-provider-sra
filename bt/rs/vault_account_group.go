@@ -2,7 +2,6 @@ package rs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -112,6 +111,7 @@ func (r *vaultAccountGroupResource) Schema(ctx context.Context, _ resource.Schem
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Account Group is a member of",
+							Validators:  groupPolicyIDValidators(),
 						},
 						"role": schema.StringAttribute{
 							Required: true,
@@ -181,10 +181,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		var item *api.AccountGroupJumpItemAssociation
 		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
-		rb, _ := json.Marshal(item)
-		tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
+		logItem(ctx, "🙀 got item", item)
 
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -261,10 +258,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		}
 
 		if item != nil && !tfObj.IsNull() {
-			rb, _ := json.Marshal(item)
-			tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-				"data": string(rb),
-			})
+			logItem(ctx, "🙀 got item", item)
 
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 			resp.Diagnostics.Append(diags...)
@@ -334,10 +328,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		var item *api.AccountGroupJumpItemAssociation
 		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
-		rb, _ := json.Marshal(item)
-		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
+		logItem(ctx, "🙀 got item", item)
 
 		if err != nil {
 			resp.Diagnostics.AddError(

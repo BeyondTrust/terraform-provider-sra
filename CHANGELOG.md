@@ -30,6 +30,13 @@ so almost nothing was captured. That automation has been removed.
 - `sra_postgresql_tunnel_jump`: documentation was published under a filename that did not resolve on the Terraform Registry.
 - `sra_protocol_tunnel_jump`: corrected a `useranme` typo in the usage example.
 
+### Changed
+
+- Provider debug logging no longer includes API request or response bodies. Log lines now record the method, URL, endpoint and payload size instead of the payload itself, and the plan/state dumps on create, read, update and delete no longer print the resource's attribute values. Debug output is substantially smaller, and no longer contains the values of the attributes being managed. If you were relying on `TF_LOG=DEBUG` to inspect exact request payloads, use the appliance's own API logs.
+- Failed `create` diagnostics no longer echo the request body back in the error message. The error text now carries only the API's own error; diagnostics are shown to the operator regardless of `TF_LOG`.
+- `group_policy_id` is now validated as a numeric ID on every resource that accepts it (`sra_jump_group`, `sra_jumpoint`, `sra_vault_account_group`, `sra_vault_ssh_account`, `sra_vault_token_account`, `sra_vault_username_password_account`). This matches the Configuration API, which types the field as `integer, minimum: 1`. A configuration supplying a non-numeric value now fails at plan time with a clear message rather than building a malformed request path. Values sourced from `data.sra_group_policy_list` — the documented pattern — are unaffected.
+- Raised the minimum Go version needed to build the provider from source to 1.26.0 (previously 1.23.7 with a 1.24.1 toolchain pin).
+
 ### Known issues
 
 - `terraform import` of `sra_jump_client_installer` forces a destroy/recreate on the next plan, and this cannot be fixed provider-side. `elevate_install`, `elevate_prompt` and `valid_duration` are never refreshed from the API, so imported state holds no value for them and the next plan sees a difference on attributes that require replacement. Recreating an installer invalidates any copies already distributed.
@@ -41,10 +48,6 @@ so almost nothing was captured. That automation has been removed.
   Both attributes are read back from the API on refresh, but the provider only writes them into state when the pre-refresh value is already non-null (`readJIA` at `bt/rs/vault_account_group.go:263`, and the equivalent early return in `ReadGPMemberships`). After `terraform import`, state holds only `id`, so both stay null while the configuration declares them — and `jump_item_association` additionally carries a non-null schema default. The import itself succeeds and the subsequent apply is not destructive; it PATCHes the association into place.
 
   Not fixed because the guard is not import-specific: removing it changes refresh behaviour for every existing account group, not just imported ones. Tracked for a future release.
-
-### Changed
-
-- Raised the minimum Go version needed to build the provider from source to 1.26.0 (previously 1.23.7 with a 1.24.1 toolchain pin).
 
 ### Dependencies
 
