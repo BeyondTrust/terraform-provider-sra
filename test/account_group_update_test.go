@@ -54,21 +54,14 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 		terraform.Destroy(t, test_structure.LoadTerraformOptions(t, testFolder))
 	})
 
-	var groupPolicyID, accountGroupID string
-
 	test_structure.RunTestStage(t, "setup", func() {
-		terraformOptions := withMembership(t, true)
-		terraform.InitAndApply(t, terraformOptions)
-
-		groupPolicyID = terraform.OutputMap(t, terraformOptions, "gp")["id"]
-		require.NotEmpty(t, groupPolicyID, "could not read the group policy id from outputs")
-
-		accountGroupID = terraform.OutputMap(t, terraformOptions, "group")["id"]
-		require.NotEmpty(t, accountGroupID, "could not read the account group id from outputs")
+		terraform.InitAndApply(t, withMembership(t, true))
 	})
 
 	test_structure.RunTestStage(t, "Membership is present after the initial apply", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		groupPolicyID, accountGroupID := fixtureIDs(t, terraformOptions)
+
 		assertSoleMembership(t, extractJson(t, terraformOptions, "group"), groupPolicyID,
 			"the account group should start with one membership")
 		assert.True(t, membershipLiveOnAppliance(t, groupPolicyID, accountGroupID),
@@ -81,6 +74,7 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 		// inconsistent with the null plan and this call would fail.
 		terraformOptions := withMembership(t, false)
 		terraform.Apply(t, terraformOptions)
+		groupPolicyID, accountGroupID := fixtureIDs(t, terraformOptions)
 
 		assertNoGPMembership(t, extractJson(t, terraformOptions, "group"))
 		assert.False(t, membershipLiveOnAppliance(t, groupPolicyID, accountGroupID),
@@ -97,12 +91,36 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 	test_structure.RunTestStage(t, "Re-adding the membership restores it", func() {
 		terraformOptions := withMembership(t, true)
 		terraform.Apply(t, terraformOptions)
+		groupPolicyID, accountGroupID := fixtureIDs(t, terraformOptions)
 
 		assertSoleMembership(t, extractJson(t, terraformOptions, "group"), groupPolicyID,
 			"the membership should have been re-created")
 		assert.True(t, membershipLiveOnAppliance(t, groupPolicyID, accountGroupID),
 			"the membership should have been re-created on the appliance, not just in state")
 	})
+}
+
+// fixtureIDs re-reads the group policy and account group ids from outputs.
+//
+// These are deliberately NOT held in cross-stage Go variables. test_structure's
+// SKIP_<stage> workflow lets a developer re-run later stages against cached state
+// (SKIP_setup=true go test -run ...), and a variable produced in a skipped stage
+// stays at its zero value. The damage is not just a nil id: assertSoleMembership
+// would then compare against "" and report "the membership must reference the
+// group policy from the config" -- announcing the exact corruption it exists to
+// detect, for a test that simply did not run its producing stage. Every
+// pre-existing test in this suite re-derives cross-stage values the same way and
+// holds only randomBits.
+func fixtureIDs(t *testing.T, opts *terraform.Options) (groupPolicyID, accountGroupID string) {
+	t.Helper()
+
+	groupPolicyID = terraform.OutputMap(t, opts, "gp")["id"]
+	require.NotEmpty(t, groupPolicyID, "could not read the group policy id from outputs")
+
+	accountGroupID = terraform.OutputMap(t, opts, "group")["id"]
+	require.NotEmpty(t, accountGroupID, "could not read the account group id from outputs")
+
+	return groupPolicyID, accountGroupID
 }
 
 // membershipLiveOnAppliance asks the appliance directly whether the group policy

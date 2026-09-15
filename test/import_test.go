@@ -305,6 +305,14 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 
 		// Guards against a silently destructive apply: the step above would also
 		// "succeed" if it had deleted and recreated the object.
+		// id crosses stages deliberately: this stage compares the pre-import id
+		// against the post-apply one, so it cannot be re-derived here. Guard it
+		// explicitly, because under SKIP_<stage> a value produced in a skipped
+		// stage stays empty and the comparison below would otherwise fail with a
+		// message implying the provider replaced the resource.
+		require.NotEmpty(t, id, "the account group id was never captured — the import stage did not run "+
+			"(SKIP_<stage> set?); this is a harness problem, not a provider one")
+
 		numericID, err := strconv.Atoi(id)
 		require.NoError(t, err)
 		item, err := api.GetItem[api.VaultAccountGroup](freshClient(t), &numericID)
