@@ -1,5 +1,30 @@
 package test
 
+// End-to-end coverage for the two lifecycle phases this suite never entered:
+// `terraform import` (previously zero coverage) and, in
+// account_group_update_test.go, a genuine config-change update.
+//
+// WHAT THIS DOES NOT CATCH -- stated so it is not overestimated later:
+//
+//   - A jump-item-association PATCH that returns 200 echoing the request but does
+//     not persist. Update writes the API *response* into state
+//     (bt/rs/vault_account_group.go:196), and nothing here reads the association
+//     back out of band -- the existence check below fetches the account group, not
+//     .../jump-item-association. State and plan agree, the apply succeeds, and the
+//     appliance is wrong. Closing this needs a direct read of the sub-resource.
+//   - A PATCH writing wrong field values IS caught, but incidentally: by Terraform
+//     core's inconsistent-result check, because the fixture declares filter_type,
+//     criteria.tag and jump_items explicitly, so those planned values are known.
+//     That coverage disappears for any field the fixture stops declaring.
+//   - An import populating a field incorrectly is caught for every attribute the
+//     fixture declares (a wrong value is a diff), but NOT for unset
+//     Optional+Computed attributes -- which is why the account-policy case pins
+//     maximum_password_age explicitly.
+//
+// All of this was verified against a PRA appliance. The rs/ fixtures are mirrored
+// from the pra/ ones and compile-checked but have not been executed locally;
+// CI's terratest_rs job is the first thing that runs them.
+
 import (
 	"encoding/json"
 	"fmt"
