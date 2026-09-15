@@ -90,7 +90,15 @@ jobs:
           terraform-version: latest
 
       - name: "Run Tests"
-        run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
+        # 30m, not 10m. A `go test` timeout panics from the time.AfterFunc
+        # goroutine and exits the process, so the test goroutine's deferred
+        # `terraform destroy` and every t.Cleanup -- including the import tests'
+        # orphan recovery -- are skipped, stranding real objects on the shared
+        # appliance. That is the same leak this workflow's concurrency comment
+        # guards against. Recent runs take ~5.3m (PRA) / ~3.3m (RS), so 10m left
+        # under 5m of headroom; the timeout exists to catch a genuinely hung test,
+        # not to bound a healthy one.
+        run: go test -v -timeout 30m $(go list ./... | grep /test | xargs)
         env:
           BT_API_HOST: ${{ secrets.BT_API_HOST }}
           BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
@@ -125,7 +133,15 @@ jobs:
         with:
           terraform-version: latest
       - name: "Run Tests"
-        run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
+        # 30m, not 10m. A `go test` timeout panics from the time.AfterFunc
+        # goroutine and exits the process, so the test goroutine's deferred
+        # `terraform destroy` and every t.Cleanup -- including the import tests'
+        # orphan recovery -- are skipped, stranding real objects on the shared
+        # appliance. That is the same leak this workflow's concurrency comment
+        # guards against. Recent runs take ~5.3m (PRA) / ~3.3m (RS), so 10m left
+        # under 5m of headroom; the timeout exists to catch a genuinely hung test,
+        # not to bound a healthy one.
+        run: go test -v -timeout 30m $(go list ./... | grep /test | xargs)
         env:
           BT_API_HOST: ${{ secrets.BT_API_HOST }}
           BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
