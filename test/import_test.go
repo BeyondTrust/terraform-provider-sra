@@ -59,13 +59,17 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 		if g.orphanID == "" {
 			return // clean run: the address is in state and Destroy owns it
 		}
-		id, err := strconv.Atoi(g.orphanID)
-		if err != nil || id < 1 {
+		id, convErr := strconv.Atoi(g.orphanID)
+		if convErr != nil || id < 1 {
 			t.Errorf("orphan recovery: %s has unusable id %q — LEAKED on the appliance", g.addr, g.orphanID)
 			return
 		}
 
-		c := freshClient(t)
+		c, err := freshClientE(t)
+		if err != nil {
+			t.Errorf("orphan recovery: could not build a client to reclaim %s %d — LEAKED on the appliance: %v", g.addr, id, err)
+			return
+		}
 
 		// Confirm ownership BEFORE deleting. The type parameter I and the address
 		// string are supplied independently by the caller, and DeleteItem derives
@@ -77,6 +81,16 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 		// resources with the run's randomBits, so requiring that marker turns both
 		// mistakes into a loud refusal instead of a silent deletion.
 		item, err := api.GetItem[I](c, &id)
+		if err != nil && !api.IsNotFound(err) {
+			// Retry once with a new client. The documented failure here is a 401
+			// from token eviction (see freshClient), for which a fresh mint IS the
+			// remedy -- and without the retry a single unlucky read costs a real
+			// object that the delete below would have reclaimed.
+			if retry, rerr := freshClientE(t); rerr == nil {
+				c = retry
+				item, err = api.GetItem[I](c, &id)
+			}
+		}
 		switch {
 		case api.IsNotFound(err):
 			return // already gone: destroy reclaimed it, or it was never created
@@ -126,17 +140,32 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 func freshClient(t *testing.T) *api.APIClient {
 	t.Helper()
 
+	c, err := freshClientE(t)
+	require.NoError(t, err, "could not build a fresh API client")
+	return c
+}
+
+// freshClientE is freshClient without the t.FailNow. The orphan cleanup needs it:
+// api.NewClient is not a pure constructor -- it mints a token (api/client.go:105)
+// and can fail -- and a require inside t.Cleanup calls FailNow, which Goexits the
+// cleanup goroutine before any of the messages naming the leaked id can print. The
+// one moment the guard exists for is the moment it must not lose its diagnostic.
+func freshClientE(t *testing.T) (*api.APIClient, error) {
+	t.Helper()
+
 	id := os.Getenv("BT_CLIENT_ID")
 	secret := os.Getenv("BT_CLIENT_SECRET")
 	c, err := api.NewClient(os.Getenv("BT_API_HOST"), &id, &secret)
-	require.NoError(t, err, "could not build a fresh API client")
+	if err != nil {
+		return nil, err
+	}
 
 	// Mirror setEnvAndGetRandom (test/setup.go:39). Without a logger, doRequest's
 	// request/response tracing is gated off (api/client.go:122) and these calls run
 	// silently -- so an "orphan recovery FAILED ... LEAKED" message would arrive
 	// with no URL or response body to act on, exactly when a human needs them.
 	c.SetTestLogger(t)
-	return c
+	return c, nil
 }
 
 // reimport runs `terraform state rm` followed by `terraform import`, recording
@@ -214,6 +243,25 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		require.NotEmpty(t, id, "could not read the account group id from outputs")
 
 		reimport(t, terraformOptions, guard, id)
+
+		// Guard against this test hollowing out. Its regression value depends
+		// entirely on the post-import plan being NON-empty, because only then does
+		// the apply below invoke Update. That is true today only because of a
+		// pre-existing read gap: readJIA writes jump_item_association back to state
+		// only when the pre-refresh value is non-null
+		// (bt/rs/vault_account_group.go:263), and after import state holds just id,
+		// so the attribute stays null while the config declares it.
+		//
+		// Close that gap -- a legitimate future fix, recorded in BUGS.md -- and the
+		// plan goes clean, the apply becomes a no-op, Update is never called, and
+		// this test would pass green with the POST regression fully restored. That
+		// is exactly the vacuity an earlier draft of this work was rejected for.
+		// Asserting the plan is dirty converts that silent hollowing into a loud
+		// failure that says what to do about it.
+		require.Equal(t, 2, terraform.PlanExitCode(t, terraformOptions),
+			"post-import plan is CLEAN, so the apply below is a no-op and no longer exercises Update. "+
+				"If readJIA's import null-gate was fixed, this test must be rebuilt around a resource "+
+				"that still diffs after import -- do not simply delete this assertion.")
 
 		// The regression assertion. Pre-fix this routed to CreateItem (POST)
 		// against a GET/PATCH-only endpoint and failed; post-fix it PATCHes.
