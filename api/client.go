@@ -120,7 +120,6 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 	}
 
 	if c.testLogger != nil || c.logCtx != nil {
-		// DEBUG: print request body so tests can show the exact JSON payload sent to the API
 		var urlStr = "<nil>"
 		if req.URL != nil {
 			urlStr = req.URL.String()
@@ -132,7 +131,7 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 			} else {
 				// restore the Body so it can be read by the HTTP client
 				req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-				c.LogString("➡️ doRequest payload [%s %s]: %s", req.Method, urlStr, string(bodyBytes))
+				c.LogString("➡️ doRequest payload [%s %s]: %d bytes", req.Method, urlStr, len(bodyBytes))
 			}
 		} else {
 			c.LogString("➡️ doRequest payload [%s %s]: <empty body>", req.Method, urlStr)
