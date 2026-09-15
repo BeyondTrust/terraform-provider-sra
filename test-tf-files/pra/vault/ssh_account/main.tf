@@ -30,6 +30,12 @@ resource "sra_vault_ssh_account" "stand_alone" {
   username               = var.random_bits
   private_key            = var.private_key
   private_key_passphrase = ""
+
+  # Deliberately the empty string. The API rejects both "" and null for this
+  # field and never returns it on a read, so a configuration written this way --
+  # which is what a module passing an unset variable produces -- used to fail the
+  # apply outright. Keep it set this way so that path stays covered.
+  private_key_public_cert = ""
 }
 
 resource "sra_vault_ssh_account" "stand_alone_ca_key" {
