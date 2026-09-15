@@ -48,6 +48,23 @@ var (
 	jiaSchemaType = tftypes.Object{AttributeTypes: map[string]tftypes.Type{"jump_item_association": jiaInnerType}}
 )
 
+// A note on how these tests seed respState, because it is deliberate and looks
+// wrong at first glance.
+//
+// The real caller does resp.State.Set(ctx, plan) before calling into these
+// helpers (bt/rs/api_resource.go:276), so in production respState arrives
+// holding the PLANNED value. Most tests here instead seed it with the opposite
+// of the expected outcome. That is on purpose: it is what makes "the arm
+// returned without writing anything" a failure rather than an invisible no-op,
+// and it is what kills the mutation that deletes a SetAttribute call outright.
+//
+// The cost of that choice is real — seeding unfaithfully cannot detect a bug
+// that only manifests when respState starts from the plan, which is exactly how
+// a missing write in the planIsGone && stateIsGone arm stayed invisible until it
+// was found against a live appliance. TestUpdateAccountJIA_NoOpResolvesAnUnknownPlan
+// closes that by seeding faithfully, from jiaRawUnknown(). Keep both shapes: they
+// catch different things.
+
 // jiaRaw builds the object value; present=false yields a null association.
 func jiaRaw(present bool) tftypes.Value {
 	var inner tftypes.Value
