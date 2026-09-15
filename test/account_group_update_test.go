@@ -128,7 +128,7 @@ func fixtureIDs(t *testing.T, opts *terraform.Options) (groupPolicyID, accountGr
 //
 // This is the difference between testing that the provider RECORDED a removal and
 // testing that it PERFORMED one. After step 2 the state attribute is null, and
-// ReadGPMemberships returns early on a null attribute (bt/rs/gp_membership.go:141),
+// ReadGPMemberships returns early on a null attribute (bt/rs/gp_membership.go:155),
 // so a refresh never queries this endpoint -- meaning a regression where
 // UpdateGPMemberships writes types.SetNull correctly but skips or swallows its
 // DeleteItem calls would leave the membership live and still show a clean plan.

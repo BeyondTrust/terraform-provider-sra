@@ -24,6 +24,16 @@ var (
 	mechs  *api.MechList  = nil
 )
 
+// stageSkipRandomBits is substituted for the usual random suffix whenever any
+// SKIP_<stage> env var is set, so cached fixture state keeps naming the same
+// objects between runs.
+//
+// The orphan guard in import_test.go treats it as NOT establishing ownership: it
+// is shared by every test in such a run, so an object carrying it may belong to
+// any earlier run. Declared here, beside its only producer, so the two cannot
+// drift apart.
+const stageSkipRandomBits = "not_so_random"
+
 func setEnvAndGetRandom(t *testing.T) string {
 	// os.Setenv("SKIP_setup", "true")
 	// os.Setenv("SKIP_teardown", "true")
@@ -49,7 +59,7 @@ func setEnvAndGetRandom(t *testing.T) string {
 	randomBits := strings.ToLower(random.UniqueId())
 
 	if test_structure.SkipStageEnvVarSet() {
-		randomBits = "not_so_random"
+		randomBits = stageSkipRandomBits
 	}
 
 	return randomBits

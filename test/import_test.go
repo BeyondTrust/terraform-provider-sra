@@ -15,10 +15,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stageSkipRandomBits mirrors the constant setEnvAndGetRandom substitutes when any
-// SKIP_<stage> env var is set (test/setup.go:51-52). It is shared by every test in
-// such a run, so it cannot establish ownership of an object.
-const stageSkipRandomBits = "not_so_random"
+// safeToReclaim encodes the whole safety rule for orphan recovery: may this object
+// be deleted as this run's orphan?
+//
+// It is a separate pure function so it can be exercised directly. The guard's
+// branches otherwise run only when a `terraform import` fails, so a green suite
+// never executes them -- leaving the one path that deletes real objects from a
+// shared appliance as the only unverified logic in the file.
+//
+// The rule is split in two because the guard applies it at two points: the marker
+// is checked before any network call, and ownership only after the object is read.
+//
+// markerUsable reports whether randomBits can establish ownership at all. An empty
+// marker makes the Contains check below unconditionally true, and the stage-skip
+// constant is shared by every test in such a run (test/setup.go:52), so it also
+// matches objects left behind by earlier runs.
+func markerUsable(randomBits string) bool {
+	return randomBits != "" && randomBits != stageSkipRandomBits
+}
+
+// safeToReclaim reports whether blob -- the marshalled object as read back from
+// the API -- may be deleted as this run's orphan. It re-checks the marker rather
+// than assuming the caller did, so the rule holds wherever it is applied.
+func safeToReclaim(blob []byte, randomBits string) bool {
+	return markerUsable(randomBits) && strings.Contains(string(blob), randomBits)
+}
 
 // importGuard tracks the one piece of state the orphan recovery below needs: the
 // id of the object we are about to detach from Terraform state, and whether the
@@ -82,7 +103,7 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 		//    this one, so it no longer establishes ownership. Refusing is also the
 		//    behaviour stage-skipping wants: SKIP_teardown exists precisely to leave
 		//    objects in place between runs, and a human is at the keyboard.
-		if g.randomBits == "" || g.randomBits == stageSkipRandomBits {
+		if !markerUsable(g.randomBits) {
 			t.Errorf("orphan recovery: %s has no usable ownership marker (%q), refusing to delete id %d. "+
 				"If this is a stage-skipping run, remove it by hand; otherwise the guard was constructed without randomBits.",
 				g.addr, g.randomBits, id)
@@ -123,7 +144,7 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 			return
 		}
 		blob, err := json.Marshal(item)
-		if err != nil || !strings.Contains(string(blob), g.randomBits) {
+		if err != nil || !safeToReclaim(blob, g.randomBits) {
 			t.Errorf("orphan recovery REFUSED for %s %d: object does not carry this run's marker %q, so it is not ours to delete. "+
 				"Check the case's API type matches its address. Nothing was deleted; if an object really did leak, remove it by hand.",
 				g.addr, id, g.randomBits)
@@ -302,7 +323,7 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		// after import it is null, so jump_item_association stays null while the
 		// schema default supplies a non-null value (vault_account_group.go:84).
 		// ReadGPMemberships has the equivalent early return on a null state set
-		// (bt/rs/gp_membership.go:141). Both are pre-existing and deliberately out
+		// (bt/rs/gp_membership.go:155). Both are pre-existing and deliberately out
 		// of scope here -- fixing them changes refresh behaviour for every existing
 		// account group, not just imported ones (documented under "Known issues" in
 		// CHANGELOG.md). TestImportRoundTrip covers the clean-plan property on
