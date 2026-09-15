@@ -99,12 +99,10 @@ func TestUpdateAccountJIA_DeleteTransition(t *testing.T) {
 	var tfObj types.Object
 	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
 	assert.False(t, d.HasError())
-	assert.False(t, tfObj.IsNull(), "the delete transition should clear to an empty association, not remove it")
-
-	var apiSub api.AccountJumpItemAssociation
-	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-	assert.False(t, d.HasError())
-	assert.Equal(t, "", apiSub.FilterType, "a deleted association must clear filter_type, not carry over any prior value")
+	// Null, not a zero-value struct. stateIsGone above is IsNull || IsUnknown, so
+	// a zero-value struct reads as "still present" and the next apply re-enters
+	// this same delete branch against an association that is already gone.
+	assert.True(t, tfObj.IsNull(), "a deleted association is absent, and absence is null")
 }
 
 // The update-path CREATE branch (state absent, plan present) has the same

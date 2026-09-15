@@ -253,9 +253,14 @@ func UpdateAccountJIA(
 		// non-nil value before reaching this point. Do not "unify" the two:
 		// the association was just deleted from the appliance, so state must
 		// reflect its absence, not echo the request back into existence.
-		var empty api.AccountJumpItemAssociation
-		logItem(ctx, "🦠 Setting empty item in plan", empty)
-		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+		//
+		// Absence is a null object. A zero-value struct is not absence: it
+		// serialises to filter_type: "", and the stateIsGone check above
+		// (IsNull || IsUnknown) then reads it as "still present", so the next
+		// apply re-enters this delete branch and DELETEs an association that is
+		// already gone — a hard error on every subsequent apply.
+		d = respState.SetAttribute(ctx, path.Root("jump_item_association"),
+			types.ObjectNull(tfObj.AttributeTypes(ctx)))
 	}
 	diags.Append(d...)
 	if diags.HasError() {
