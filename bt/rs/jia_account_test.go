@@ -354,7 +354,7 @@ func TestAccountJIA_OutOfBandDeletionRecreatesWithPOST(t *testing.T) {
 
 	assert.False(t, diags.HasError(), "%v", diags)
 	assert.Equal(t, []string{http.MethodPost}, methods,
-		"re-creating an out-of-band-deleted association must POST; a PATCH here is the 405")
+		"re-creating an out-of-band-deleted association must POST; a PATCH here is the 400")
 
 	var tfObj types.Object
 	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
@@ -363,9 +363,8 @@ func TestAccountJIA_OutOfBandDeletionRecreatesWithPOST(t *testing.T) {
 }
 
 // jiaRawUnknown is the plan shape Terraform produces when a configuration drops
-// the jump_item_association block: the attribute is Optional + Computed, so core
-// copies the prior state value into the proposed new state and the framework
-// then marks it unknown.
+// the jump_item_association block: the attribute is Optional + Computed with no
+// default, so a null config plans as unknown rather than as null.
 func jiaRawUnknown() tftypes.Value {
 	return tftypes.NewValue(jiaSchemaType, map[string]tftypes.Value{
 		"jump_item_association": tftypes.NewValue(jiaInnerType, tftypes.UnknownValue),
