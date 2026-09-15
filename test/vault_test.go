@@ -222,15 +222,17 @@ func TestVaultSSHKey(t *testing.T) {
 	})
 
 	// Five of the seven accounts in this fixture carry no jump_item_association,
-	// which is the case this stage exists for. The provider has to represent that
-	// absence as a null object: a zero-value struct instead refreshes into state
-	// as filter_type: "", a value no configuration can produce and one the
-	// attribute does not declare, so every later plan proposes a change that
-	// applying cannot settle.
+	// so the suite already applied the case that broke -- it had no way to see
+	// it. terraform.Apply does not fail on a dirty plan, and the assertions above
+	// read outputs rather than plans, so an exit-code check is what it takes.
 	//
-	// Nothing else in the suite would notice. terraform.Apply does not fail on a
-	// dirty plan, so the applies above stay green either way -- it takes an
-	// explicit exit-code assertion to see it.
+	// Note where the fault lives: state on disk is fine, and the REFRESH is what
+	// introduces the bad value, so an assertion on an output would pass whatever
+	// the provider does. Against the previous provider this stage reports the
+	// five accounts under "Objects have changed outside of Terraform", each
+	// gaining a jump_item_association of filter_type "", and then replans the
+	// whole attribute as (known after apply) -- which the next apply cannot
+	// settle, because the refresh reintroduces it every time.
 	//
 	// Both applies above are load-bearing rather than incidental: the list
 	// datasource only resolves on the second, and a plan taken before that

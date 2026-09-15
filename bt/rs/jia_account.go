@@ -181,6 +181,13 @@ func UpdateAccountJIA(
 	if diags.HasError() {
 		return
 	}
+	// Unknown counts as gone, and that is load-bearing rather than loose.
+	// jump_item_association is Optional + Computed, so for a null config
+	// Terraform copies the prior state value into the proposed new state and
+	// then marks it unknown — which makes this unknown the only signal the
+	// provider gets that the block was removed. Drop the IsUnknown() and the
+	// unknown falls through to the As() below, where UnhandledUnknownAsEmpty
+	// yields a zero struct and the provider PATCHes filter_type: "".
 	planIsGone := tfObj.IsNull() || tfObj.IsUnknown()
 
 	if !planIsGone {

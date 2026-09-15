@@ -303,12 +303,10 @@ func TestReadAccountJIA_NotFoundWithNoStateStaysNull(t *testing.T) {
 
 	assert.False(t, diags.HasError(), "%v", diags)
 
-	var tfObj types.Object
-	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
-	assert.False(t, d.HasError())
-	assert.True(t, tfObj.IsNull(), "absent before the refresh, absent after it")
+	// Raw equality with jiaRaw(false) subsumes an IsNull check -- that fixture
+	// builds the association as a null object -- and adds that nothing else moved.
 	assert.True(t, respState.Raw.Equal(jiaRaw(false)),
-		"a refresh that changes nothing must leave state identical, not rewrite it")
+		"absent before the refresh, absent and untouched after it")
 }
 
 // Out-of-band deletion, refresh through re-create. This is the two halves of the
