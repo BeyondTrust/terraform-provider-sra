@@ -53,9 +53,16 @@ var (
 )
 
 func gpMember(gpID string) tftypes.Value {
+	return gpMemberWithRole(gpID, 0)
+}
+
+// gpMemberWithRole is gpMember with an explicit jump_item_role_id, so a test
+// can tell "the planned value was echoed" apart from "a zero-value fallback
+// happened to also read 0".
+func gpMemberWithRole(gpID string, roleID int64) tftypes.Value {
 	return tftypes.NewValue(gpMemberObjType, map[string]tftypes.Value{
 		"group_policy_id":   tftypes.NewValue(tftypes.String, gpID),
-		"jump_item_role_id": tftypes.NewValue(tftypes.Number, big.NewFloat(0)),
+		"jump_item_role_id": tftypes.NewValue(tftypes.Number, big.NewFloat(float64(roleID))),
 		"jump_policy_id":    tftypes.NewValue(tftypes.Number, nil),
 	})
 }
@@ -187,6 +194,45 @@ func TestUpdateGPMemberships_NoChangePreservesState(t *testing.T) {
 	assert.Equal(t, 1, len(out.Elements()))
 }
 
+// UpdateGPMemberships writes the created memberships (with the plan's group
+// policy ID re-applied) to state via the toAdd loop's with-body path.
+//
+// This must NOT be folded into TestUpdateGPMemberships_204NoContentTolerated:
+// on a 204, createdOrSent(nil, m) returns the plan value m, which already
+// carries GroupPolicyID, so re-applying it there is a no-op that cannot catch
+// a broken setGroupPolicyID. Here the mock returns a body, so
+// api.GroupPolicyJumpGroup's `json:"-"` GroupPolicyID arrives nil from the
+// API and setGroupPolicyID is the only thing that puts it back.
+func TestUpdateGPMemberships_WritesResults(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, nil)
+
+	sch := gpTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7")})}
+	state := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	var diags diag.Diagnostics
+
+	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
+	UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
+		setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+
+	assert.False(t, diags.HasError())
+
+	var out types.Set
+	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
+	assert.False(t, out.IsNull())
+
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1) {
+		if assert.NotNil(t, stored[0].GroupPolicyID, "the plan group policy ID must be re-applied; the response body omits it (json:\"-\")") {
+			assert.Equal(t, "7", *stored[0].GroupPolicyID)
+		}
+	}
+}
+
 // ReadGPMemberships decodes the array the membership endpoint returns, keeps
 // the memberships the API still reports, and drops ones it no longer does.
 func TestReadGPMemberships_RefreshesAndDropsRemoved(t *testing.T) {
@@ -221,6 +267,13 @@ func TestReadGPMemberships_RefreshesAndDropsRemoved(t *testing.T) {
 	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
 	assert.False(t, out.IsNull())
 	assert.Equal(t, 1, len(out.Elements()), "gp 7 is kept; gp 8 (reported absent) is dropped")
+
+	var refreshed []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &refreshed, false).HasError())
+	if assert.Len(t, refreshed, 1) {
+		assert.Equal(t, "7", *refreshed[0].GroupPolicyID)
+		assert.Equal(t, 3, refreshed[0].JumpItemRoleID, "the refreshed jump_item_role_id (3) must land in state, not state's original (0)")
+	}
 }
 
 // CreateGPMemberships writes the created memberships (with the plan's group
@@ -244,5 +297,101 @@ func TestCreateGPMemberships_WritesResults(t *testing.T) {
 	var out types.Set
 	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
 	assert.False(t, out.IsNull())
-	assert.Equal(t, 1, len(out.Elements()))
+
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1) {
+		if assert.NotNil(t, stored[0].GroupPolicyID, "the plan group policy ID must be re-applied; the response body omits it (json:\"-\")") {
+			assert.Equal(t, "7", *stored[0].GroupPolicyID)
+		}
+	}
+}
+
+// A1: CreateItem returns (nil, nil) on a 204 No Content. The membership was
+// still created, so it must not be dropped from results (which would leave a
+// live group-policy entitlement invisible to Terraform).
+func TestCreateGPMemberships_204NoContentTolerated(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == http.MethodPost && !strings.HasSuffix(r.URL.Path, "/provision") {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		return false
+	})
+
+	sch := gpTestSchema()
+	// jump_item_role_id is planned as 5 (never 0) so this test can tell "the
+	// planned value was echoed" apart from "a zero-value T fallback happened
+	// to read back 0".
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMemberWithRole("7", 5)})}
+	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	var diags diag.Diagnostics
+
+	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
+	assert.NotPanics(t, func() {
+		CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, &respState, &diags, 42,
+			setEntityID, getGP, setGP, &sync.Mutex{})
+	})
+
+	assert.False(t, diags.HasError())
+
+	var out types.Set
+	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
+	assert.False(t, out.IsNull())
+
+	// JumpGroupID is `tfsdk:"-"` (the entity linkage, not part of Terraform
+	// state) so ElementsAs never populates it — assert only the fields the
+	// schema actually round-trips.
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1, "a 204 must still leave the membership present, not dropped") {
+		assert.Equal(t, "7", *stored[0].GroupPolicyID, "the 204'd membership must keep the planned group policy ID")
+		assert.Equal(t, 5, stored[0].JumpItemRoleID, "and the planned jump_item_role_id, not a zero-value fallback")
+	}
+}
+
+// A1: same 204 tolerance, but through UpdateGPMemberships' toAdd loop.
+func TestUpdateGPMemberships_204NoContentTolerated(t *testing.T) {
+	ctx := context.Background()
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == http.MethodPost && !strings.HasSuffix(r.URL.Path, "/provision") {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		return false
+	})
+
+	sch := gpTestSchema()
+	// jump_item_role_id is planned as 5 (never 0) so this test can tell "the
+	// planned value was echoed" apart from "a zero-value T fallback happened
+	// to read back 0".
+	plan := tfsdk.Plan{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMemberWithRole("7", 5)})}
+	state := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
+	var diags diag.Diagnostics
+
+	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
+	assert.NotPanics(t, func() {
+		UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
+			setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+	})
+
+	assert.False(t, diags.HasError())
+
+	var out types.Set
+	respState.GetAttribute(ctx, path.Root("group_policy_memberships"), &out)
+	assert.False(t, out.IsNull())
+
+	// JumpGroupID is `tfsdk:"-"` (the entity linkage, not part of Terraform
+	// state) so ElementsAs never populates it — assert only the fields the
+	// schema actually round-trips.
+	var stored []api.GroupPolicyJumpGroup
+	assert.False(t, out.ElementsAs(ctx, &stored, false).HasError())
+	if assert.Len(t, stored, 1, "a 204 must still leave the membership present, not dropped") {
+		assert.Equal(t, "7", *stored[0].GroupPolicyID, "the 204'd membership must keep the planned group policy ID")
+		assert.Equal(t, 5, stored[0].JumpItemRoleID, "and the planned jump_item_role_id, not a zero-value fallback")
+	}
 }

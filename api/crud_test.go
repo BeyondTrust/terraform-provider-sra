@@ -164,6 +164,91 @@ func TestListItems(t *testing.T) {
 	}
 }
 
+// B3: ListItemsEndpoint must decode either the array or single-object shape
+// the group-policy membership endpoints are known to return, and — when the
+// body is genuinely an array but one element fails to decode — report that
+// array-decode error rather than masking it behind the single-object
+// fallback's unrelated "cannot unmarshal array into Go value" message.
+func TestListItemsEndpoint(t *testing.T) {
+	t.Parallel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "oauth2/token") {
+			w.Header().Set("Content-Type", "application/json")
+			_, err := w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"secret_access_granted"}`))
+			assert.Nil(t, err)
+			return
+		}
+
+		assert.Equal(t, "SRA-Terraform-Plugin", r.Header.Get("User-Agent"))
+		assert.Equal(t, "application/json", r.Header.Get("Accept"))
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "valid-array"):
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`[{"Location":"the_sewers"}]`))
+			assert.Nil(t, err)
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "single-object"):
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"Location":"the_barricade"}`))
+			assert.Nil(t, err)
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "bad-element"):
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`[{"Location":123}]`))
+			assert.Nil(t, err)
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "bad-nested-object"):
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`[{"Location":{"deep":1}}]`))
+			assert.Nil(t, err)
+		default:
+			assert.Fail(t, "Bad request", r.URL)
+		}
+	}))
+	defer ts.Close()
+
+	clientID := "id"
+	clientSecret := "🤐"
+	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	c.SetTestLogger(t)
+	assert.Nil(t, err)
+
+	{
+		resp, err := ListItemsEndpoint[testAPIResource](c, "valid-array")
+		assert.Nil(t, err)
+		assert.Len(t, resp, 1)
+		assert.Equal(t, "the_sewers", resp[0].Location)
+	}
+
+	{
+		resp, err := ListItemsEndpoint[testAPIResource](c, "single-object")
+		assert.Nil(t, err)
+		assert.Len(t, resp, 1)
+		assert.Equal(t, "the_barricade", resp[0].Location)
+	}
+
+	{
+		resp, err := ListItemsEndpoint[testAPIResource](c, "bad-element")
+		assert.Nil(t, resp)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "Location", "should report the array-decode error naming the field that failed")
+		}
+	}
+
+	// Finding 8: an array element that is itself object-shaped where a scalar
+	// field was expected also reports UnmarshalTypeError.Value == "object" —
+	// the same value the top-level single-object case reports. Without also
+	// checking Field (empty only at the root), this used to take the
+	// single-object fallback and mask the array-decode error.
+	{
+		resp, err := ListItemsEndpoint[testAPIResource](c, "bad-nested-object")
+		assert.Nil(t, resp)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "Location", "should report the array-decode error naming the field that failed, not the single-object fallback's error")
+		}
+	}
+}
+
 func TestGetItem(t *testing.T) {
 	t.Parallel()
 

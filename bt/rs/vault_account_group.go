@@ -252,6 +252,13 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		})
 
 		item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading item",
+				"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			)
+			return
+		}
 
 		if item != nil && !tfObj.IsNull() {
 			rb, _ := json.Marshal(item)
@@ -259,13 +266,6 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 				"data": string(rb),
 			})
 
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error reading item",
-					"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-				)
-				return
-			}
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 			resp.Diagnostics.Append(diags...)
 			if resp.Diagnostics.HasError() {
@@ -321,23 +321,18 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 			"data": apiSub,
 		})
 
-		var tfStateObj types.Object
-		diags = req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
 		if apiSub.Criteria == nil {
 			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
 		}
 
+		// The account-group jump-item-association endpoint only ever documents
+		// GET and PATCH (PRA openapi/bt-pra-configuration.openapi.yaml:5286,5299;
+		// RS openapi/bt-rs-configuration.openapi.yaml:4201,4214) — there is no
+		// POST to fall back to on a fresh `terraform import`, where state has
+		// only `id` and this attribute's static default makes the plan diff
+		// route here. Always PATCH, exactly as the Create-path updateJIA above.
 		var item *api.AccountGroupJumpItemAssociation
-		if tfStateObj.IsNull() {
-			item, err = api.CreateItem(r.ApiClient, apiSub)
-		} else {
-			item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
-		}
+		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
 		rb, _ := json.Marshal(item)
 		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
@@ -351,6 +346,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 			)
 			return
 		}
+
 		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {

@@ -2,6 +2,24 @@ package api
 
 import mapset "github.com/deckarep/golang-set/v2"
 
+// keySet converts a list to a set of comparable keys.
+func keySet[T any, K comparable](items []T, toKey func(T) K) mapset.Set[K] {
+	s := mapset.NewSet[K]()
+	for _, item := range items {
+		s.Add(toKey(item))
+	}
+	return s
+}
+
+// mapSet converts a set of keys back to a set of the original type.
+func mapSet[K comparable, T comparable](keys mapset.Set[K], fromKey func(K) T) mapset.Set[T] {
+	out := mapset.NewSet[T]()
+	for _, k := range keys.ToSlice() {
+		out.Add(fromKey(k))
+	}
+	return out
+}
+
 // DiffGPLists computes the difference between two lists by converting each
 // element to a comparable key, performing set operations, then converting back.
 // Returns (toAdd, toRemove, noChange) sets of the original type T.
@@ -11,46 +29,19 @@ func DiffGPLists[T comparable, K comparable](
 	toKey func(T) K,
 	fromKey func(K) T,
 ) (toAdd, toRemove, noChange mapset.Set[T]) {
-	planKeys := make([]K, 0, len(planList))
-	for _, item := range planList {
-		planKeys = append(planKeys, toKey(item))
-	}
-	stateKeys := make([]K, 0, len(stateList))
-	for _, item := range stateList {
-		stateKeys = append(stateKeys, toKey(item))
-	}
+	planSet := keySet(planList, toKey)
+	stateSet := keySet(stateList, toKey)
 
-	planSet := mapset.NewSet(planKeys...)
-	stateSet := mapset.NewSet(stateKeys...)
-
-	addKeys := planSet.Difference(stateSet)
-	removeKeys := stateSet.Difference(planSet)
-	unchangedKeys := planSet.Intersect(stateSet)
-
-	toAdd = mapset.NewSet[T]()
-	for k := range addKeys.Iterator().C {
-		toAdd.Add(fromKey(k))
-	}
-	toRemove = mapset.NewSet[T]()
-	for k := range removeKeys.Iterator().C {
-		toRemove.Add(fromKey(k))
-	}
-	noChange = mapset.NewSet[T]()
-	for k := range unchangedKeys.Iterator().C {
-		noChange.Add(fromKey(k))
-	}
-
-	return toAdd, toRemove, noChange
+	return mapSet(planSet.Difference(stateSet), fromKey),
+		mapSet(stateSet.Difference(planSet), fromKey),
+		mapSet(planSet.Intersect(stateSet), fromKey)
 }
 
 // Key types used by the convenience wrappers below.
 
-type gpAccountKey struct {
-	GroupPolicyID string
-	Role          string
-}
-
-type gpAccountGroupKey struct {
+// gpRoleKey is shared by the account and account-group membership types,
+// which are keyed identically (group policy ID + role).
+type gpRoleKey struct {
 	GroupPolicyID string
 	Role          string
 }
@@ -72,10 +63,10 @@ type gpJumpointKey struct {
 
 func DiffGPAccountLists(planList []GroupPolicyVaultAccount, stateList []GroupPolicyVaultAccount) (mapset.Set[GroupPolicyVaultAccount], mapset.Set[GroupPolicyVaultAccount], mapset.Set[GroupPolicyVaultAccount]) {
 	return DiffGPLists(planList, stateList,
-		func(g GroupPolicyVaultAccount) gpAccountKey {
-			return gpAccountKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
+		func(g GroupPolicyVaultAccount) gpRoleKey {
+			return gpRoleKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
 		},
-		func(k gpAccountKey) GroupPolicyVaultAccount {
+		func(k gpRoleKey) GroupPolicyVaultAccount {
 			id := k.GroupPolicyID
 			return GroupPolicyVaultAccount{GroupPolicyID: &id, Role: k.Role}
 		},
@@ -84,10 +75,10 @@ func DiffGPAccountLists(planList []GroupPolicyVaultAccount, stateList []GroupPol
 
 func DiffGPAccountGroupLists(planList []GroupPolicyVaultAccountGroup, stateList []GroupPolicyVaultAccountGroup) (mapset.Set[GroupPolicyVaultAccountGroup], mapset.Set[GroupPolicyVaultAccountGroup], mapset.Set[GroupPolicyVaultAccountGroup]) {
 	return DiffGPLists(planList, stateList,
-		func(g GroupPolicyVaultAccountGroup) gpAccountGroupKey {
-			return gpAccountGroupKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
+		func(g GroupPolicyVaultAccountGroup) gpRoleKey {
+			return gpRoleKey{GroupPolicyID: *g.GroupPolicyID, Role: g.Role}
 		},
-		func(k gpAccountGroupKey) GroupPolicyVaultAccountGroup {
+		func(k gpRoleKey) GroupPolicyVaultAccountGroup {
 			id := k.GroupPolicyID
 			return GroupPolicyVaultAccountGroup{GroupPolicyID: &id, Role: k.Role}
 		},

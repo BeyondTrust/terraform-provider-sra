@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"terraform-provider-sra/api"
 
@@ -22,13 +21,25 @@ type GPMembership interface {
 	api.APIResource
 }
 
+// createdOrSent returns the created membership, or — when api.CreateItem
+// answers (nil, nil) on a 204 No Content — the request echoed back. A 204 means
+// the membership WAS created; dropping it would leave a live group-policy
+// entitlement invisible to Terraform and produce an inconsistent-result error
+// on the next plan.
+func createdOrSent[T any](item *T, sent T) T {
+	if item == nil {
+		return sent
+	}
+	return *item
+}
+
 // provisionGroupPolicies provisions each unique group policy ID in the set.
 func provisionGroupPolicies(
 	client *api.APIClient,
 	diags *diag.Diagnostics,
 	needsProvision mapset.Set[string],
 ) {
-	for id := range needsProvision.Iter() {
+	for _, id := range needsProvision.ToSlice() {
 		p := api.GroupPolicyProvision{
 			GroupPolicyID: &id,
 		}
@@ -90,7 +101,7 @@ func CreateGPMemberships[T GPMembership](
 
 	results := []T{}
 	needsProvision := mapset.NewSet[string]()
-	for m := range toAdd.Iterator().C {
+	for _, m := range toAdd.ToSlice() {
 		setEntityID(&m, entityID)
 		item, err := api.CreateItem(client, m)
 
@@ -102,7 +113,7 @@ func CreateGPMemberships[T GPMembership](
 			return
 		}
 
-		result := *item
+		result := createdOrSent(item, m)
 		setGroupPolicyID(&result, getGroupPolicyID(&m))
 		results = append(results, result)
 		needsProvision.Add(*getGroupPolicyID(&m))
@@ -121,8 +132,9 @@ func CreateGPMemberships[T GPMembership](
 }
 
 // ReadGPMemberships reads each group policy membership from state, refreshes
-// it from the API, and writes the updated list back to state. API errors are
-// logged and skipped rather than treated as failures.
+// it from the API, and writes the updated list back to state. A membership
+// the API no longer reports (or 404s) is dropped from state as drift; any
+// other API error aborts with a diagnostic.
 func ReadGPMemberships[T GPMembership](
 	ctx context.Context,
 	client *api.APIClient,
@@ -151,11 +163,13 @@ func ReadGPMemberships[T GPMembership](
 		return
 	}
 
-	// Each membership read returns a JSON array scoped to this entity under the
-	// given group policy (e.g. GET group-policy/<gp>/jump-group/<id> -> [{...}]).
-	// Decode the array, take the entity's membership (re-applying the group policy
-	// ID, which the response body omits), and drop memberships the API no longer
-	// reports so an out-of-band removal surfaces as drift instead of stale state.
+	// The spec documents a single JSON object for this GET, but the appliance
+	// has been observed returning a JSON array scoped to this entity instead
+	// (e.g. GET group-policy/<gp>/jump-group/<id> -> [{...}]); ListItemsEndpoint
+	// tolerates either shape. Decode the array, take the entity's membership
+	// (re-applying the group policy ID, which the response body omits), and
+	// drop memberships the API no longer reports so an out-of-band removal
+	// surfaces as drift instead of stale state.
 	refreshed := make([]T, 0, len(gpList))
 	for _, m := range gpList {
 		gpId := *getGroupPolicyID(&m)
@@ -163,7 +177,7 @@ func ReadGPMemberships[T GPMembership](
 		endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
 		items, err := api.ListItemsEndpoint[T](client, endpoint)
 		if err != nil {
-			if strings.Contains(err.Error(), "status: 404") {
+			if api.IsNotFound(err) {
 				// Object-returning endpoints 404 for a removed membership (the
 				// array-returning ones return an empty list, handled below). Drop
 				// it either way so the removal surfaces as drift.
@@ -266,7 +280,7 @@ func UpdateGPMemberships[T GPMembership](
 	defer mu.Unlock()
 
 	needsProvision := mapset.NewSet[string]()
-	for m := range toRemove.Iterator().C {
+	for _, m := range toRemove.ToSlice() {
 		setEntityID(&m, entityID)
 		tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
 			"item": m,
@@ -285,7 +299,7 @@ func UpdateGPMemberships[T GPMembership](
 	}
 
 	results := noChange.ToSlice()
-	for m := range toAdd.Iterator().C {
+	for _, m := range toAdd.ToSlice() {
 		setEntityID(&m, entityID)
 		item, err := api.CreateItem(client, m)
 
@@ -297,7 +311,7 @@ func UpdateGPMemberships[T GPMembership](
 			return
 		}
 
-		result := *item
+		result := createdOrSent(item, m)
 		setGroupPolicyID(&result, getGroupPolicyID(&m))
 		results = append(results, result)
 		needsProvision.Add(*getGroupPolicyID(&m))

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -123,10 +124,10 @@ func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
 }
 
 // ListItemsEndpoint performs a GET against a specific endpoint and returns the
-// result as a slice. The group-policy membership read endpoints are
-// inconsistent — group-policy/<gp>/jump-group/<id> returns a JSON array while
-// group-policy/<gp>/jumpoint/<id> returns a single JSON object — so this decodes
-// whichever shape the endpoint returns (a lone object becomes a one-element
+// result as a slice. The group-policy membership read endpoints document a
+// single JSON object in the spec, but the appliance has been observed
+// returning a JSON array for at least one of them — so this decodes whichever
+// shape the endpoint actually returns (a lone object becomes a one-element
 // slice). Returns an empty slice on a 204/no-content response.
 func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
@@ -143,8 +144,24 @@ func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error
 	}
 
 	items := []I{}
-	if err := json.Unmarshal(body, &items); err == nil {
+	arrErr := json.Unmarshal(body, &items)
+	if arrErr == nil {
 		return items, nil
+	}
+
+	// Only fall back to single-object decode when the top-level value isn't an
+	// array at all (encoding/json reports that as an UnmarshalTypeError whose
+	// Value is "object" and, because the error is at the root, Field is
+	// empty). If the body is an array but one of its elements fails to
+	// decode, arrErr is the more useful diagnostic; the single-object decode
+	// below would otherwise mask it behind a confusing "cannot unmarshal
+	// object into Go value of type ..." error. Value alone is not enough to
+	// tell the two apart: an array element that is itself object-shaped where
+	// a scalar field was expected also reports Value == "object", but with
+	// Field naming that element's field — checking Field == "" excludes it.
+	var typeErr *json.UnmarshalTypeError
+	if !errors.As(arrErr, &typeErr) || typeErr.Value != "object" || typeErr.Field != "" {
+		return nil, arrErr
 	}
 
 	// Endpoint returned a single object rather than an array; decode it as one.
@@ -155,6 +172,17 @@ func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error
 	return []I{single}, nil
 }
 
+// CreateItem POSTs item to its endpoint.
+//
+// It returns (nil, nil) when the API answers 204 No Content: the item WAS
+// created, there is simply no body to decode. Callers that dereference or
+// store the result must handle a nil item — writing it straight into Terraform
+// state produces a null attribute and an "inconsistent result after apply".
+// Echo the request back instead; the server accepted it.
+//
+// Note the asymmetry with UpdateItemEndpoint, which does not check for an
+// empty body: a 204 on PATCH surfaces as "unexpected end of JSON input"
+// rather than (nil, nil).
 func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 	c.LogString("🎯 CreateItem pre-marshalling: %+v", item)
 	rb, err := json.Marshal(item)
