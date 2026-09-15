@@ -158,6 +158,22 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	ctx = tflog.SetField(ctx, "bt_client_secret", clientSecret)
 	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "bt_client_secret")
 
+	// Backstop for the write-only attributes (password, private_key,
+	// private_key_passphrase, token). Request and response bodies are no longer
+	// logged, so nothing should reach this; it exists so a future log call in the
+	// API client cannot put one in the debug output.
+	//
+	// It covers the API client specifically. tflog masking rides on a context, and
+	// this one reaches the client because SetLogContext below captures it; the
+	// resource and data source handlers get a fresh context per RPC from the
+	// framework and are not covered. Those are kept safe by not logging payloads,
+	// which is the real fix — see api/logging.go.
+	//
+	// MaskFieldValuesWithFieldKeys above cannot do this job: these values are
+	// interpolated into the log *message* by fmt.Sprintf rather than passed as
+	// structured fields, so there is no field key to match on.
+	ctx = tflog.MaskLogRegexes(ctx, api.SensitiveValuePatterns()...)
+
 	tflog.Debug(ctx, "Creating BT API Client")
 	c, err := api.NewClient(host, &clientID, &clientSecret)
 	if err != nil {

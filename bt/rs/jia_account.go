@@ -2,7 +2,6 @@ package rs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"terraform-provider-sra/api"
@@ -71,10 +70,7 @@ func CreateAccountJIA(
 	// stringvalidator.OneOf at api_resource.go), and fail the apply with an
 	// inconsistent-result error.
 	result := createdOrSent(item, apiSub)
-	rb, _ := json.Marshal(result)
-	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+	logItem(ctx, "🙀 got item", result)
 	d = state.SetAttribute(ctx, path.Root("jump_item_association"), result)
 	diags.Append(d...)
 	if diags.HasError() {
@@ -152,10 +148,7 @@ func ReadAccountJIA(
 		return
 	}
 
-	rb, _ := json.Marshal(item)
-	tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+	logItem(ctx, "🙀 got item", item)
 	d = respState.SetAttribute(ctx, path.Root("jump_item_association"), item)
 	diags.Append(d...)
 	if diags.HasError() {
@@ -246,10 +239,7 @@ func UpdateAccountJIA(
 
 	if item != nil {
 		tflog.Trace(ctx, fmt.Sprintf("🦠 Setting item in plan %+v", item))
-		rb, _ := json.Marshal(item)
-		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
+		logItem(ctx, "🙀 got item", item)
 		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), item)
 	} else {
 		// item is nil here only via the delete branch above (!stateIsGone &&

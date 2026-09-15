@@ -184,13 +184,13 @@ func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error
 // empty body: a 204 on PATCH surfaces as "unexpected end of JSON input"
 // rather than (nil, nil).
 func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
-	c.LogString("🎯 CreateItem pre-marshalling: %+v", item)
 	rb, err := json.Marshal(item)
 	if err != nil {
 		return nil, err
 	}
 
-	c.LogString("✅ CreateItem payload: %s", string(rb))
+	// Endpoint and size only — see the logging policy in api/logging.go.
+	c.LogString("✅ CreateItem [%s]: %d byte payload", item.Endpoint(), len(rb))
 
 	var newItem I
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.BaseURL, item.Endpoint()), strings.NewReader(string(rb)))

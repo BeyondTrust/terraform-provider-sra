@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -120,22 +119,24 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 	}
 
 	if c.testLogger != nil || c.logCtx != nil {
-		// DEBUG: print request body so tests can show the exact JSON payload sent to the API
+		// Shape, not content — see the logging policy in api/logging.go.
 		var urlStr = "<nil>"
 		if req.URL != nil {
 			urlStr = req.URL.String()
 		}
-		if req.Body != nil {
-			bodyBytes, err := io.ReadAll(req.Body)
-			if err != nil {
-				c.LogString("➡️ doRequest payload: <error reading body: %v>", err)
-			} else {
-				// restore the Body so it can be read by the HTTP client
-				req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-				c.LogString("➡️ doRequest payload [%s %s]: %s", req.Method, urlStr, string(bodyBytes))
-			}
-		} else {
-			c.LogString("➡️ doRequest payload [%s %s]: <empty body>", req.Method, urlStr)
+		switch {
+		case req.Body == nil:
+			c.LogString("➡️ doRequest [%s %s]: <empty body>", req.Method, urlStr)
+		case req.ContentLength > 0:
+			// http.NewRequest sets ContentLength for every body type this package
+			// builds (nil or *strings.Reader), so the size is already known. Reading
+			// the body here to measure it — and rewrapping it so the transport could
+			// still send it — copied every request payload for the sake of one number.
+			c.LogString("➡️ doRequest [%s %s]: %d byte body", req.Method, urlStr, req.ContentLength)
+		default:
+			// An opaque io.Reader body leaves ContentLength at 0. No such caller
+			// exists today; say so rather than reporting a misleading zero.
+			c.LogString("➡️ doRequest [%s %s]: <unknown size body>", req.Method, urlStr)
 		}
 	}
 

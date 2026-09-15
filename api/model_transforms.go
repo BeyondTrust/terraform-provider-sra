@@ -320,7 +320,11 @@ var filterRulesObjectType = types.ObjectType{
 }
 
 func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value, apiType reflect.Type, product string) error {
-	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%+v] [%v]", apiObj, product == ProductRS))
+	// Type, not content — see the logging policy in api/logging.go.
+	// Use the apiType parameter rather than apiObj.Type(): every caller passes
+	// exactly that, and Type() panics on a zero reflect.Value where the %+v this
+	// replaced printed "<invalid Value>".
+	tflog.Debug(ctx, fmt.Sprintf("🍺 copyAPItoTF source obj [%s] [%v]", apiType, product == ProductRS))
 	for i := 0; i < tfObj.NumField(); i++ {
 		tfObjField := tfObj.Type().Field(i)
 		fieldName := tfObjField.Name

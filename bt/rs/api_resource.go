@@ -2,9 +2,9 @@ package rs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"terraform-provider-sra/api"
@@ -118,21 +118,23 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	tflog.Debug(ctx, fmt.Sprintf("🤬 create plan [%v]", plan))
+	tflog.Debug(ctx, "🤬 create plan")
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
 	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
 
-	rb, _ := json.Marshal(item)
 	tflog.Debug(ctx, "🙀 executing item post", map[string]interface{}{
-		"data": string(rb),
+		"endpoint": item.Endpoint(),
 	})
 	newItem, err := api.CreateItem(r.ApiClient, item)
 	if err != nil {
+		// The request body is deliberately absent from this message. Diagnostics are
+		// surfaced to the operator and copied into bug reports regardless of TF_LOG,
+		// and for the vault account resources the body is a credential.
 		resp.Diagnostics.AddError(
 			"Error creating item",
-			fmt.Sprintf("Unexpected error: [%s][%s]", err.Error(), string(rb)),
+			fmt.Sprintf("Unexpected error: [%s]", err.Error()),
 		)
 		return
 	}
@@ -182,7 +184,7 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	tflog.Debug(ctx, fmt.Sprintf("🤬 read state [%v]", state))
+	tflog.Debug(ctx, "🤬 read state")
 	tfObj := reflect.ValueOf(&state).Elem()
 	tfId := tfObj.FieldByName("ID").Interface().(types.String)
 	id, err := strconv.Atoi(tfId.ValueString())
@@ -195,10 +197,7 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 	}
 	item, err := api.GetItem[TApi](r.ApiClient, &id)
 
-	rb, _ := json.Marshal(item)
-	tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-		"data": string(rb),
-	})
+	logItem(ctx, "🙀 got item", item)
 
 	if err != nil {
 		if api.IsNotFound(err) {
@@ -247,16 +246,13 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Debug(ctx, fmt.Sprintf("🤬 update plan [%v]", plan))
+	tflog.Debug(ctx, "🤬 update plan")
 
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
 	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
 
-	rb, _ := json.Marshal(item)
-	tflog.Debug(ctx, "🙀 executing item update", map[string]interface{}{
-		"data": string(rb),
-	})
+	logItem(ctx, "🙀 executing item update", item)
 	newItem, err := api.UpdateItem(r.ApiClient, item)
 	if err != nil {
 		tfId := tfObj.FieldByName("ID").Interface().(types.String)
@@ -303,7 +299,7 @@ func (r *apiResource[TApi, TTf]) Delete(ctx context.Context, req resource.Delete
 		tflog.Debug(ctx, "error getting state")
 		return
 	}
-	tflog.Debug(ctx, fmt.Sprintf("🤬 delete state [%v]", state))
+	tflog.Debug(ctx, "🤬 delete state")
 	tflog.Debug(ctx, "deleting")
 
 	tfObj := reflect.ValueOf(&state).Elem()
@@ -349,6 +345,48 @@ func (d *apiResource[TApi, TTf]) printableName() string {
 }
 
 // Jump Group type validator
+// groupPolicyIDPattern matches the form the configuration API documents for a
+// group policy ID. The spec types the path parameter as
+// `integer, format: int32, minimum: 1` (openapi/bt-pra-configuration.openapi.yaml,
+// the ObjectId parameter), and every example in this repo sources the value from
+// `data.sra_group_policy_list.gp.items[0].id`.
+//
+// The attribute is a string on the Terraform side, so nothing previously stopped a
+// configuration supplying something that is not an ID at all. That value is
+// interpolated into the request path by the Endpoint() methods in api/models.go.
+var groupPolicyIDPattern = regexp.MustCompile(`^[0-9]+$`)
+
+// groupPolicyIDValidators constrains group_policy_id to that documented form.
+//
+// Used by every resource exposing the attribute, so the six declarations cannot
+// drift apart. Pairs with url.PathEscape in the Endpoint() methods: this keeps
+// non-conforming values out, and the escape means a path segment stays one segment
+// regardless.
+func groupPolicyIDValidators() []validator.String {
+	return []validator.String{
+		stringvalidator.RegexMatches(
+			groupPolicyIDPattern,
+			"must be a numeric group policy ID, as returned by the sra_group_policy_list data source",
+		),
+	}
+}
+
+// logItem records that an item was handled, without recording the item.
+//
+// The generic Read and Update paths carry every resource type, including the
+// vault accounts whose payload is the credential itself — an update marshals the
+// plan straight from configuration, so the plaintext password is in that struct.
+// Logging the type and endpoint keeps the trace useful for following a request
+// through the provider; the body itself is not the provider's to write out.
+func logItem(ctx context.Context, msg string, item any) {
+	// Type only. Endpoint() is deliberately NOT called here: several
+	// implementations dereference an ID that is not yet populated at the point
+	// these logs fire (AccountGroupJumpItemAssociation.Endpoint does *a.ID), so
+	// calling it turns a log line into a nil-pointer panic. A logging helper must
+	// not be able to fail the operation it is describing.
+	tflog.Debug(ctx, msg, map[string]interface{}{"type": fmt.Sprintf("%T", item)})
+}
+
 func jumpGroupTypeValidator() []validator.String {
 	return []validator.String{
 		stringvalidator.OneOf([]string{"shared", "personal"}...),
