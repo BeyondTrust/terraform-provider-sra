@@ -71,14 +71,24 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 
 // freshClient builds a new API client rather than reusing the package-level one.
 //
-// This is load-bearing, not defensive. api.NewClient uses oauth2
-// clientcredentials, which caches its token and refreshes only on expiry -- but
-// the appliance invalidates previously-issued tokens when a new one is issued,
-// and every `terraform apply` spawns a provider subprocess that requests its own
-// token with the same credentials. So the token held by the package-level client
-// is silently invalidated by the applies these tests run, while oauth2 still
-// believes it is valid and declines to refresh. Reusing it yields
-// "status: 401 ... Access token is invalid" on the first call after an apply.
+// This is load-bearing, not defensive, and the mechanism was measured rather
+// than guessed (against mpam, 2026-09-15):
+//
+//   - The appliance retains only a bounded number of concurrent tokens per client
+//     credential and evicts the OLDEST when that bound is exceeded. Probing with
+//     repeated mints, the first token kept working through 30 further mints and
+//     returned 401 on the 31st.
+//   - Tokens carry expires_in=3600, so oauth2's ReuseTokenSource considers one
+//     valid for an hour and will not re-mint. Eviction is server-side and
+//     structurally invisible to it (it refreshes only on expiry).
+//   - Every terraform command spawns a provider subprocess that mints its own
+//     token with the same credentials, so a full suite run burns through the
+//     bound quickly.
+//
+// Net effect: the package-level client's token is evicted partway through a run
+// while oauth2 still believes it valid, and the next call returns
+// "status: 401 ... Access token is invalid". Observed, not theorised -- this test
+// passed when run alone and failed when run fourth.
 func freshClient(t *testing.T) *api.APIClient {
 	t.Helper()
 
