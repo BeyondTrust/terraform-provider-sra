@@ -276,12 +276,17 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		// (bt/rs/vault_account_group.go:263), and after import state holds just id,
 		// so the attribute stays null while the config declares it.
 		//
-		// Close that gap -- a legitimate future fix, recorded in BUGS.md -- and the
-		// plan goes clean, the apply becomes a no-op, Update is never called, and
-		// this test would pass green with the POST regression fully restored. That
-		// is exactly the vacuity an earlier draft of this work was rejected for.
-		// Asserting the plan is dirty converts that silent hollowing into a loud
-		// failure that says what to do about it.
+		// Close that gap -- a legitimate future fix -- and the plan goes clean, the
+		// apply becomes a no-op, Update is never called, and this test would pass
+		// green with the POST regression fully restored. That is exactly the vacuity
+		// an earlier draft of this work was rejected for. Asserting the plan is
+		// dirty converts that silent hollowing into a loud failure that says what to
+		// do about it.
+		//
+		// If you are here because this assertion just failed: the fix is NOT to
+		// delete it. Either the import null-gate was closed (good -- rebuild this
+		// test around a resource that still diffs after import, since this one no
+		// longer exercises Update), or something else made the fixture converge.
 		require.Equal(t, 2, terraform.PlanExitCode(t, terraformOptions),
 			"post-import plan is CLEAN, so the apply below is a no-op and no longer exercises Update. "+
 				"If readJIA's import null-gate was fixed, this test must be rebuilt around a resource "+
@@ -294,9 +299,12 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		// unreachable for this resource. readJIA gates its state write on the
 		// pre-refresh value being non-null (bt/rs/vault_account_group.go:263) and
 		// after import it is null, so jump_item_association stays null while the
-		// schema default supplies a non-null value. That gap is pre-existing and
-		// tracked in BUGS.md; Test 1b covers the clean round-trip on resources
-		// that do not have it.
+		// schema default supplies a non-null value (vault_account_group.go:84).
+		// ReadGPMemberships has the equivalent early return on a null state set
+		// (bt/rs/gp_membership.go:141). Both are pre-existing and deliberately out
+		// of scope here -- fixing them changes refresh behaviour for every existing
+		// account group, not just imported ones. TestImportRoundTrip covers the
+		// clean-plan property on resources that do not have this gap.
 		terraform.Apply(t, terraformOptions)
 	})
 
