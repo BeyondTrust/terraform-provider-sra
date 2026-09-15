@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Jeffail/gabs"
-
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +39,6 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 			TerraformDir: testFolder,
 			Vars: map[string]interface{}{
 				"random_bits":        randomBits,
-				"name":               "This is a Name",
 				"with_gp_membership": on,
 			},
 		})
@@ -93,25 +89,4 @@ func TestAccountGroupMembershipUpdate(t *testing.T) {
 		assertSoleMembership(t, extractJson(t, terraformOptions, "group"), groupPolicyID,
 			"the membership should have been re-created")
 	})
-}
-
-// assertSoleMembership asserts exactly one membership, pointing at the expected
-// group policy. It deliberately checks group_policy_id as well as role: the
-// existing assertGPMembership checks only the role, so a membership recorded
-// against the WRONG group policy would satisfy it -- and that is precisely the
-// corruption this test exists to catch.
-func assertSoleMembership(t *testing.T, parsed *gabs.Container, wantGroupPolicyID, msg string) {
-	t.Helper()
-
-	members, err := parsed.JSONPointer("/group_policy_memberships")
-	require.NoError(t, err)
-	require.NotNil(t, members.Data(), msg)
-	require.Len(t, members.Data().([]any), 1, msg)
-
-	entry, err := parsed.JSONPointer("/group_policy_memberships/0")
-	require.NoError(t, err)
-	membership := entry.Data().(map[string]any)
-	assert.Equal(t, wantGroupPolicyID, membership["group_policy_id"],
-		"the membership must reference the group policy from the config")
-	assert.Equal(t, "inject", membership["role"])
 }

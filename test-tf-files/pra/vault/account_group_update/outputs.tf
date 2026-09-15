@@ -1,8 +1,3 @@
-output "bits" {
-  description = "Random bits used for naming"
-  value       = var.random_bits
-}
-
 output "group" {
   description = "The created account group"
   value       = sra_vault_account_group.toggle

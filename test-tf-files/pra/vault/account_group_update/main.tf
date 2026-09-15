@@ -18,7 +18,7 @@ data "sra_group_policy_list" "gp" {}
 # attribute and is distinct from `[]`. The distinction is the point of the test:
 # removing the last membership must leave the attribute null, not empty.
 resource "sra_vault_account_group" "toggle" {
-  name        = "${var.name} ${var.random_bits} Toggle"
+  name        = "This is a Name ${var.random_bits} Toggle"
   description = var.random_bits
 
   group_policy_memberships = var.with_gp_membership ? [

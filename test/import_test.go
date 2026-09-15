@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"strconv"
 	"testing"
@@ -17,8 +18,13 @@ import (
 // id of the object we are about to detach from Terraform state, and whether the
 // re-import failed and left it detached.
 type importGuard struct {
-	id     string // captured BEFORE `terraform state rm`
-	failed bool   // set ONLY by the import step's error branch
+	addr string // resource address; also the label in recovery messages
+
+	// orphanID is set ONLY by reimport's error branch. Non-empty means "the
+	// import failed and this id is detached from state", which is the single
+	// signal the cleanup fires on -- so a test that never reaches reimport, or
+	// whose import succeeded, cannot trigger recovery.
+	orphanID string
 }
 
 // guardImportOrphan registers cleanup that reclaims an object stranded by a failed
@@ -42,23 +48,23 @@ type importGuard struct {
 // honest success condition for "make sure this object is gone" and costs nothing.
 // A 422 (malformed id) or any other error still fails the run: a bad id capture
 // is a real defect and must not be swallowed.
-func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard, what string) {
+func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 	t.Cleanup(func() {
-		if !g.failed {
+		if g.orphanID == "" {
 			return // clean run: the address is in state and Destroy owns it
 		}
-		id, err := strconv.Atoi(g.id)
+		id, err := strconv.Atoi(g.orphanID)
 		if err != nil || id < 1 {
-			t.Errorf("orphan recovery: %s has unusable id %q — LEAKED on the appliance", what, g.id)
+			t.Errorf("orphan recovery: %s has unusable id %q — LEAKED on the appliance", g.addr, g.orphanID)
 			return
 		}
 		switch err := api.DeleteItem[I](freshClient(t), &id); {
 		case err == nil:
-			t.Logf("orphan recovery: reclaimed %s %d", what, id)
+			t.Logf("orphan recovery: reclaimed %s %d", g.addr, id)
 		case api.IsNotFound(err):
 			// Already gone: destroy reclaimed it, or it was never created.
 		default:
-			t.Errorf("orphan recovery FAILED for %s %d — LEAKED on the appliance: %v", what, id, err)
+			t.Errorf("orphan recovery FAILED for %s %d — LEAKED on the appliance: %v", g.addr, id, err)
 		}
 	})
 }
@@ -80,6 +86,12 @@ func freshClient(t *testing.T) *api.APIClient {
 	secret := os.Getenv("BT_CLIENT_SECRET")
 	c, err := api.NewClient(os.Getenv("BT_API_HOST"), &id, &secret)
 	require.NoError(t, err, "could not build a fresh API client")
+
+	// Mirror setEnvAndGetRandom (test/setup.go:39). Without a logger, doRequest's
+	// request/response tracing is gated off (api/client.go:122) and these calls run
+	// silently -- so an "orphan recovery FAILED ... LEAKED" message would arrive
+	// with no URL or response body to act on, exactly when a human needs them.
+	c.SetTestLogger(t)
 	return c
 }
 
@@ -94,17 +106,17 @@ func freshClient(t *testing.T) *api.APIClient {
 //
 // -input=false is mandatory: without it a missing variable opens an interactive
 // prompt, and an unattended run blocks forever instead of failing.
-func reimport(t *testing.T, opts *terraform.Options, g *importGuard, addr string) {
+func reimport(t *testing.T, opts *terraform.Options, g *importGuard, id string) {
 	// Keep these two adjacent, with no assertions between them -- every statement
 	// here widens the orphan window.
-	_, err := terraform.RunTerraformCommandE(t, opts, "state", "rm", addr)
-	require.NoError(t, err, "state rm failed for %s", addr)
+	_, err := terraform.RunTerraformCommandE(t, opts, "state", "rm", g.addr)
+	require.NoError(t, err, "state rm failed for %s", g.addr)
 
 	args := append([]string{"import", "-input=false"}, terraform.FormatTerraformVarsAsArgs(opts.Vars)...)
-	args = append(args, addr, g.id)
+	args = append(args, g.addr, id)
 	if _, err := terraform.RunTerraformCommandE(t, opts, args...); err != nil {
-		g.failed = true
-		require.NoError(t, err, "import failed — %s (id %s) is now orphaned on the appliance", addr, g.id)
+		g.orphanID = id // arms the cleanup; nothing else sets this
+		require.NoError(t, err, "import failed — %s (id %s) is now orphaned on the appliance", g.addr, id)
 	}
 }
 
@@ -127,11 +139,11 @@ func reimport(t *testing.T, opts *terraform.Options, g *importGuard, addr string
 // ending at plan could not catch this bug nor fail when it was reintroduced.
 func TestImportThenApplyAccountGroup(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
+	var id string
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath()))
 
-	const addr = "sra_vault_account_group.new_account_group_jia"
-	guard := &importGuard{}
-	guardImportOrphan[api.VaultAccountGroup](t, guard, addr)
+	guard := &importGuard{addr: "sra_vault_account_group.new_account_group_jia"}
+	guardImportOrphan[api.VaultAccountGroup](t, guard)
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraform.Destroy(t, test_structure.LoadTerraformOptions(t, testFolder))
@@ -154,10 +166,10 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 
 		// Capture the id BEFORE detaching from state -- once `state rm` has run,
 		// this is the only handle left on the object.
-		guard.id = terraform.OutputMap(t, terraformOptions, "group_jia")["id"]
-		require.NotEmpty(t, guard.id, "could not read the account group id from outputs")
+		id = terraform.OutputMap(t, terraformOptions, "group_jia")["id"]
+		require.NotEmpty(t, id, "could not read the account group id from outputs")
 
-		reimport(t, terraformOptions, guard, addr)
+		reimport(t, terraformOptions, guard, id)
 
 		// The regression assertion. Pre-fix this routed to CreateItem (POST)
 		// against a GET/PATCH-only endpoint and failed; post-fix it PATCHes.
@@ -177,112 +189,112 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 
 		// Guards against a silently destructive apply: the step above would also
 		// "succeed" if it had deleted and recreated the object.
-		id, err := strconv.Atoi(guard.id)
+		numericID, err := strconv.Atoi(id)
 		require.NoError(t, err)
-		item, err := api.GetItem[api.VaultAccountGroup](freshClient(t), &id)
-		require.NoError(t, err, "account group %d no longer exists after the post-import apply", id)
+		item, err := api.GetItem[api.VaultAccountGroup](freshClient(t), &numericID)
+		require.NoError(t, err, "account group %d no longer exists after the post-import apply", numericID)
 		require.NotNil(t, item)
 
 		// And the id must be unchanged -- a destroy/recreate would renumber it.
-		require.Equal(t, guard.id, terraform.OutputMap(t, terraformOptions, "group_jia")["id"],
+		require.Equal(t, id, terraform.OutputMap(t, terraformOptions, "group_jia")["id"],
 			"the post-import apply replaced the account group instead of updating it")
 	})
 }
 
-// TestImportRoundTripJumpGroup asserts that importing a flat resource yields a
-// genuinely clean plan -- the property TestImportThenApplyAccountGroup cannot
-// assert because of the null-gate documented there.
+// TestImportRoundTrip asserts that importing a flat resource yields a genuinely
+// clean plan -- the property TestImportThenApplyAccountGroup cannot assert,
+// because that resource's jump_item_association stays null after import while its
+// schema default supplies a value.
 //
-// sra_jump_group.example is used rather than .example_gp: .example declares only
-// name and code_name, so state-null equals config-null throughout, while
-// .example_gp declares group_policy_memberships and would diff.
-func TestImportRoundTripJumpGroup(t *testing.T) {
-	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jumpoint_and_jump_group", productPath()))
+// The two cases are separate resources rather than one because they cover
+// different families: sra_jump_group has no vault surface, and
+// sra_vault_account_policy does. Both are "flat" in the sense that matters here
+// -- no TF-only sub-resource that CopyAPItoTF leaves null on import.
+func TestImportRoundTrip(t *testing.T) {
+	cases := []struct {
+		name string
+		// fixture is relative to test-tf-files/<product>/.
+		fixture string
+		addr    string
+		// outputKey names the output exposing the resource, read as
+		// OutputMap(...)["id"] to capture the id before `state rm`.
+		outputKey string
+		vars      map[string]interface{}
+		// guard instantiates guardImportOrphan with the right API type. It cannot
+		// be a plain type parameter on the struct, so each case supplies it.
+		guard func(*testing.T, *importGuard)
+		why   string
+	}{
+		{
+			name:      "jump_group",
+			fixture:   "jump_items/jumpoint_and_jump_group",
+			addr:      "sra_jump_group.example",
+			outputKey: "jump_group",
+			guard:     guardImportOrphan[api.JumpGroup],
+			// .example declares only name and code_name, so state-null equals
+			// config-null throughout. Do NOT switch this to .example_gp -- that one
+			// declares group_policy_memberships and will diff after import.
+			why: "flat: only name and code_name declared",
+		},
+		{
+			name:      "vault_account_policy",
+			fixture:   "vault/account_policy",
+			addr:      "sra_vault_account_policy.new_account_policy",
+			outputKey: "policy",
+			guard:     guardImportOrphan[api.VaultAccountPolicy],
+			// new_account_policy is the only one of the fixture's three policies
+			// that sets maximum_password_age explicitly. That attribute is
+			// Optional+Computed with no default, so leaving it unset would make the
+			// post-import value depend on the appliance rather than the config.
+			why: "flat, and sets every Optional+Computed field explicitly",
+		},
+	}
 
-	const addr = "sra_jump_group.example"
-	guard := &importGuard{}
-	guardImportOrphan[api.JumpGroup](t, guard, addr)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			randomBits := setEnvAndGetRandom(t)
+			testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/%s", productPath(), tc.fixture))
 
-	defer test_structure.RunTestStage(t, "teardown", func() {
-		terraform.Destroy(t, test_structure.LoadTerraformOptions(t, testFolder))
-	})
+			guard := &importGuard{addr: tc.addr}
+			tc.guard(t, guard)
 
-	test_structure.RunTestStage(t, "setup", func() {
-		terraformOptions := withBaseTFOptions(t, &terraform.Options{
-			TerraformDir: testFolder,
-			Vars: map[string]interface{}{
-				"random_bits": randomBits,
-			},
+			defer test_structure.RunTestStage(t, "teardown", func() {
+				terraform.Destroy(t, test_structure.LoadTerraformOptions(t, testFolder))
+			})
+
+			test_structure.RunTestStage(t, "setup", func() {
+				vars := map[string]interface{}{"random_bits": randomBits}
+				maps.Copy(vars, tc.vars)
+
+				terraformOptions := withBaseTFOptions(t, &terraform.Options{
+					TerraformDir: testFolder,
+					Vars:         vars,
+				})
+				test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+				terraform.InitAndApply(t, terraformOptions)
+
+				// Apply twice before asserting anything about plan emptiness. Both
+				// fixtures declare list datasources whose outputs are read at plan
+				// time, before the resources exist; after one apply those outputs are
+				// still empty and the next plan reports "Changes to Outputs", which
+				// -detailed-exitcode reports as 2. Every existing test in this suite
+				// applies twice for the same reason (see TestAccountGroup).
+				terraform.Apply(t, terraformOptions)
+			})
+
+			test_structure.RunTestStage(t, "Round-trip through import", func() {
+				terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+				id := terraform.OutputMap(t, terraformOptions, tc.outputKey)["id"]
+				require.NotEmpty(t, id, "could not read the %s id from outputs", tc.name)
+
+				reimport(t, terraformOptions, guard, id)
+
+				// Assert == 0, never != 2: GetExitCodeForTerraformCommandContextE
+				// returns 1 on a plan *error*, so != 2 would pass on a broken plan.
+				require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+					"plan after import was not clean — importing %s does not round-trip (%s)", tc.addr, tc.why)
+			})
 		})
-		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		terraform.InitAndApply(t, terraformOptions)
-
-		// Apply twice before asserting anything about plan emptiness. The fixture
-		// declares list datasources whose outputs are read at plan time, before
-		// the resources exist; after one apply those outputs are still empty and
-		// the next plan reports "Changes to Outputs", which -detailed-exitcode
-		// reports as 2. Every existing test in this suite applies twice for the
-		// same reason (see TestAccountGroup).
-		terraform.Apply(t, terraformOptions)
-	})
-
-	test_structure.RunTestStage(t, "Round-trip the jump group through import", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
-
-		guard.id = terraform.OutputMap(t, terraformOptions, "jump_group")["id"]
-		require.NotEmpty(t, guard.id, "could not read the jump group id from outputs")
-
-		reimport(t, terraformOptions, guard, addr)
-
-		// Assert == 0, never != 2: GetExitCodeForTerraformCommandContextE returns
-		// 1 on a plan *error*, so != 2 would pass on a broken plan.
-		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
-			"plan after import was not clean — importing %s does not round-trip", addr)
-	})
-}
-
-// TestImportRoundTripAccountPolicy is the second clean round-trip, covering the
-// vault family that TestImportRoundTripJumpGroup does not.
-//
-// new_account_policy is used rather than its _false/_mixed siblings because it is
-// the only one that sets maximum_password_age explicitly; that attribute is
-// Optional+Computed with no default, so leaving it unset makes the post-import
-// value depend on what the appliance returns rather than on the config.
-func TestImportRoundTripAccountPolicy(t *testing.T) {
-	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_policy", productPath()))
-
-	const addr = "sra_vault_account_policy.new_account_policy"
-	guard := &importGuard{}
-	guardImportOrphan[api.VaultAccountPolicy](t, guard, addr)
-
-	defer test_structure.RunTestStage(t, "teardown", func() {
-		terraform.Destroy(t, test_structure.LoadTerraformOptions(t, testFolder))
-	})
-
-	test_structure.RunTestStage(t, "setup", func() {
-		terraformOptions := withBaseTFOptions(t, &terraform.Options{
-			TerraformDir: testFolder,
-			Vars: map[string]interface{}{
-				"random_bits": randomBits,
-				"name":        "fun_policy",
-			},
-		})
-		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		terraform.InitAndApply(t, terraformOptions)
-		terraform.Apply(t, terraformOptions) // settle the list datasource output
-	})
-
-	test_structure.RunTestStage(t, "Round-trip the account policy through import", func() {
-		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
-
-		guard.id = terraform.OutputMap(t, terraformOptions, "policy")["id"]
-		require.NotEmpty(t, guard.id, "could not read the account policy id from outputs")
-
-		reimport(t, terraformOptions, guard, addr)
-
-		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
-			"plan after import was not clean — importing %s does not round-trip", addr)
-	})
+	}
 }
