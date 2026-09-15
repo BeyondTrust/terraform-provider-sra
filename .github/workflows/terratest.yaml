@@ -4,10 +4,6 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-  workflow_run:
-    workflows: ["Dependabot PR Check"]
-    types:
-      - completed
 
 permissions:
   contents: none
@@ -15,14 +11,18 @@ permissions:
 jobs:
   build_for_terratest:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || github.event_name == 'workflow_dispatch' }}
+    # Skip the E2E suite for Dependabot PRs: they open in bulk, each run costs
+    # real appliance time, and a dependency bump cannot break provider behaviour
+    # in a way `build` and `lint` miss. Gate on the PR *author*, not the actor --
+    # `github.actor` becomes whoever last pushed, so updating a Dependabot branch
+    # would otherwise silently re-enable E2E. Use workflow_dispatch to run it
+    # against a Dependabot PR on purpose.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login != 'dependabot[bot]' }}
     permissions:
       contents: read
     steps:
       - name: "Checkout"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || '' }}
 
       - name: "Configure Go"
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
