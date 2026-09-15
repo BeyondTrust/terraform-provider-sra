@@ -40,6 +40,13 @@ func (p *sraProvider) Metadata(_ context.Context, _ provider.MetadataRequest, re
 
 func (p *sraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		// tfplugindocs v0.24 reuses this same MarkdownDescription for the
+		// Registry page's frontmatter `description:` summary, but flattens it
+		// to plain text: the Markdown heading/list syntax is stripped and the
+		// "Use Cases" bullets collapse onto one run-on line. That affects only
+		// the frontmatter summary — `go generate ./...` still reproduces this
+		// string faithfully as docs/index.md's page body. Don't "fix" the
+		// bullets below on account of how the frontmatter renders.
 		MarkdownDescription: `
 # BeyondTrust SRA Terraform Provider
 
@@ -65,8 +72,8 @@ Examples for all of these use cases can be found within the [test-tf-files](http
 
 ## Configuration
 
-To function, the provider requires the hostname of your instance as well as credentials for an API account configured in that instance. This API account must have permission to "Allow Access" to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the "Manage Vault Accounts" permission.
-To use the API Account within your Terraform scripts, the hostname, Client ID, and Client Secret values should be passed by setting the \"BT_API_HOST\", \"BT_CLIENT_ID\", and \"BT_CLIENT_SECRET\" environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.`,
+To function, the provider requires the ` + "`" + `hostname` + "`" + ` of your instance as well as credentials for an API account configured in that instance. This API account must have permission to ` + "`" + `Allow Access` + "`" + ` to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the ` + "`" + `Manage Vault Accounts` + "`" + ` permission.
+To use the API account within Terraform, the ` + "`" + `hostname` + "`" + `, ` + "`" + `Client ID` + "`" + `, and ` + "`" + `Client Secret` + "`" + ` values should be passed by setting the ` + "`" + `BT_API_HOST` + "`" + `, ` + "`" + `BT_CLIENT_ID` + "`" + `, and ` + "`" + `BT_CLIENT_SECRET` + "`" + ` environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.`,
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
 				Optional:    true,

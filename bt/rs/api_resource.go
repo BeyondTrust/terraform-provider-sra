@@ -136,6 +136,17 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 		)
 		return
 	}
+	if newItem == nil {
+		// CreateItem returns (nil, nil) on a 204 No Content. No documented create
+		// endpoint does this today, but if one did, there would be no server-
+		// assigned fields (e.g. ID) to populate computed attributes from — fail
+		// loudly rather than writing a half-null state.
+		resp.Diagnostics.AddError(
+			"Error creating item",
+			fmt.Sprintf("%s create returned no content; computed attributes could not be populated", r.printableName()),
+		)
+		return
+	}
 	apiType := reflect.TypeOf(newItem).Elem()
 	newApiObj := reflect.ValueOf(newItem).Elem()
 	if err := api.CopyAPItoTF(ctx, newApiObj, tfObj, apiType, r.ApiClient.Product); err != nil {
