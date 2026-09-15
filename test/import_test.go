@@ -3,7 +3,6 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +14,11 @@ import (
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
 	"github.com/stretchr/testify/require"
 )
+
+// stageSkipRandomBits mirrors the constant setEnvAndGetRandom substitutes when any
+// SKIP_<stage> env var is set (test/setup.go:51-52). It is shared by every test in
+// such a run, so it cannot establish ownership of an object.
+const stageSkipRandomBits = "not_so_random"
 
 // importGuard tracks the one piece of state the orphan recovery below needs: the
 // id of the object we are about to detach from Terraform state, and whether the
@@ -62,6 +66,26 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 		id, convErr := strconv.Atoi(g.orphanID)
 		if convErr != nil || id < 1 {
 			t.Errorf("orphan recovery: %s has unusable id %q — LEAKED on the appliance", g.addr, g.orphanID)
+			return
+		}
+
+		// The ownership check below is only as good as the marker. Two ways it can
+		// silently become a no-op, both enforced here rather than left to the two
+		// distant struct literals that populate the field:
+		//
+		//  - An empty marker makes strings.Contains unconditionally true, restoring
+		//    exactly the blind cross-namespace delete the check exists to prevent.
+		//    A guard built as &importGuard{addr: "..."} compiles fine.
+		//  - Under stage-skipping, setEnvAndGetRandom pins randomBits to the shared
+		//    constant "not_so_random" for every test (test/setup.go:51-52). The
+		//    marker then matches leftovers from ANY earlier skip-mode run, not just
+		//    this one, so it no longer establishes ownership. Refusing is also the
+		//    behaviour stage-skipping wants: SKIP_teardown exists precisely to leave
+		//    objects in place between runs, and a human is at the keyboard.
+		if g.randomBits == "" || g.randomBits == stageSkipRandomBits {
+			t.Errorf("orphan recovery: %s has no usable ownership marker (%q), refusing to delete id %d. "+
+				"If this is a stage-skipping run, remove it by hand; otherwise the guard was constructed without randomBits.",
+				g.addr, g.randomBits, id)
 			return
 		}
 
@@ -311,7 +335,6 @@ func TestImportRoundTrip(t *testing.T) {
 		// outputKey names the output exposing the resource, read as
 		// OutputMap(...)["id"] to capture the id before `state rm`.
 		outputKey string
-		vars      map[string]interface{}
 		// guard instantiates guardImportOrphan with the right API type. It cannot
 		// be a plain type parameter on the struct, so each case supplies it.
 		guard func(*testing.T, *importGuard)
@@ -355,12 +378,9 @@ func TestImportRoundTrip(t *testing.T) {
 			})
 
 			test_structure.RunTestStage(t, "setup", func() {
-				vars := map[string]interface{}{"random_bits": randomBits}
-				maps.Copy(vars, tc.vars)
-
 				terraformOptions := withBaseTFOptions(t, &terraform.Options{
 					TerraformDir: testFolder,
-					Vars:         vars,
+					Vars:         map[string]interface{}{"random_bits": randomBits},
 				})
 				test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 				terraform.InitAndApply(t, terraformOptions)
@@ -372,6 +392,15 @@ func TestImportRoundTrip(t *testing.T) {
 				// -detailed-exitcode reports as 2. Every existing test in this suite
 				// applies twice for the same reason (see TestAccountGroup).
 				terraform.Apply(t, terraformOptions)
+
+				// Baseline the fixture BEFORE touching state. The post-import
+				// assertion below covers the whole configuration, not just tc.addr,
+				// so without this a pre-existing drift in a sibling resource would
+				// surface as "importing <addr> does not round-trip" and point at the
+				// wrong thing. Failing here instead says plainly that the fixture was
+				// already unstable.
+				require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+					"fixture is not stable before import — this is pre-existing drift, not an import defect")
 			})
 
 			test_structure.RunTestStage(t, "Round-trip through import", func() {
@@ -384,8 +413,17 @@ func TestImportRoundTrip(t *testing.T) {
 
 				// Assert == 0, never != 2: GetExitCodeForTerraformCommandContextE
 				// returns 1 on a plan *error*, so != 2 would pass on a broken plan.
+				//
+				// Note this covers the WHOLE configuration, not just tc.addr. The
+				// fixtures declare siblings (jumpoint_and_jump_group also creates
+				// .example_gp with group_policy_memberships, refreshed through
+				// ReadGPMemberships at plan time) and list datasources. A dirty plan
+				// therefore does not prove the imported resource is at fault -- read
+				// the plan output before concluding the import failed to round-trip.
 				require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
-					"plan after import was not clean — importing %s does not round-trip (%s)", tc.addr, tc.why)
+					"plan after import was not clean. Most likely %s does not round-trip (%s), "+
+						"but this assertion covers the whole fixture — check the plan output for drift "+
+						"on sibling resources or datasources before blaming import.", tc.addr, tc.why)
 			})
 		})
 	}
