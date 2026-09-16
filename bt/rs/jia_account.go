@@ -117,10 +117,16 @@ func ReadAccountJIA(
 
 	if err != nil {
 		if api.IsNotFound(err) {
-			// The association is gone (e.g. deleted out-of-band). Write an
-			// empty association rather than erroring.
-			var empty api.AccountJumpItemAssociation
-			d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+			// No association: either it was deleted out of band, or the account
+			// never had one (this GET 404s in both cases — measured).
+			//
+			// Write a null object, not a zero-value struct. A zero-value struct
+			// serialises to filter_type: "", which is outside the set the
+			// attribute declares, and which UpdateAccountJIA's stateIsGone check
+			// (IsNull || IsUnknown) does not recognise as absence. Null is how the
+			// create path already represents this, one function above.
+			d = respState.SetAttribute(ctx, path.Root("jump_item_association"),
+				types.ObjectNull(tfObj.AttributeTypes(ctx)))
 			diags.Append(d...)
 			return
 		}
@@ -175,6 +181,14 @@ func UpdateAccountJIA(
 	if diags.HasError() {
 		return
 	}
+	// Unknown counts as gone, and that is load-bearing rather than loose.
+	// jump_item_association is Optional + Computed, so when a configuration
+	// drops the block the planned value arrives unknown rather than null — that
+	// unknown is the only signal the provider gets that the block was removed.
+	// Drop the IsUnknown() and it falls through to the As() below, where
+	// UnhandledUnknownAsEmpty yields a zero struct and the provider PATCHes
+	// filter_type: "". TestUpdateAccountJIA_UnknownPlanIsARemoval fails that way
+	// on purpose.
 	planIsGone := tfObj.IsNull() || tfObj.IsUnknown()
 
 	if !planIsGone {
@@ -203,6 +217,16 @@ func UpdateAccountJIA(
 	})
 
 	if planIsGone && stateIsGone {
+		// Nothing to do on the appliance, but returning bare is not safe: the
+		// planned value is unknown whenever the config omits the block and any
+		// other attribute changed, and an unknown left in the applied state is
+		// rejected with "provider returned invalid result object after apply"
+		// — after the account PATCH has already been sent. Resolve it to null,
+		// which is what absence is. CreateAccountJIA does the same, for the same
+		// reason, at the top of this file.
+		d = respState.SetAttribute(ctx, path.Root("jump_item_association"),
+			types.ObjectNull(tfObj.AttributeTypes(ctx)))
+		diags.Append(d...)
 		return
 	}
 
@@ -247,9 +271,14 @@ func UpdateAccountJIA(
 		// non-nil value before reaching this point. Do not "unify" the two:
 		// the association was just deleted from the appliance, so state must
 		// reflect its absence, not echo the request back into existence.
-		var empty api.AccountJumpItemAssociation
-		logItem(ctx, "🦠 Setting empty item in plan", empty)
-		d = respState.SetAttribute(ctx, path.Root("jump_item_association"), empty)
+		//
+		// Absence is a null object. A zero-value struct is not absence: it
+		// serialises to filter_type: "", and the stateIsGone check above
+		// (IsNull || IsUnknown) then reads it as "still present", so the next
+		// apply re-enters this delete branch and DELETEs an association that is
+		// already gone — a hard error on every subsequent apply.
+		d = respState.SetAttribute(ctx, path.Root("jump_item_association"),
+			types.ObjectNull(tfObj.AttributeTypes(ctx)))
 	}
 	diags.Append(d...)
 	if diags.HasError() {

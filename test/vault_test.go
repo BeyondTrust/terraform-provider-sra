@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Jeffail/gabs"
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -218,6 +219,66 @@ func TestVaultSSHKey(t *testing.T) {
 		singleFilter := terraform.OutputMap(t, terraformOptions, "single_filter")
 		assert.Equal(t, base["id"], singleFilter["id"])
 		assert.Equal(t, testPublicKey, singleFilter["public_key"])
+	})
+
+	// Five of the seven accounts in this fixture carry no jump_item_association,
+	// so the suite already applied the case that broke -- it had no way to see
+	// it. terraform.Apply does not fail on a dirty plan, and the assertions above
+	// read outputs rather than plans, so an exit-code check is what it takes.
+	//
+	// Note where the fault lives: state on disk is fine, and the REFRESH is what
+	// introduces the bad value, so an assertion on an output would pass whatever
+	// the provider does. Against the previous provider this stage reports the
+	// five accounts under "Objects have changed outside of Terraform", each
+	// gaining a jump_item_association of filter_type "", and then replans the
+	// whole attribute as (known after apply) -- which the next apply cannot
+	// settle, because the refresh reintroduces it every time.
+	//
+	// Both applies above are load-bearing rather than incidental: the list
+	// datasource only resolves on the second, and a plan taken before that
+	// reports "Changes to Outputs" and exits 2 for reasons unrelated to anything
+	// asserted here.
+	test_structure.RunTestStage(t, "Accounts with no jump item association plan clean", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+			"an association-less vault account left a perpetual diff")
+	})
+	// Then change an unrelated attribute and apply again. Every other apply in
+	// this suite reloads identical options, so it drives Update with a plan
+	// equal to state -- which never reaches the arm this exercises.
+	//
+	// jump_item_association is Optional + Computed with no default, so for the
+	// five accounts that omit the block the planned value is unknown as soon as
+	// anything else on the resource changes. UpdateAccountJIA has nothing to do
+	// with the appliance in that case, but it must still resolve the unknown
+	// before returning: an unknown left in applied state fails the apply with
+	// "provider returned invalid result object after apply", and it fails AFTER
+	// the account PATCH has already been sent.
+	//
+	// terraform.Apply failing is the assertion. name is Required with no
+	// RequiresReplace, so this updates in place rather than recreating.
+	test_structure.RunTestStage(t, "Changing an unrelated attribute applies cleanly", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{
+			TerraformDir: testFolder,
+			Vars: map[string]interface{}{
+				"random_bits": randomBits,
+				"name":        "This is a Renamed Name",
+			},
+		})
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+
+		// This apply is the assertion: terraform.Apply fails the test on a
+		// provider error, and the failure mode above is exactly that.
+		terraform.Apply(t, terraformOptions)
+
+		// The second settles the list datasource output, which still carries the
+		// pre-rename name and would otherwise exit 2 on "Changes to Outputs" --
+		// the same prerequisite the stage above carries, for the same reason.
+		terraform.Apply(t, terraformOptions)
+
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+			"renaming left a perpetual diff")
 	})
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- test scaffolding for the vault-account JIA helpers ---------------------
@@ -46,6 +47,23 @@ var (
 	}}
 	jiaSchemaType = tftypes.Object{AttributeTypes: map[string]tftypes.Type{"jump_item_association": jiaInnerType}}
 )
+
+// A note on how these tests seed respState, because it is deliberate and looks
+// wrong at first glance.
+//
+// The real caller does resp.State.Set(ctx, plan) before calling into these
+// helpers (bt/rs/api_resource.go:276), so in production respState arrives
+// holding the PLANNED value. Most tests here instead seed it with the opposite
+// of the expected outcome. That is on purpose: it is what makes "the arm
+// returned without writing anything" a failure rather than an invisible no-op,
+// and it is what kills the mutation that deletes a SetAttribute call outright.
+//
+// The cost of that choice is real — seeding unfaithfully cannot detect a bug
+// that only manifests when respState starts from the plan, which is exactly how
+// a missing write in the planIsGone && stateIsGone arm stayed invisible until it
+// was found against a live appliance. TestUpdateAccountJIA_NoOpResolvesAnUnknownPlan
+// closes that by seeding faithfully, from jiaRawUnknown(). Keep both shapes: they
+// catch different things.
 
 // jiaRaw builds the object value; present=false yields a null association.
 func jiaRaw(present bool) tftypes.Value {
@@ -98,12 +116,10 @@ func TestUpdateAccountJIA_DeleteTransition(t *testing.T) {
 	var tfObj types.Object
 	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
 	assert.False(t, d.HasError())
-	assert.False(t, tfObj.IsNull(), "the delete transition should clear to an empty association, not remove it")
-
-	var apiSub api.AccountJumpItemAssociation
-	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-	assert.False(t, d.HasError())
-	assert.Equal(t, "", apiSub.FilterType, "a deleted association must clear filter_type, not carry over any prior value")
+	// Null, not a zero-value struct. stateIsGone above is IsNull || IsUnknown, so
+	// a zero-value struct reads as "still present" and the next apply re-enters
+	// this same delete branch against an association that is already gone.
+	assert.True(t, tfObj.IsNull(), "a deleted association is absent, and absence is null")
 }
 
 // The update-path CREATE branch (state absent, plan present) has the same
@@ -215,8 +231,18 @@ func TestReadAccountJIA_ErrorWithNoStateTolerated(t *testing.T) {
 	assert.True(t, respState.Raw.Equal(jiaRaw(false)), "state must be left untouched, not fabricated")
 }
 
-// B1: a 404 clears the association to an empty value rather than erroring.
-func TestReadAccountJIA_NotFoundClears(t *testing.T) {
+// A 404 means there is no association — either deleted out of band, or never
+// created. It clears to NULL, not to a zero-value struct, and does not error.
+//
+// This test previously asserted the opposite ("a 404 should clear to an empty
+// association, not remove it"). That was defending empty-vs-error, not
+// empty-vs-null: null was never considered. It landed in 1e90278 alongside the
+// CreateAccountJIA comment stating that a zero-value association puts
+// filter_type: "" into state, "a value the attribute's own contract forbids" —
+// the same commit thus fixed the create path and codified the bug in the read
+// path. A zero-value struct is not absence; UpdateAccountJIA's stateIsGone check
+// (IsNull || IsUnknown) does not recognise it as such.
+func TestReadAccountJIA_NotFoundClearsToNull(t *testing.T) {
 	ctx := context.Background()
 	client := mockJIAGetClient(t, http.StatusNotFound)
 
@@ -232,12 +258,7 @@ func TestReadAccountJIA_NotFoundClears(t *testing.T) {
 	var tfObj types.Object
 	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
 	assert.False(t, d.HasError())
-	assert.False(t, tfObj.IsNull(), "a 404 should clear to an empty association, not remove it")
-
-	var apiSub api.AccountJumpItemAssociation
-	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-	assert.False(t, d.HasError())
-	assert.Equal(t, "", apiSub.FilterType)
+	assert.True(t, tfObj.IsNull(), "a 404 means no association, which is a null object")
 }
 
 // Finding 9: CreateItem returns (nil, nil) on a 204 No Content — the
@@ -275,4 +296,174 @@ func TestCreateAccountJIA_204NoContentTolerated(t *testing.T) {
 	d = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
 	assert.False(t, d.HasError())
 	assert.Equal(t, "any_jump_items", apiSub.FilterType, "a 204 must echo the planned filter_type, not a zero-value fallback")
+}
+
+// The ordinary refresh for an association-less account: nothing in state, and
+// the GET 404s because there is nothing to get. Every other read test here
+// starts from a populated state, so this — the path most accounts take on every
+// single refresh — went uncovered.
+//
+// It also pins the part of the fix that is not self-evident. The null object is
+// built from tfObj.AttributeTypes(ctx), and tfObj is itself null here. A null
+// types.Object still carries its attribute types, so what gets written is a
+// typed null; if it did not, SetAttribute would reject the value outright.
+func TestReadAccountJIA_NotFoundWithNoStateStaysNull(t *testing.T) {
+	ctx := context.Background()
+	client := mockJIAGetClient(t, http.StatusNotFound)
+
+	sch := jiaTestSchema()
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(false)}
+	respState := tfsdk.State{Schema: sch, Raw: jiaRaw(false)}
+	var diags diag.Diagnostics
+
+	ReadAccountJIA(ctx, client, state, &respState, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+
+	// Raw equality with jiaRaw(false) subsumes an IsNull check -- that fixture
+	// builds the association as a null object -- and adds that nothing else moved.
+	assert.True(t, respState.Raw.Equal(jiaRaw(false)),
+		"absent before the refresh, absent and untouched after it")
+}
+
+// Out-of-band deletion, refresh through re-create. This is the two halves of the
+// fix working as a pair, and the HTTP verb is what proves it.
+//
+// Because the refresh clears to null, UpdateAccountJIA sees stateIsGone and
+// routes the re-create to POST, which is how an association is created.
+// Clearing to a zero-value struct instead leaves stateIsGone false, so the same
+// apply PATCHes an association that no longer exists. Measured against a live
+// appliance 2026-09-15: that PATCH returns 400 "Account does not have an Asset
+// association." both after an out-of-band delete and for an account that never
+// had one, while the POST returns 200 in both cases.
+func TestAccountJIA_OutOfBandDeletionRecreatesWithPOST(t *testing.T) {
+	ctx := context.Background()
+
+	var methods []string
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if !strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			return false
+		}
+		if r.Method == http.MethodGet {
+			// Deleted on the appliance since the last apply.
+			w.WriteHeader(http.StatusNotFound)
+			return true
+		}
+		methods = append(methods, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	})
+
+	sch := jiaTestSchema()
+	// State as the last apply left it: the association present.
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(true)}
+	refreshed := tfsdk.State{Schema: sch, Raw: jiaRaw(true)}
+	var diags diag.Diagnostics
+
+	ReadAccountJIA(ctx, client, state, &refreshed, &diags, 99)
+	require.False(t, diags.HasError(), "%v", diags)
+
+	// The config still asks for the association, so the next apply re-creates it
+	// against the state the refresh just wrote.
+	plan := tfsdk.Plan{Schema: sch, Raw: jiaRaw(true)}
+	respState := tfsdk.State{Schema: sch, Raw: refreshed.Raw}
+	UpdateAccountJIA(ctx, client, plan, refreshed, &respState, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+	assert.Equal(t, []string{http.MethodPost}, methods,
+		"re-creating an out-of-band-deleted association must POST; a PATCH here is the 400")
+
+	var tfObj types.Object
+	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.False(t, tfObj.IsNull(), "the re-created association must be back in state")
+}
+
+// jiaRawUnknown is the plan shape Terraform produces when a configuration drops
+// the jump_item_association block: the attribute is Optional + Computed with no
+// default, so a null config plans as unknown rather than as null.
+func jiaRawUnknown() tftypes.Value {
+	return tftypes.NewValue(jiaSchemaType, map[string]tftypes.Value{
+		"jump_item_association": tftypes.NewValue(jiaInnerType, tftypes.UnknownValue),
+	})
+}
+
+// Removing a jump_item_association block from configuration must DELETE, and the
+// planned value that expresses the removal is unknown rather than null.
+//
+// This pins the IsUnknown() half of planIsGone, which nothing else does — every
+// other test here reaches the delete arm through a null plan, so dropping
+// IsUnknown() leaves them all green. Without the fold, an unknown falls into the
+// !planIsGone branch, tfObj.As runs with UnhandledUnknownAsEmpty, and the
+// provider PATCHes filter_type: "" — reintroducing the value this whole change
+// exists to keep out.
+func TestUpdateAccountJIA_UnknownPlanIsARemoval(t *testing.T) {
+	ctx := context.Background()
+
+	var methods []string
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if !strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			return false
+		}
+		methods = append(methods, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	})
+
+	sch := jiaTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: jiaRawUnknown()}
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(true)}
+	respState := tfsdk.State{Schema: sch, Raw: jiaRaw(true)}
+	var diags diag.Diagnostics
+
+	UpdateAccountJIA(ctx, client, plan, state, &respState, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+	assert.Equal(t, []string{http.MethodDelete}, methods,
+		"an unknown planned association means the block was removed, so it must DELETE and nothing else")
+
+	var tfObj types.Object
+	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.True(t, tfObj.IsNull(), "and the removal must leave state absent, not unknown or empty")
+}
+
+// The no-op arm still has to write. An account whose config omits the block
+// plans that attribute as unknown as soon as any OTHER attribute changes, so
+// this arm runs with plan unknown and state null — and returning without
+// writing leaves the unknown in the applied state, which Terraform rejects with
+// "provider returned invalid result object after apply", after the account PATCH
+// has already gone to the appliance.
+//
+// Measured against a live appliance 2026-09-15: changing only `description` on a
+// vault SSH account with no jump_item_association block reproduced exactly that
+// error. TestUpdateAccountJIA_NoOp covers the plan-null/state-null pair and
+// cannot see this, because a null plan leaves a null behind either way.
+func TestUpdateAccountJIA_NoOpResolvesAnUnknownPlan(t *testing.T) {
+	ctx := context.Background()
+
+	var calls int
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			calls++
+		}
+		return false
+	})
+
+	sch := jiaTestSchema()
+	plan := tfsdk.Plan{Schema: sch, Raw: jiaRawUnknown()} // config omits the block
+	state := tfsdk.State{Schema: sch, Raw: jiaRaw(false)} // and there is no association
+	respState := tfsdk.State{Schema: sch, Raw: jiaRawUnknown()}
+	var diags diag.Diagnostics
+
+	UpdateAccountJIA(ctx, client, plan, state, &respState, &diags, 99)
+
+	assert.False(t, diags.HasError(), "%v", diags)
+	assert.Equal(t, 0, calls, "there is nothing to create, update or delete")
+
+	var tfObj types.Object
+	d := respState.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
+	assert.False(t, d.HasError())
+	assert.False(t, tfObj.IsUnknown(), "an unknown left in applied state fails the apply outright")
+	assert.True(t, tfObj.IsNull(), "and the value it resolves to is null, because there is no association")
 }
