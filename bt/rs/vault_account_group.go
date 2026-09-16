@@ -168,9 +168,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		var tfStateObj types.Object
 		diags = req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
@@ -249,9 +247,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
 		if err != nil {
@@ -316,9 +312,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		if apiSub.Criteria == nil {
 			apiSub.Criteria = &api.JumpItemAssociationCriteria{}

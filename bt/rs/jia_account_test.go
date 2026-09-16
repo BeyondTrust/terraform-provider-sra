@@ -484,6 +484,14 @@ func TestUpdateAccountJIA_NoOpResolvesAnUnknownPlan(t *testing.T) {
 // provider configured. So the only thing keeping scope out of these lines is the
 // call sites not passing it, which is exactly what this test pins.
 //
+// Scope: the three vault ACCOUNT handlers only. sra_vault_account_group has the
+// same three handlers over AccountGroupJumpItemAssociation, and they were carrying
+// the same field until it was removed alongside these. They are not covered here
+// because their association logic is inline in the resource methods rather than in
+// callable functions, so reaching it means standing up a full schema raw value and
+// a mock serving the generic read as well. If you add such a harness, extend this
+// test rather than writing a second one.
+//
 // The canary contains no character json.Marshal would escape. A value with a
 // quote or backslash serialises differently from its Go form, so NotContains
 // against the raw string would pass while the value sat in the output escaped.
@@ -698,7 +706,12 @@ func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
 			"omitting it makes the appliance PRESERVE the old criteria, so state would disagree with the plan: %s", blob)
 		require.NotNil(t, criteria, "an explicit null is rejected with 422: %s", blob)
 
-		for name, value := range criteria.(map[string]any) {
+		// Length first: ranging a map asserts nothing when the map is empty, so
+		// without this the subtest would stay green if the five sets ever gained an
+		// omitempty and vanished from the payload.
+		properties := criteria.(map[string]any)
+		require.Len(t, properties, 5, "all five criteria properties must be sent: %s", blob)
+		for name, value := range properties {
 			assert.Equal(t, []any{}, value,
 				"%s must be an empty array: a null there is the 422, and omitting it preserves instead of clearing", name)
 		}
@@ -741,6 +754,11 @@ func TestJumpItemAssociationFilterValidator(t *testing.T) {
 		{"criteria with only jump_items", jiaConfig("criteria", nil, true), false},
 		{"criteria with no criteria block and no jump items", jiaConfig("criteria", nil, false), true},
 		{"criteria with an all-empty criteria block", jiaConfig("criteria", []string{}, false), true},
+		// jump_items does not excuse a written-but-empty block. The plan would hold
+		// an object (the sub-attributes default to empty sets), the appliance reads
+		// that as "clear the criteria" and reports null, and state then contradicts
+		// the plan on every refresh.
+		{"an empty criteria block is not excused by jump_items", jiaConfig("criteria", []string{}, true), true},
 		{"any_jump_items needs nothing", jiaConfig("any_jump_items", nil, false), false},
 		{"no_jump_items needs nothing", jiaConfig("no_jump_items", nil, false), false},
 		{"a null association is not this validator's business", types.ObjectNull(jiaConfig("criteria", nil, false).AttributeTypes(ctx)), false},

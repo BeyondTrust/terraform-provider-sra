@@ -646,8 +646,7 @@ func TestIsNotFoundReadsTheStatusNotTheBody(t *testing.T) {
 // on its exact text.
 func TestStatusErrorKeepsTheEstablishedMessage(t *testing.T) {
 	err := &StatusError{Status: http.StatusTeapot, Body: "short and stout"}
-	assert.Equal(t, "status: 418, body: short and stout", err.Error())
-	assert.Equal(t, fmt.Sprintf("status: %d, body: %s", http.StatusTeapot, "short and stout"), err.Error(),
+	assert.Equal(t, "status: 418, body: short and stout", err.Error(),
 		"the format must stay identical to what fmt.Errorf produced before")
 }
 

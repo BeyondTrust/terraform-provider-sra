@@ -333,8 +333,8 @@ func TestVaultSSHKey(t *testing.T) {
 		// marshals to an explicit null and the appliance answers
 		// 422 "This value must be an array." -- separately for jump_items and for
 		// each unset criteria field. Omitting a key entirely is accepted; sending
-		// null is not. The same shape is why the provider cannot currently create
-		// an association with a bare filter_type.
+		// null is not. The same shape is why the provider could not create
+		// an association with a bare filter_type until this branch fixed it.
 		_, err = api.CreateItem(freshClient(t), api.AccountJumpItemAssociation{
 			ID:         &accountID,
 			FilterType: "criteria",

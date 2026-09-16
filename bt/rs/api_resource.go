@@ -414,20 +414,29 @@ func (v jumpItemAssociationFilterValidator) ValidateObject(ctx context.Context, 
 		return
 	}
 
-	// Either one satisfies the appliance, per the error text it returns.
-	if setHasElements(attrs["jump_items"]) {
-		return
-	}
-
-	// A null or absent criteria carries no attributes, so the loop simply does not
-	// run. An unknown one carries none either, and must not be judged on that.
+	// An unknown criteria carries no attributes, and must not be judged on that.
 	criteria, _ := attrs["criteria"].(types.Object)
 	if criteria.IsUnknown() {
 		return
 	}
-	for _, value := range criteria.Attributes() {
-		if setHasElements(value) {
+
+	if criteria.IsNull() {
+		// No criteria block at all. jump_items may carry the scope instead -- the
+		// appliance accepts that, and both the plan and the applied state then say
+		// the criteria is null, so they agree.
+		if setHasElements(attrs["jump_items"]) {
 			return
+		}
+	} else {
+		// A criteria block that IS written must carry something. jump_items does not
+		// excuse an empty one: the five sub-attributes default to empty sets, so the
+		// plan holds an object, the wire carries that object, and the appliance reads
+		// an all-empty criteria as "clear it" and reports null back. State would then
+		// contradict the plan, and a refresh re-proposes the same object forever.
+		for _, value := range criteria.Attributes() {
+			if setHasElements(value) {
+				return
+			}
 		}
 	}
 
@@ -436,7 +445,10 @@ func (v jumpItemAssociationFilterValidator) ValidateObject(ctx context.Context, 
 		"Missing Jump Item Association Criteria",
 		`filter_type is "criteria", so this association must say what to filter on: `+
 			"set at least one property of `criteria` (host, name, tag, comment or "+
-			"shared_jump_groups), or list `jump_items`.\n\n"+
+			"shared_jump_groups), or drop the `criteria` block entirely and list "+
+			"`jump_items`. An empty `criteria` block is not the same as no block: the "+
+			"appliance reads it as an instruction to clear the criteria, and reports "+
+			"back a null that contradicts the plan.\n\n"+
 			`To associate every Jump Item, or none, use filter_type "any_jump_items" `+
 			`or "no_jump_items" instead — those ignore criteria.`,
 	)
