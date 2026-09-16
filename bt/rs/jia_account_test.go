@@ -610,7 +610,8 @@ func TestJumpItemAssociationIsComputedOnlyWhereItSuppliesAValue(t *testing.T) {
 // jiaConfig builds a jump_item_association object value the way a configuration
 // would, so these tests exercise the real schema rather than a hand-built struct.
 // criteriaTags == nil means the criteria block is absent entirely.
-func jiaConfig(filterType string, criteriaTags []string, withJumpItem bool) types.Object {
+func jiaConfig(t *testing.T, filterType string, criteriaTags []string, withJumpItem bool) types.Object {
+	t.Helper()
 	strSet := func(vals []string) types.Set {
 		elems := make([]attr.Value, 0, len(vals))
 		for _, v := range vals {
@@ -642,11 +643,19 @@ func jiaConfig(filterType string, criteriaTags []string, withJumpItem bool) type
 			}),
 		})
 	}
-	return types.ObjectValueMust(outer, map[string]attr.Value{
+	// ObjectValue rather than the Must variant: when the schema grows a criteria
+	// property this fixture does not know about, Must panics and takes the whole
+	// test binary with it, after a cascade of unrelated type failures from the
+	// hand-built tftypes ladder at the top of this file. The real message -- the
+	// fixture no longer matches the schema -- appears nowhere in that. This says it.
+	obj, d := types.ObjectValue(outer, map[string]attr.Value{
 		"filter_type": types.StringValue(filterType),
 		"criteria":    criteria,
 		"jump_items":  jumpItems,
 	})
+	require.False(t, d.HasError(),
+		"this fixture no longer matches accountJumpItemAssociationSchema(): %v", d)
+	return obj
 }
 
 // What goes on the wire for criteria, in all three shapes the appliance
@@ -670,7 +679,7 @@ func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
 	for _, filterType := range []string{"any_jump_items", "no_jump_items"} {
 		t.Run(filterType+" with no criteria block", func(t *testing.T) {
 			var apiSub api.AccountJumpItemAssociation
-			d := jiaConfig(filterType, nil, false).As(ctx, &apiSub,
+			d := jiaConfig(t, filterType, nil, false).As(ctx, &apiSub,
 				basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
 			require.False(t, d.HasError(), "%v", d)
 
@@ -691,35 +700,30 @@ func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
 	// quietly keeping criteria the configuration dropped.
 	t.Run("criteria filter with no criteria block sends an empty one, not nothing", func(t *testing.T) {
 		var apiSub api.AccountJumpItemAssociation
-		d := jiaConfig("criteria", nil, true).As(ctx, &apiSub,
+		d := jiaConfig(t, "criteria", nil, true).As(ctx, &apiSub,
 			basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
 		require.False(t, d.HasError(), "%v", d)
 		require.Nil(t, apiSub.Criteria, "fixture assumption: no criteria block means a nil Criteria")
 
 		blob, err := json.Marshal(apiSub)
 		require.NoError(t, err)
-		var body map[string]any
-		require.NoError(t, json.Unmarshal(blob, &body))
 
-		criteria, present := body["criteria"]
-		require.True(t, present,
-			"omitting it makes the appliance PRESERVE the old criteria, so state would disagree with the plan: %s", blob)
-		require.NotNil(t, criteria, "an explicit null is rejected with 422: %s", blob)
-
-		// Length first: ranging a map asserts nothing when the map is empty, so
-		// without this the subtest would stay green if the five sets ever gained an
-		// omitempty and vanished from the payload.
-		properties := criteria.(map[string]any)
-		require.Len(t, properties, 5, "all five criteria properties must be sent: %s", blob)
-		for name, value := range properties {
-			assert.Equal(t, []any{}, value,
-				"%s must be an empty array: a null there is the 422, and omitting it preserves instead of clearing", name)
-		}
+		// The whole body rather than a sweep over its properties. Every key here was
+		// measured against a live appliance: an omitted criteria property PRESERVES
+		// the old value, an explicit null is the 422, and only the empty array
+		// clears. A property-by-property loop asserts nothing at all if the object
+		// ever comes back empty, which is exactly what adding omitempty to those
+		// five fields would produce.
+		require.JSONEq(t, `{
+			"filter_type": "criteria",
+			"criteria": {"shared_jump_groups":[],"host":[],"name":[],"tag":[],"comment":[]},
+			"jump_items": [{"id":1,"type":"shell_jump"}]
+		}`, string(blob))
 	})
 
 	t.Run("a populated criteria still sends its empty sets", func(t *testing.T) {
 		var apiSub api.AccountJumpItemAssociation
-		d := jiaConfig("criteria", []string{"keep"}, false).As(ctx, &apiSub,
+		d := jiaConfig(t, "criteria", []string{"keep"}, false).As(ctx, &apiSub,
 			basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
 		require.False(t, d.HasError(), "%v", d)
 
@@ -739,30 +743,62 @@ func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
 	})
 }
 
+// jiaConfigUnknownCriteria builds the one shape jiaConfig cannot: a criteria
+// block whose value is unknown at plan time, as it is when populated from another
+// resource's computed output.
+//
+// jump_items is deliberately empty. With it populated the validator would return
+// at the jump_items arm before criteria is examined, and the row would pass
+// without ever reaching the guard it exists to cover.
+func jiaConfigUnknownCriteria() types.Object {
+	outer := accountJumpItemAssociationSchema().GetType().(types.ObjectType).AttrTypes
+	jumpItemType := outer["jump_items"].(types.SetType).ElementType().(types.ObjectType)
+	return types.ObjectValueMust(outer, map[string]attr.Value{
+		"filter_type": types.StringValue("criteria"),
+		"criteria":    types.ObjectUnknown(outer["criteria"].(types.ObjectType).AttrTypes),
+		"jump_items":  types.SetValueMust(jumpItemType, []attr.Value{}),
+	})
+}
+
 // The validator encodes the appliance's own precondition. Every rejected case
 // here was measured returning 422 from a live appliance; every accepted one
 // returned 200.
 func TestJumpItemAssociationFilterValidator(t *testing.T) {
 	ctx := context.Background()
 
+	jiaTypes := jiaConfig(t, "criteria", nil, false).AttributeTypes(ctx)
+
 	for _, tc := range []struct {
 		name    string
 		value   types.Object
 		wantErr bool
 	}{
-		{"criteria with a tag", jiaConfig("criteria", []string{"t"}, false), false},
-		{"criteria with only jump_items", jiaConfig("criteria", nil, true), false},
-		{"criteria with no criteria block and no jump items", jiaConfig("criteria", nil, false), true},
-		{"criteria with an all-empty criteria block", jiaConfig("criteria", []string{}, false), true},
+		{"criteria with a tag", jiaConfig(t, "criteria", []string{"t"}, false), false},
+		{"criteria with only jump_items", jiaConfig(t, "criteria", nil, true), false},
+		{"criteria with no criteria block and no jump items", jiaConfig(t, "criteria", nil, false), true},
+		{"criteria with an all-empty criteria block", jiaConfig(t, "criteria", []string{}, false), true},
 		// jump_items does not excuse a written-but-empty block. The plan would hold
 		// an object (the sub-attributes default to empty sets), the appliance reads
 		// that as "clear the criteria" and reports null, and state then contradicts
 		// the plan on every refresh.
-		{"an empty criteria block is not excused by jump_items", jiaConfig("criteria", []string{}, true), true},
-		{"any_jump_items needs nothing", jiaConfig("any_jump_items", nil, false), false},
-		{"no_jump_items needs nothing", jiaConfig("no_jump_items", nil, false), false},
-		{"a null association is not this validator's business", types.ObjectNull(jiaConfig("criteria", nil, false).AttributeTypes(ctx)), false},
-		{"an unknown association cannot be judged", types.ObjectUnknown(jiaConfig("criteria", nil, false).AttributeTypes(ctx)), false},
+		{"an empty criteria block is not excused by jump_items", jiaConfig(t, "criteria", []string{}, true), true},
+		// The distinction the row above turns on. An unknown criteria is not null,
+		// so it reaches the written-but-empty branch, where its nil attribute map
+		// looks exactly like an empty block -- and gets rejected. Rejecting a
+		// configuration that cannot be evaluated yet would break any criteria fed
+		// from another resource's output. This row is the only thing covering that
+		// guard: deleting it leaves the whole package green.
+		{"an unknown criteria block cannot be judged", jiaConfigUnknownCriteria(), false},
+		{"any_jump_items needs nothing", jiaConfig(t, "any_jump_items", nil, false), false},
+		{"no_jump_items needs nothing", jiaConfig(t, "no_jump_items", nil, false), false},
+		// These two pin the contract -- neither may be rejected -- and not the early
+		// return that appears to implement it. Deleting that guard leaves both green:
+		// Attributes() on a null or unknown object yields a nil map, the filter_type
+		// type assertion fails, and the !ok branch returns anyway. The guard is
+		// deliberate defence rather than the load-bearing path, and is kept so the
+		// intent does not rest on that fallthrough.
+		{"a null association is not this validator's business", types.ObjectNull(jiaTypes), false},
+		{"an unknown association cannot be judged", types.ObjectUnknown(jiaTypes), false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := &validator.ObjectResponse{}
