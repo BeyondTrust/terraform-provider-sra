@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -65,4 +66,29 @@ func TestApiResourceCreate_204NoContent(t *testing.T) {
 	})
 
 	assert.True(t, resp.Diagnostics.HasError(), "a 204 create response must surface a diagnostic, not panic")
+}
+
+// setHasElements calls Set.Length, which panics on a null or unknown set unless
+// it is told not to. The guards above the call are the only thing preventing
+// that, and a panic inside a validator aborts the plan rather than failing a
+// check -- so this pins every state the value can arrive in.
+func TestSetHasElementsSurvivesEverySetState(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		set  attr.Value
+		want bool
+	}{
+		{"null set", types.SetNull(types.StringType), false},
+		{"unknown set", types.SetUnknown(types.StringType), true},
+		{"empty known set", types.SetValueMust(types.StringType, []attr.Value{}), false},
+		{"populated set", types.SetValueMust(types.StringType, []attr.Value{types.StringValue("x")}), true},
+		{"not a set at all", types.StringValue("x"), false},
+		{"a null object rather than a set", types.ObjectNull(map[string]attr.Type{}), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.NotPanics(t, func() {
+				assert.Equal(t, tc.want, setHasElements(tc.set))
+			})
+		})
+	}
 }
