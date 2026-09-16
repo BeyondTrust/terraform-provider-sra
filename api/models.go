@@ -510,10 +510,21 @@ func (VaultAccountPolicy) Endpoint() string {
 // read/write from TF Schema/Plans directly, meaning unknown or null values
 // could panic, depending on the type of the field.
 type AccountJumpItemAssociation struct {
-	ID         *int                         `tfsdk:"-" json:"-"`
-	FilterType string                       `json:"filter_type" tfsdk:"filter_type"`
-	Criteria   *JumpItemAssociationCriteria `json:"criteria" tfsdk:"criteria"`
-	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
+	ID         *int   `tfsdk:"-" json:"-"`
+	FilterType string `json:"filter_type" tfsdk:"filter_type"`
+	// omitempty on Criteria, and deliberately NOT on the five sets inside
+	// JumpItemAssociationCriteria. A nil Criteria marshalled to "criteria": null,
+	// which the appliance rejects with 422 "This value must be an array." -- so a
+	// bare filter_type of any_jump_items or no_jump_items could not be created at
+	// all. Omitting the key is accepted (measured); sending null is not.
+	//
+	// The sets must keep marshalling their zero value. omitempty on a slice omits
+	// an EMPTY one as well as a nil one, and the PATCH contract says a supplied
+	// criteria property replaces the previous value while an omitted one preserves
+	// it. So omitempty there would silently turn "clear the tags" into "leave the
+	// tags alone" on a control that decides where a credential may be injected.
+	Criteria  *JumpItemAssociationCriteria `json:"criteria,omitempty" tfsdk:"criteria"`
+	JumpItems []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
 }
 
 func (a AccountJumpItemAssociation) Endpoint() string {

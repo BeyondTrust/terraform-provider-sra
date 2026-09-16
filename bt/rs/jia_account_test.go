@@ -3,15 +3,18 @@ package rs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"terraform-provider-sra/api"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -594,4 +597,152 @@ func TestJumpItemAssociationIsComputedOnlyWhereItSuppliesAValue(t *testing.T) {
 		assert.True(t, attr.IsComputed(),
 			"this resource carries an objectdefault, which the framework requires be Computed")
 	})
+}
+
+// jiaConfig builds a jump_item_association object value the way a configuration
+// would, so these tests exercise the real schema rather than a hand-built struct.
+// criteriaTags == nil means the criteria block is absent entirely.
+func jiaConfig(filterType string, criteriaTags []string, withJumpItem bool) types.Object {
+	strSet := func(vals []string) attr.Value {
+		if vals == nil {
+			return types.SetNull(types.StringType)
+		}
+		elems := make([]attr.Value, 0, len(vals))
+		for _, v := range vals {
+			elems = append(elems, types.StringValue(v))
+		}
+		return types.SetValueMust(types.StringType, elems)
+	}
+	criteriaTypes := map[string]attr.Type{
+		"shared_jump_groups": types.SetType{ElemType: types.Int64Type},
+		"host":               types.SetType{ElemType: types.StringType},
+		"name":               types.SetType{ElemType: types.StringType},
+		"tag":                types.SetType{ElemType: types.StringType},
+		"comment":            types.SetType{ElemType: types.StringType},
+	}
+	criteria := types.ObjectNull(criteriaTypes)
+	if criteriaTags != nil {
+		criteria = types.ObjectValueMust(criteriaTypes, map[string]attr.Value{
+			"shared_jump_groups": types.SetValueMust(types.Int64Type, []attr.Value{}),
+			"host":               strSet([]string{}),
+			"name":               strSet([]string{}),
+			"tag":                strSet(criteriaTags),
+			"comment":            strSet([]string{}),
+		})
+	}
+	jumpItemType := types.ObjectType{AttrTypes: map[string]attr.Type{"id": types.Int64Type, "type": types.StringType}}
+	jumpItems := types.SetValueMust(jumpItemType, []attr.Value{})
+	if withJumpItem {
+		jumpItems = types.SetValueMust(jumpItemType, []attr.Value{
+			types.ObjectValueMust(jumpItemType.AttrTypes, map[string]attr.Value{
+				"id": types.Int64Value(1), "type": types.StringValue("shell_jump"),
+			}),
+		})
+	}
+	return types.ObjectValueMust(map[string]attr.Type{
+		"filter_type": types.StringType,
+		"criteria":    types.ObjectType{AttrTypes: criteriaTypes},
+		"jump_items":  types.SetType{ElemType: jumpItemType},
+	}, map[string]attr.Value{
+		"filter_type": types.StringValue(filterType),
+		"criteria":    criteria,
+		"jump_items":  jumpItems,
+	})
+}
+
+// An association with no criteria block must send no criteria KEY.
+//
+// It used to send "criteria": null, which the appliance rejects with
+// 422 "This value must be an array." -- so a bare any_jump_items or
+// no_jump_items association could not be created at all, and neither of those
+// two legal filter_type values had ever been exercised by any fixture.
+//
+// The nested sets are the other half, and they must NOT be omitted: the PATCH
+// contract preserves an omitted criteria property and replaces a supplied one,
+// so omitting an empty set would turn "clear this" into "leave it alone".
+func TestJumpItemAssociationOmitsAbsentCriteriaButKeepsEmptySets(t *testing.T) {
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name         string
+		filterType   string
+		criteriaTags []string
+	}{
+		{"any_jump_items with no criteria block", "any_jump_items", nil},
+		{"no_jump_items with no criteria block", "no_jump_items", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var apiSub api.AccountJumpItemAssociation
+			d := jiaConfig(tc.filterType, tc.criteriaTags, false).As(ctx, &apiSub,
+				basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+			require.False(t, d.HasError(), "%v", d)
+
+			blob, err := json.Marshal(apiSub)
+			require.NoError(t, err)
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(blob, &body))
+
+			_, present := body["criteria"]
+			assert.False(t, present,
+				"the appliance rejects an explicit null, so the key must be absent entirely: %s", blob)
+		})
+	}
+
+	t.Run("a populated criteria still sends its empty sets", func(t *testing.T) {
+		var apiSub api.AccountJumpItemAssociation
+		d := jiaConfig("criteria", []string{"keep"}, false).As(ctx, &apiSub,
+			basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		require.False(t, d.HasError(), "%v", d)
+
+		blob, err := json.Marshal(apiSub)
+		require.NoError(t, err)
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(blob, &body))
+
+		criteria, ok := body["criteria"].(map[string]any)
+		require.True(t, ok, "criteria must be present when it is configured: %s", blob)
+		assert.Equal(t, []any{"keep"}, criteria["tag"])
+		for _, empty := range []string{"host", "name", "comment", "shared_jump_groups"} {
+			value, present := criteria[empty]
+			assert.True(t, present, "%s must be sent, not omitted: omitting it PRESERVES the old value", empty)
+			assert.Equal(t, []any{}, value, "%s must marshal as an empty array, not null", empty)
+		}
+	})
+}
+
+// The validator encodes the appliance's own precondition. Every rejected case
+// here was measured returning 422 from a live appliance; every accepted one
+// returned 200.
+func TestJumpItemAssociationFilterValidator(t *testing.T) {
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name    string
+		value   types.Object
+		wantErr bool
+	}{
+		{"criteria with a tag", jiaConfig("criteria", []string{"t"}, false), false},
+		{"criteria with only jump_items", jiaConfig("criteria", nil, true), false},
+		{"criteria with no criteria block and no jump items", jiaConfig("criteria", nil, false), true},
+		{"criteria with an all-empty criteria block", jiaConfig("criteria", []string{}, false), true},
+		{"any_jump_items needs nothing", jiaConfig("any_jump_items", nil, false), false},
+		{"no_jump_items needs nothing", jiaConfig("no_jump_items", nil, false), false},
+		{"a null association is not this validator's business", types.ObjectNull(jiaConfig("criteria", nil, false).AttributeTypes(ctx)), false},
+		{"an unknown association cannot be judged", types.ObjectUnknown(jiaConfig("criteria", nil, false).AttributeTypes(ctx)), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := &validator.ObjectResponse{}
+			jumpItemAssociationFilterValidator{}.ValidateObject(ctx,
+				validator.ObjectRequest{Path: path.Root("jump_item_association"), ConfigValue: tc.value}, resp)
+
+			if tc.wantErr {
+				require.True(t, resp.Diagnostics.HasError(),
+					"this configuration is rejected by the appliance with a 422; it must not reach apply")
+				assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "criteria",
+					"the message must name the attribute the operator has to fix")
+				return
+			}
+			assert.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+		})
+	}
 }

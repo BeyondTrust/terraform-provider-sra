@@ -68,3 +68,15 @@ output "single_filter" {
   description = "The datasource result when querying with a filter"
   value       = data.sra_single_vault_ssh_account.single_filter.account
 }
+
+output "stand_alone_any" {
+  description = "An account associated with every Jump Item"
+  value       = sra_vault_ssh_account.stand_alone_any
+  sensitive   = true
+}
+
+output "stand_alone_none" {
+  description = "An account associated with no Jump Items"
+  value       = sra_vault_ssh_account.stand_alone_none
+  sensitive   = true
+}

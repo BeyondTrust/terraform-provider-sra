@@ -197,6 +197,22 @@ func TestVaultSSHKey(t *testing.T) {
 		data.testPublicKey = false
 		assertAccount(t, terraformOptions, "stand_alone_ca", data, false, false)
 
+		// The two filter_type values no fixture exercised before this one. Reaching
+		// this assertion at all is most of the point: an absent criteria block used
+		// to marshal as "criteria": null, the appliance answered
+		// 422 "This value must be an array.", and the setup apply above would have
+		// failed outright. Neither of these accounts could be created.
+		for _, tc := range []struct{ output, filterType string }{
+			{"stand_alone_any", "any_jump_items"},
+			{"stand_alone_none", "no_jump_items"},
+		} {
+			association := extractJson(t, terraformOptions, tc.output).Path("jump_item_association")
+			assert.Equal(t, tc.filterType, association.Path("filter_type").Data(),
+				"%s should round-trip its filter_type", tc.output)
+			assert.Nil(t, association.Path("criteria").Data(),
+				"%s declares no criteria block, so none should come back", tc.output)
+		}
+
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 		assert.Equal(t, 0, len(list))
 	})

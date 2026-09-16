@@ -362,6 +362,85 @@ var groupPolicyIDPattern = regexp.MustCompile(`^[0-9]+$`)
 // drift apart. Pairs with url.PathEscape in the Endpoint() methods: this keeps
 // non-conforming values out, and the escape means a path segment stays one segment
 // regardless.
+// jumpItemAssociationFilterValidator encodes a precondition the API states and
+// the schema did not: a filter_type of "criteria" needs something to filter on.
+//
+// Measured against a live appliance, a POST with filter_type "criteria" and:
+//   - no criteria key      -> 422 "`criteria` or `jump_items` are required if the
+//     `filter_type` is being changed to \"criteria\""
+//   - all five criteria properties empty -> 422 "You must either define some
+//     association criteria or choose a different association method."
+//
+// Both are configuration errors, and both used to surface only after the apply
+// had started. Catching them at plan time also closes the one hazard that made
+// the omitempty change unsafe on its own: with criteria omitted rather than sent
+// as null, the appliance would PRESERVE an existing criteria set instead of
+// rejecting the request, so state and appliance would disagree forever with
+// Terraform blaming the provider. That configuration can no longer be planned.
+type jumpItemAssociationFilterValidator struct{}
+
+func (v jumpItemAssociationFilterValidator) Description(context.Context) string {
+	return `criteria or jump_items must be set when filter_type is "criteria"`
+}
+
+func (v jumpItemAssociationFilterValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v jumpItemAssociationFilterValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	attrs := req.ConfigValue.Attributes()
+	filterType, ok := attrs["filter_type"].(types.String)
+	if !ok || filterType.IsNull() || filterType.IsUnknown() || filterType.ValueString() != "criteria" {
+		// any_jump_items and no_jump_items ignore criteria entirely.
+		return
+	}
+
+	// Either one satisfies the appliance, per the error text it returns.
+	if setHasElements(attrs["jump_items"]) {
+		return
+	}
+	if criteria, ok := attrs["criteria"].(types.Object); ok {
+		if criteria.IsUnknown() {
+			return
+		}
+		if !criteria.IsNull() {
+			for _, value := range criteria.Attributes() {
+				if setHasElements(value) {
+					return
+				}
+			}
+		}
+	}
+
+	resp.Diagnostics.AddAttributeError(
+		req.Path,
+		"Missing Jump Item Association Criteria",
+		`filter_type is "criteria", so this association must say what to filter on: `+
+			"set at least one property of `criteria` (host, name, tag, comment or "+
+			"shared_jump_groups), or list `jump_items`.\n\n"+
+			`To associate every Jump Item, or none, use filter_type "any_jump_items" `+
+			`or "no_jump_items" instead — those ignore criteria.`,
+	)
+}
+
+// setHasElements reports whether v is a set carrying at least one element. An
+// unknown set counts as carrying one: its contents are not decidable at plan
+// time, and a validator must not reject a configuration it cannot evaluate.
+func setHasElements(v attr.Value) bool {
+	set, ok := v.(types.Set)
+	if !ok {
+		return false
+	}
+	if set.IsUnknown() {
+		return true
+	}
+	return !set.IsNull() && len(set.Elements()) > 0
+}
+
 func groupPolicyIDValidators() []validator.String {
 	return []validator.String{
 		stringvalidator.RegexMatches(
@@ -394,7 +473,8 @@ func jumpGroupTypeValidator() []validator.String {
 
 func accountJumpItemAssociationSchema() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
-		Optional: true,
+		Optional:   true,
+		Validators: []validator.Object{jumpItemAssociationFilterValidator{}},
 		Attributes: map[string]schema.Attribute{
 			"filter_type": schema.StringAttribute{
 				Required: true,
