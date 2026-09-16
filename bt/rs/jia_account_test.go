@@ -603,23 +603,18 @@ func TestJumpItemAssociationIsComputedOnlyWhereItSuppliesAValue(t *testing.T) {
 // would, so these tests exercise the real schema rather than a hand-built struct.
 // criteriaTags == nil means the criteria block is absent entirely.
 func jiaConfig(filterType string, criteriaTags []string, withJumpItem bool) types.Object {
-	strSet := func(vals []string) attr.Value {
-		if vals == nil {
-			return types.SetNull(types.StringType)
-		}
+	strSet := func(vals []string) types.Set {
 		elems := make([]attr.Value, 0, len(vals))
 		for _, v := range vals {
 			elems = append(elems, types.StringValue(v))
 		}
 		return types.SetValueMust(types.StringType, elems)
 	}
-	criteriaTypes := map[string]attr.Type{
-		"shared_jump_groups": types.SetType{ElemType: types.Int64Type},
-		"host":               types.SetType{ElemType: types.StringType},
-		"name":               types.SetType{ElemType: types.StringType},
-		"tag":                types.SetType{ElemType: types.StringType},
-		"comment":            types.SetType{ElemType: types.StringType},
-	}
+	// Derived from the schema, not restated: a hand-written copy silently drifts
+	// when a criteria property is added, and the symptom is ObjectValueMust
+	// panicking rather than a test reporting the gap.
+	outer := accountJumpItemAssociationSchema().GetType().(types.ObjectType).AttrTypes
+	criteriaTypes := outer["criteria"].(types.ObjectType).AttrTypes
 	criteria := types.ObjectNull(criteriaTypes)
 	if criteriaTags != nil {
 		criteria = types.ObjectValueMust(criteriaTypes, map[string]attr.Value{
@@ -630,7 +625,7 @@ func jiaConfig(filterType string, criteriaTags []string, withJumpItem bool) type
 			"comment":            strSet([]string{}),
 		})
 	}
-	jumpItemType := types.ObjectType{AttrTypes: map[string]attr.Type{"id": types.Int64Type, "type": types.StringType}}
+	jumpItemType := outer["jump_items"].(types.SetType).ElementType().(types.ObjectType)
 	jumpItems := types.SetValueMust(jumpItemType, []attr.Value{})
 	if withJumpItem {
 		jumpItems = types.SetValueMust(jumpItemType, []attr.Value{
@@ -639,41 +634,35 @@ func jiaConfig(filterType string, criteriaTags []string, withJumpItem bool) type
 			}),
 		})
 	}
-	return types.ObjectValueMust(map[string]attr.Type{
-		"filter_type": types.StringType,
-		"criteria":    types.ObjectType{AttrTypes: criteriaTypes},
-		"jump_items":  types.SetType{ElemType: jumpItemType},
-	}, map[string]attr.Value{
+	return types.ObjectValueMust(outer, map[string]attr.Value{
 		"filter_type": types.StringValue(filterType),
 		"criteria":    criteria,
 		"jump_items":  jumpItems,
 	})
 }
 
-// An association with no criteria block must send no criteria KEY.
+// What goes on the wire for criteria, in all three shapes the appliance
+// distinguishes. Each expectation below was measured against a live appliance.
 //
-// It used to send "criteria": null, which the appliance rejects with
-// 422 "This value must be an array." -- so a bare any_jump_items or
-// no_jump_items association could not be created at all, and neither of those
-// two legal filter_type values had ever been exercised by any fixture.
+//   - criteria sent as an explicit null -> 422 "This value must be an array."
+//     This is what the provider used to send for a bare any_jump_items or
+//     no_jump_items association, so neither could be created at all.
+//   - criteria key omitted -> the appliance PRESERVES whatever the association
+//     already had. Safe only when the filter type ignores criteria.
+//   - criteria present with all five properties empty -> the appliance CLEARS it
+//     and afterwards reports criteria: null, which is what a configuration
+//     declaring no criteria block plans.
 //
-// The nested sets are the other half, and they must NOT be omitted: the PATCH
-// contract preserves an omitted criteria property and replaces a supplied one,
-// so omitting an empty set would turn "clear this" into "leave it alone".
-func TestJumpItemAssociationOmitsAbsentCriteriaButKeepsEmptySets(t *testing.T) {
+// So the rule is not "omit when nil" -- that would keep a scope the configuration
+// no longer asks for, and the applied state would disagree with the plan. The rule
+// is "omit only when the filter type ignores criteria".
+func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
 	ctx := context.Background()
 
-	for _, tc := range []struct {
-		name         string
-		filterType   string
-		criteriaTags []string
-	}{
-		{"any_jump_items with no criteria block", "any_jump_items", nil},
-		{"no_jump_items with no criteria block", "no_jump_items", nil},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, filterType := range []string{"any_jump_items", "no_jump_items"} {
+		t.Run(filterType+" with no criteria block", func(t *testing.T) {
 			var apiSub api.AccountJumpItemAssociation
-			d := jiaConfig(tc.filterType, tc.criteriaTags, false).As(ctx, &apiSub,
+			d := jiaConfig(filterType, nil, false).As(ctx, &apiSub,
 				basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
 			require.False(t, d.HasError(), "%v", d)
 
@@ -687,6 +676,33 @@ func TestJumpItemAssociationOmitsAbsentCriteriaButKeepsEmptySets(t *testing.T) {
 				"the appliance rejects an explicit null, so the key must be absent entirely: %s", blob)
 		})
 	}
+
+	// The case that makes omitempty safe. jump_items carries the scope, the
+	// configuration declares no criteria block, and the validator allows it -- so
+	// the wire shape is the only thing standing between this and an association
+	// quietly keeping criteria the configuration dropped.
+	t.Run("criteria filter with no criteria block sends an empty one, not nothing", func(t *testing.T) {
+		var apiSub api.AccountJumpItemAssociation
+		d := jiaConfig("criteria", nil, true).As(ctx, &apiSub,
+			basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		require.False(t, d.HasError(), "%v", d)
+		require.Nil(t, apiSub.Criteria, "fixture assumption: no criteria block means a nil Criteria")
+
+		blob, err := json.Marshal(apiSub)
+		require.NoError(t, err)
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(blob, &body))
+
+		criteria, present := body["criteria"]
+		require.True(t, present,
+			"omitting it makes the appliance PRESERVE the old criteria, so state would disagree with the plan: %s", blob)
+		require.NotNil(t, criteria, "an explicit null is rejected with 422: %s", blob)
+
+		for name, value := range criteria.(map[string]any) {
+			assert.Equal(t, []any{}, value,
+				"%s must be an empty array: a null there is the 422, and omitting it preserves instead of clearing", name)
+		}
+	})
 
 	t.Run("a populated criteria still sends its empty sets", func(t *testing.T) {
 		var apiSub api.AccountJumpItemAssociation

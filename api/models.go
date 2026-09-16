@@ -527,6 +527,44 @@ type AccountJumpItemAssociation struct {
 	JumpItems []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
 }
 
+// MarshalJSON sends criteria in the two shapes the appliance reads correctly and
+// never in the third, which it misreads.
+//
+// Measured against a live appliance:
+//   - with the criteria key OMITTED, a PATCH preserves whatever criteria the
+//     association already had;
+//   - with criteria present and all five properties empty, a PATCH CLEARS it, and
+//     the association then reports criteria: null;
+//   - with criteria sent as an explicit null, the request is rejected outright
+//     with 422 "This value must be an array."
+//
+// So omission cannot stand for "the configuration declares no criteria". Under a
+// filter_type of "criteria" that would keep a scope the configuration no longer
+// asks for, and the applied state would disagree with the plan — Terraform
+// reports that as the provider producing an inconsistent result. Omission is
+// reserved for the filter types that ignore criteria altogether, which is the one
+// case where the appliance is happy to receive nothing and unhappy to receive
+// null.
+func (a AccountJumpItemAssociation) MarshalJSON() ([]byte, error) {
+	type wire AccountJumpItemAssociation // sheds this method, so no recursion
+	w := wire(a)
+
+	if w.Criteria == nil && w.FilterType == "criteria" {
+		// Empty arrays rather than &JumpItemAssociationCriteria{}: the five fields
+		// carry no omitempty, so a zero-value struct marshals every one of them as
+		// null, which is the shape the appliance rejects.
+		w.Criteria = &JumpItemAssociationCriteria{
+			SharedJumpGroups: []int{},
+			Host:             []string{},
+			Name:             []string{},
+			Tag:              []string{},
+			Comment:          []string{},
+		}
+	}
+
+	return json.Marshal(w)
+}
+
 func (a AccountJumpItemAssociation) Endpoint() string {
 	return fmt.Sprintf("vault/account/%d/jump-item-association", *a.ID)
 }

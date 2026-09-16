@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -362,21 +363,35 @@ var groupPolicyIDPattern = regexp.MustCompile(`^[0-9]+$`)
 // drift apart. Pairs with url.PathEscape in the Endpoint() methods: this keeps
 // non-conforming values out, and the escape means a path segment stays one segment
 // regardless.
+func groupPolicyIDValidators() []validator.String {
+	return []validator.String{
+		stringvalidator.RegexMatches(
+			groupPolicyIDPattern,
+			"must be a numeric group policy ID, as returned by the sra_group_policy_list data source",
+		),
+	}
+}
+
 // jumpItemAssociationFilterValidator encodes a precondition the API states and
 // the schema did not: a filter_type of "criteria" needs something to filter on.
 //
-// Measured against a live appliance, a POST with filter_type "criteria" and:
-//   - no criteria key      -> 422 "`criteria` or `jump_items` are required if the
-//     `filter_type` is being changed to \"criteria\""
-//   - all five criteria properties empty -> 422 "You must either define some
-//     association criteria or choose a different association method."
+// Measured against a live appliance, a request with filter_type "criteria" and:
+//   - neither criteria nor jump_items -> 422 "`criteria` or `jump_items` are
+//     required if the `filter_type` is being changed to \"criteria\""
+//   - criteria present but all five properties empty, and no jump_items -> 422
+//     "You must either define some association criteria or choose a different
+//     association method."
 //
-// Both are configuration errors, and both used to surface only after the apply
-// had started. Catching them at plan time also closes the one hazard that made
-// the omitempty change unsafe on its own: with criteria omitted rather than sent
-// as null, the appliance would PRESERVE an existing criteria set instead of
-// rejecting the request, so state and appliance would disagree forever with
-// Terraform blaming the provider. That configuration can no longer be planned.
+// Both are configuration errors that used to surface only once the apply was
+// under way. Either criteria or jump_items satisfies the appliance, so either
+// satisfies this.
+//
+// Scope, stated precisely because an earlier version of this comment overclaimed:
+// this gate covers configuration validity and nothing else. It does NOT make the
+// omitempty on Criteria safe -- a configuration with jump_items and no criteria
+// block passes here and still sends a nil Criteria. What makes that safe is
+// AccountJumpItemAssociation.MarshalJSON, which decides omit-versus-empty from
+// the filter type rather than from nil-ness.
 type jumpItemAssociationFilterValidator struct{}
 
 func (v jumpItemAssociationFilterValidator) Description(context.Context) string {
@@ -403,16 +418,16 @@ func (v jumpItemAssociationFilterValidator) ValidateObject(ctx context.Context, 
 	if setHasElements(attrs["jump_items"]) {
 		return
 	}
-	if criteria, ok := attrs["criteria"].(types.Object); ok {
-		if criteria.IsUnknown() {
+
+	// A null or absent criteria carries no attributes, so the loop simply does not
+	// run. An unknown one carries none either, and must not be judged on that.
+	criteria, _ := attrs["criteria"].(types.Object)
+	if criteria.IsUnknown() {
+		return
+	}
+	for _, value := range criteria.Attributes() {
+		if setHasElements(value) {
 			return
-		}
-		if !criteria.IsNull() {
-			for _, value := range criteria.Attributes() {
-				if setHasElements(value) {
-					return
-				}
-			}
 		}
 	}
 
@@ -430,6 +445,10 @@ func (v jumpItemAssociationFilterValidator) ValidateObject(ctx context.Context, 
 // setHasElements reports whether v is a set carrying at least one element. An
 // unknown set counts as carrying one: its contents are not decidable at plan
 // time, and a validator must not reject a configuration it cannot evaluate.
+//
+// Length rather than len(Elements()): Elements() materialises a defensive copy of
+// the whole slice, which this would measure and discard. The IsUnknown and IsNull
+// guards are what make the zero-value options safe.
 func setHasElements(v attr.Value) bool {
 	set, ok := v.(types.Set)
 	if !ok {
@@ -438,16 +457,7 @@ func setHasElements(v attr.Value) bool {
 	if set.IsUnknown() {
 		return true
 	}
-	return !set.IsNull() && len(set.Elements()) > 0
-}
-
-func groupPolicyIDValidators() []validator.String {
-	return []validator.String{
-		stringvalidator.RegexMatches(
-			groupPolicyIDPattern,
-			"must be a numeric group policy ID, as returned by the sra_group_policy_list data source",
-		),
-	}
+	return !set.IsNull() && set.Length(basetypes.CollectionLengthOptions{}) > 0
 }
 
 // logItem records that an item was handled, without recording the item.
