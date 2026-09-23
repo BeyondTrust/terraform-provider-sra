@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 )
 
 // Models should be named like ResourceName. This name is mapped to snake_case for the
@@ -509,10 +510,59 @@ func (VaultAccountPolicy) Endpoint() string {
 // read/write from TF Schema/Plans directly, meaning unknown or null values
 // could panic, depending on the type of the field.
 type AccountJumpItemAssociation struct {
-	ID         *int                         `tfsdk:"-" json:"-"`
-	FilterType string                       `json:"filter_type" tfsdk:"filter_type"`
-	Criteria   *JumpItemAssociationCriteria `json:"criteria" tfsdk:"criteria"`
-	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
+	ID         *int   `tfsdk:"-" json:"-"`
+	FilterType string `json:"filter_type" tfsdk:"filter_type"`
+	// omitempty on Criteria, and deliberately NOT on the five sets inside
+	// JumpItemAssociationCriteria. A nil Criteria marshalled to "criteria": null,
+	// which the appliance rejects with 422 "This value must be an array." -- so a
+	// bare filter_type of any_jump_items or no_jump_items could not be created at
+	// all. Omitting the key is accepted (measured); sending null is not.
+	//
+	// The sets must keep marshalling their zero value. omitempty on a slice omits
+	// an EMPTY one as well as a nil one, and the PATCH contract says a supplied
+	// criteria property replaces the previous value while an omitted one preserves
+	// it. So omitempty there would silently turn "clear the tags" into "leave the
+	// tags alone" on a control that decides where a credential may be injected.
+	Criteria  *JumpItemAssociationCriteria `json:"criteria,omitempty" tfsdk:"criteria"`
+	JumpItems []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
+}
+
+// MarshalJSON sends criteria in the two shapes the appliance reads correctly and
+// never in the third, which it misreads.
+//
+// Measured against a live appliance:
+//   - with the criteria key OMITTED, a PATCH preserves whatever criteria the
+//     association already had;
+//   - with criteria present and all five properties empty, a PATCH CLEARS it, and
+//     the association then reports criteria: null;
+//   - with criteria sent as an explicit null, the request is rejected outright
+//     with 422 "This value must be an array."
+//
+// So omission cannot stand for "the configuration declares no criteria". Under a
+// filter_type of "criteria" that would keep a scope the configuration no longer
+// asks for, and the applied state would disagree with the plan — Terraform
+// reports that as the provider producing an inconsistent result. Omission is
+// reserved for the filter types that ignore criteria altogether, which is the one
+// case where the appliance is happy to receive nothing and unhappy to receive
+// null.
+func (a AccountJumpItemAssociation) MarshalJSON() ([]byte, error) {
+	type wire AccountJumpItemAssociation // sheds this method, so no recursion
+	w := wire(a)
+
+	if w.Criteria == nil && w.FilterType == "criteria" {
+		// Empty arrays rather than &JumpItemAssociationCriteria{}: the five fields
+		// carry no omitempty, so a zero-value struct marshals every one of them as
+		// null, which is the shape the appliance rejects.
+		w.Criteria = &JumpItemAssociationCriteria{
+			SharedJumpGroups: []int{},
+			Host:             []string{},
+			Name:             []string{},
+			Tag:              []string{},
+			Comment:          []string{},
+		}
+	}
+
+	return json.Marshal(w)
 }
 
 func (a AccountJumpItemAssociation) Endpoint() string {
@@ -549,8 +599,20 @@ type GroupPolicyVaultAccountGroup struct {
 	Role           string  `tfsdk:"role" json:"role"`
 }
 
+// The group policy ID is interpolated into the request path. It is a
+// practitioner-supplied string, so it is escaped here rather than trusted: the
+// schema constrains it to digits (see the group_policy_id validators on the
+// resources that expose it), and PathEscape is a no-op for conforming input, but
+// the escape means a path segment stays a single path segment even if that
+// constraint is ever relaxed. http.NewRequest preserves the path verbatim — Go
+// resolves dot-segments only in ResolveReference, never in Parse.
+//
+// PathEscape is not sufficient on its own: it escapes separators but leaves a bare
+// "." or ".." unchanged, since neither needs escaping to be a legal segment. The
+// schema validator is what rejects those. Each layer covers what the other does
+// not, which is why both are here.
 func (a GroupPolicyVaultAccountGroup) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/vault-account-group", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/vault-account-group", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyVaultAccount struct {
@@ -560,7 +622,7 @@ type GroupPolicyVaultAccount struct {
 }
 
 func (a GroupPolicyVaultAccount) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/vault-account", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/vault-account", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyProvision struct {
@@ -568,7 +630,7 @@ type GroupPolicyProvision struct {
 }
 
 func (a GroupPolicyProvision) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/provision", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/provision", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyJumpGroup struct {
@@ -579,7 +641,7 @@ type GroupPolicyJumpGroup struct {
 }
 
 func (a GroupPolicyJumpGroup) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/jump-group", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/jump-group", url.PathEscape(*a.GroupPolicyID))
 }
 
 type GroupPolicyJumpoint struct {
@@ -588,7 +650,7 @@ type GroupPolicyJumpoint struct {
 }
 
 func (a GroupPolicyJumpoint) Endpoint() string {
-	return fmt.Sprintf("group-policy/%s/jumpoint", *a.GroupPolicyID)
+	return fmt.Sprintf("group-policy/%s/jumpoint", url.PathEscape(*a.GroupPolicyID))
 }
 
 type MechList struct {

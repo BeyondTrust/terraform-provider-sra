@@ -57,9 +57,10 @@ For descriptions of individual fields, please see the Configuration API document
 				Required: true,
 			},
 			"username_format": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString("default"),
+				Optional:    true,
+				Computed:    true,
+				Description: models.UsernameFormatDescription,
+				Default:     stringdefault.StaticString("default"),
 				Validators: []validator.String{
 					stringvalidator.OneOf([]string{"default", "username_only", "force_upn_format", "force_dlln_format"}...),
 				},

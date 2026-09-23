@@ -98,8 +98,14 @@ func (r *vaultSSHAccountResource) Schema(_ context.Context, _ resource.SchemaReq
 				Sensitive: true,
 			},
 			"private_key_public_cert": schema.StringAttribute{
+				// Optional, not Optional+Computed. The API never returns this field
+				// on a read, so Computed promised Terraform a value the provider
+				// cannot supply: with the attribute absent from configuration the
+				// planned value stayed unknown through apply, which Terraform
+				// rejects. Its two siblings that are equally write-only,
+				// private_key and private_key_passphrase, are Optional for the same
+				// reason.
 				Optional: true,
-				Computed: true,
 			},
 			"last_checkout_timestamp": schema.StringAttribute{
 				Computed: true,
@@ -113,6 +119,7 @@ func (r *vaultSSHAccountResource) Schema(_ context.Context, _ resource.SchemaReq
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Account is a member of",
+							Validators:  groupPolicyIDValidators(),
 						},
 						"role": schema.StringAttribute{
 							Required: true,

@@ -4,25 +4,38 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-  workflow_run:
-    workflows: ["Dependabot PR Check"]
-    types:
-      - completed
 
 permissions:
   contents: none
 
+# Serialise E2E runs per ref so two pushes to the same PR cannot drive two
+# suites at the same appliance simultaneously.
+#
+# cancel-in-progress is deliberately false. These jobs create real Jump Items,
+# Jump Groups and Vault accounts and rely on terraform destroy to clean up;
+# cancelling mid-apply skips that teardown and strands those resources on the
+# appliance. GitHub still cancels a *pending* run when a newer one queues, so
+# this serialises without letting a backlog build: the in-flight run finishes
+# and tears down, the newest queued run supersedes any older waiting one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build_for_terratest:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || github.event_name == 'workflow_dispatch' }}
+    # Skip the E2E suite for Dependabot PRs: they open in bulk, each run costs
+    # real appliance time, and a dependency bump cannot break provider behaviour
+    # in a way `build` and `lint` miss. Gate on the PR *author*, not the actor --
+    # `github.actor` becomes whoever last pushed, so updating a Dependabot branch
+    # would otherwise silently re-enable E2E. Use workflow_dispatch to run it
+    # against a Dependabot PR on purpose.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login != 'dependabot[bot]' }}
     permissions:
       contents: read
     steps:
       - name: "Checkout"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || '' }}
 
       - name: "Configure Go"
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
@@ -64,7 +77,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: "Download test release"
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: test-build
 
@@ -77,7 +90,15 @@ jobs:
           terraform-version: latest
 
       - name: "Run Tests"
-        run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
+        # 30m, not 10m. A `go test` timeout panics from the time.AfterFunc
+        # goroutine and exits the process, so the test goroutine's deferred
+        # `terraform destroy` and every t.Cleanup -- including the import tests'
+        # orphan recovery -- are skipped, stranding real objects on the shared
+        # appliance. That is the same leak this workflow's concurrency comment
+        # guards against. Recent runs take ~5.3m (PRA) / ~3.3m (RS), so 10m left
+        # under 5m of headroom; the timeout exists to catch a genuinely hung test,
+        # not to bound a healthy one.
+        run: go test -v -timeout 30m $(go list ./... | grep /test | xargs)
         env:
           BT_API_HOST: ${{ secrets.BT_API_HOST }}
           BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
@@ -100,7 +121,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: "Download test release"
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: test-build
 
@@ -112,7 +133,15 @@ jobs:
         with:
           terraform-version: latest
       - name: "Run Tests"
-        run: go test -v -timeout 10m $(go list ./... | grep /test | xargs)
+        # 30m, not 10m. A `go test` timeout panics from the time.AfterFunc
+        # goroutine and exits the process, so the test goroutine's deferred
+        # `terraform destroy` and every t.Cleanup -- including the import tests'
+        # orphan recovery -- are skipped, stranding real objects on the shared
+        # appliance. That is the same leak this workflow's concurrency comment
+        # guards against. Recent runs take ~5.3m (PRA) / ~3.3m (RS), so 10m left
+        # under 5m of headroom; the timeout exists to catch a genuinely hung test,
+        # not to bound a healthy one.
+        run: go test -v -timeout 30m $(go list ./... | grep /test | xargs)
         env:
           BT_API_HOST: ${{ secrets.BT_API_HOST }}
           BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}

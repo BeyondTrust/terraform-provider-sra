@@ -105,6 +105,7 @@ func (r *jumpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Jumpoint is a member of",
+							Validators:  groupPolicyIDValidators(),
 						},
 					},
 				},
@@ -117,6 +118,9 @@ func (r *jumpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	tflog.Debug(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
 		tflog.Debug(ctx, "No plan to modify")
+		return
+	}
+	if r.ApiClient == nil {
 		return
 	}
 	var plan models.Jumpoint

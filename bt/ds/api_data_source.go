@@ -2,7 +2,6 @@ package ds
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -101,9 +100,9 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 
 func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
 	items, err := api.ListItems[TApi](d.apiClient, requestFilter)
-	rb, _ := json.Marshal(items)
+	// Count, not content — see the logging policy in api/logging.go.
 	tflog.Debug(ctx, "🙀 ListItems got data", map[string]interface{}{
-		"data": string(rb),
+		"count": len(items),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(

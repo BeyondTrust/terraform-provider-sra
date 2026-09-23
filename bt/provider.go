@@ -40,6 +40,13 @@ func (p *sraProvider) Metadata(_ context.Context, _ provider.MetadataRequest, re
 
 func (p *sraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		// tfplugindocs v0.24 reuses this same MarkdownDescription for the
+		// Registry page's frontmatter `description:` summary, but flattens it
+		// to plain text: the Markdown heading/list syntax is stripped and the
+		// "Use Cases" bullets collapse onto one run-on line. That affects only
+		// the frontmatter summary — `go generate ./...` still reproduces this
+		// string faithfully as docs/index.md's page body. Don't "fix" the
+		// bullets below on account of how the frontmatter renders.
 		MarkdownDescription: `
 # BeyondTrust SRA Terraform Provider
 
@@ -65,8 +72,8 @@ Examples for all of these use cases can be found within the [test-tf-files](http
 
 ## Configuration
 
-To function, the provider requires the hostname of your instance as well as credentials for an API account configured in that instance. This API account must have permission to "Allow Access" to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the "Manage Vault Accounts" permission.
-To use the API Account within your Terraform scripts, the hostname, Client ID, and Client Secret values should be passed by setting the \"BT_API_HOST\", \"BT_CLIENT_ID\", and \"BT_CLIENT_SECRET\" environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.`,
+To function, the provider requires the ` + "`" + `hostname` + "`" + ` of your instance as well as credentials for an API account configured in that instance. This API account must have permission to ` + "`" + `Allow Access` + "`" + ` to the Configuration API. If you also plan to access or manage Vault accounts with Terraform, then the API account also needs the ` + "`" + `Manage Vault Accounts` + "`" + ` permission.
+To use the API account within Terraform, the ` + "`" + `hostname` + "`" + `, ` + "`" + `Client ID` + "`" + `, and ` + "`" + `Client Secret` + "`" + ` values should be passed by setting the ` + "`" + `BT_API_HOST` + "`" + `, ` + "`" + `BT_CLIENT_ID` + "`" + `, and ` + "`" + `BT_CLIENT_SECRET` + "`" + ` environment variables which are the same environment settings used by the btapi CLI tool.  While not recommended, it is also possible to set the values within the script itself with the following block.`,
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
 				Optional:    true,
@@ -150,6 +157,22 @@ func (p *sraProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	ctx = tflog.SetField(ctx, "bt_client_id", clientID)
 	ctx = tflog.SetField(ctx, "bt_client_secret", clientSecret)
 	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "bt_client_secret")
+
+	// Backstop for the write-only attributes (password, private_key,
+	// private_key_passphrase, token). Request and response bodies are no longer
+	// logged, so nothing should reach this; it exists so a future log call in the
+	// API client cannot put one in the debug output.
+	//
+	// It covers the API client specifically. tflog masking rides on a context, and
+	// this one reaches the client because SetLogContext below captures it; the
+	// resource and data source handlers get a fresh context per RPC from the
+	// framework and are not covered. Those are kept safe by not logging payloads,
+	// which is the real fix — see api/logging.go.
+	//
+	// MaskFieldValuesWithFieldKeys above cannot do this job: these values are
+	// interpolated into the log *message* by fmt.Sprintf rather than passed as
+	// structured fields, so there is no field key to match on.
+	ctx = tflog.MaskLogRegexes(ctx, api.SensitiveValuePatterns()...)
 
 	tflog.Debug(ctx, "Creating BT API Client")
 	c, err := api.NewClient(host, &clientID, &clientSecret)

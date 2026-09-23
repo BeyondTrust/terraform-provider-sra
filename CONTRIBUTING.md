@@ -37,6 +37,41 @@ Feature requests should also be submitted through BeyondTrust Support, also agai
 - Any new code must include unit tests (if possible) or end-to-end tests (if Terraform resources are changed or added). All tests must pass.
 - We will review the change and determine if it fits within our goals for the project.
 
+### Changelog
+
+`CHANGELOG.md` is maintained by hand. If your change is visible to someone using
+the provider, add an entry under `## [Unreleased]` **in the same pull request**.
+
+Use the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) headings:
+
+| Heading | Use it for |
+| --- | --- |
+| `Added` | New resources, data sources, or attributes |
+| `Changed` | Behavior that differs from the previous release |
+| `Deprecated` | Attributes or resources scheduled for removal |
+| `Removed` | Anything deleted in this release |
+| `Fixed` | Bug fixes |
+| `Security` | Fixes for a vulnerability |
+| `Known issues` | Shipping defects a user could hit, and how they present |
+| `Dependencies` | Dependency bumps a user might care about |
+| `Internal` | Refactors, CI, and tests with no user-visible effect |
+
+Write for someone reading release notes, not for a reviewer reading the diff.
+Name the resource, say what changed, and say what the user will now see:
+
+> - `sra_jump_group`: removing all `group_policy_memberships` now applies cleanly
+>   instead of failing with an inconsistent-result error.
+
+Purely internal work (a refactor, a test, a lint fix) belongs under `Internal`
+or can be left out entirely.
+
+This file used to be regenerated from commit messages by `git-chglog`. That
+automation was removed: it overwrote hand-written entries on every release, and
+its commit pattern silently dropped anything with a scope, so `chore(deps):`
+and similar never appeared. Please do not reintroduce generation without also
+solving the overwrite problem — a per-pull-request entry directory, as the
+upstream Terraform providers use, is the usual answer.
+
 ### Tests
 
 Please note that all tests must pass for any change submitted to be accepted. This includes both the unit tests within the modules as well as the end-to-end tests found under `./test`.

@@ -1,32 +1,101 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+**This file is maintained by hand.** Add your entry in the same pull request as
+the change — see [CONTRIBUTING.md](CONTRIBUTING.md#changelog). It was previously
+regenerated from commit messages by `git-chglog`, which overwrote hand-written
+entries on every release and dropped any commit using a scope (`chore(deps):`),
+so almost nothing was captured. That automation has been removed.
+
 <a name="Unreleased"></a>
 ## [Unreleased]
 
-### Feat
-- 25.2 API support: updated models and resources for new / changed Jump / Tunnel types (PostgreSQL / MySQL / Network / Protocol) and Jump Client Installer adjustments.
+### Fixed
 
-### Fix
-- Compatibility fixes for network tunnel and jump client installer resources against 25.2 API changes.
+- `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: a `jump_item_association` with `filter_type = "any_jump_items"` or `"no_jump_items"` can now be created. With no nested `criteria` block the provider sent `"criteria": null`, which the appliance rejects with `422 This value must be an array.`, so neither of those two `filter_type` values worked at all — only `"criteria"` did. The criteria key is now omitted for those two filter types, which is what the appliance accepts.
+- `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: under `filter_type = "criteria"`, a configuration that lists `jump_items` but declares no `criteria` block now **clears** any criteria the association already had, rather than silently keeping them. Omitting the field tells the appliance to preserve what is there, so the previous behaviour left a credential scoped by criteria the configuration no longer mentioned, and the applied state disagreed with the plan. Since an association governs where a stored credential may be injected, this is a narrowing change and worth reviewing your plans for. Declaring an **empty** `criteria` block is now rejected at plan time rather than silently meaning the same thing.
+- `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account` / `sra_vault_account_group`: a `jump_item_association` with `filter_type = "criteria"` but nothing to filter on is now rejected at plan time instead of failing part-way through an apply. The API requires `criteria` or `jump_items` when the filter type is `"criteria"`, and separately rejects a `criteria` block whose properties are all empty; neither precondition was expressed in the schema. The error names the attribute and the alternatives.
+- `sra_vault_ssh_account`: setting `private_key_public_cert` to an empty string no longer fails the apply. From PRA 25.1 the appliance rejects both `""` and `null` for this field, so a configuration that passes an unset variable through to it — a common module pattern — could not be applied at all. The provider now omits the field when no certificate is set, keeps the configured value across a refresh, and no longer marks the attribute `Computed`, since the API does not return it on a read.
+- The provider now recovers when the appliance stops accepting its API token, instead of failing part-way through an apply. The appliance retains a bounded number of concurrent tokens per set of credentials and evicts the oldest, so a long-running or concurrent workflow — several `terraform` commands under one service account, or parallel workspaces — could have its token invalidated while still in use. That surfaced as a bare `status: 401` diagnostic with nothing to act on, after resources had already been created. The client now re-authenticates once and replays the request; if that also fails the original error is returned, so genuinely bad credentials still fail fast rather than looping.
+- Creating an API client no longer requests two tokens where one is needed, which halves this provider's contribution to the limit described above.
 - Out-of-band deletions are now detected: a resource deleted outside Terraform is recreated on the next apply instead of failing the plan with a `404`.
 - `sra_jump_client_installer`: `elevate_install` / `elevate_prompt` no longer flip to `false` after apply (the create response does not echo them back).
 - `sra_network_tunnel_jump`: the provider no longer crashes when `filter_rules` is null, empty, or malformed.
 - `sra_jump_group` / `sra_jumpoint`: removing all `group_policy_memberships` now applies cleanly instead of erroring with an inconsistent-result; group policy membership refresh now works and detects drift.
+- `sra_vault_account_group`: errors reading the `jump_item_association` sub-resource are no longer silently swallowed; a read failure now raises a diagnostic instead of leaving stale state with no signal.
+- `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: an absent `jump_item_association` is now recorded as absent — on an ordinary refresh, and when a read fails transiently. The provider previously wrote an empty association into state, a `filter_type` of `""` that no configuration can produce and the attribute does not accept, and because nothing downstream read that as absence, three things went wrong. An account that never had an association showed a difference on every plan, which applying could not settle. Removing a `jump_item_association` block applied cleanly but left the association in state, so the next apply tried to delete it a second time and errored. An association deleted outside Terraform — the sub-resource, not the account itself — was not recreated; the apply failed with `Account does not have an Asset association.` State written by an earlier version converges on the first plan after upgrading, with no apply required.
+- `sra_vault_account_group`: Update issued a `POST` to the `jump_item_association` sub-resource whenever state held no association — exactly the case left by a fresh `terraform import` — but the endpoint documents only `GET`/`PATCH`, so the apply failed. Update now always `PATCH`es.
+- Group policy membership refresh no longer reports a confusing "cannot unmarshal object" error when the API response is genuinely malformed; the real decode error is now surfaced.
+- Fixed a goroutine and read-lock leak on every group policy membership operation that returned an error mid-loop.
 - API layer hardening: removed unsafe pointer usage and panics from the model transforms (no more provider crashes on unexpected types), moved product state onto the client (concurrency-safe), and checked previously-ignored ID-parse errors.
+- Provider documentation rendered `\"BT_API_HOST\"` with literal backslashes, and `web_jump`'s `username_format` lost its list of accepted values whenever docs were regenerated. Both are fixed at the schema, so `go generate ./...` is now lossless (the index page's frontmatter summary renders as flat text under tfplugindocs 0.24; the page body is unaffected).
+- `sra_postgresql_tunnel_jump`: documentation was published under a filename that did not resolve on the Terraform Registry.
+- `sra_protocol_tunnel_jump`: corrected a `useranme` typo in the usage example.
 
-### Chore / Deps
-- Bump terraform-plugin-framework to 1.15.x and validators to 0.18.x.
-- Bump terraform-plugin-docs to 0.22.x.
-- Bump terratest to 0.50.x.
-- Dependency updates: oauth2, net, crypto, circl, xz, deckarep/golang-set, testify and others.
-- GitHub Actions updates: checkout 5.x, download-artifact 5.x, upload-pages-artifact 4.x, upload-artifact 5.x/4.x, setup-go 5.5.0, goreleaser-action 6.4.0, golangci-lint-action 8.x, codeql-action 3.29.x, create-pull-request 7, ghaction-import-gpg 6.3.0.
-- go mod tidy & routine maintenance.
-- Refactor: extracted shared generic Group Policy membership and Jump Item Association CRUD helpers (removing ~1,200 lines of duplicated resource code) and genericized `DiffGPLists`; deleted dead code and replaced `golang.org/x/exp/slices` with the stdlib.
+### Changed
+
+- `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: `jump_item_association` is no longer `Computed`. It was, which told Terraform the provider would supply a value when the configuration did not — so for an account whose configuration declares no `jump_item_association` block, a plan that was in fact **removing** an association rendered it as `(known after apply)` under `1 to change`. An association attached outside Terraform, or carried in by `terraform import`, was deleted by the next apply that changed any other attribute, with nothing in the plan saying so. Since an association scopes where a stored credential may be injected, that is a change worth seeing. The removal is now shown in full, naming the criteria being dropped.
+
+  Two consequences to expect. An association that exists on the appliance but not in your configuration now shows a difference until you either declare it or let it be removed — previously that difference was hidden, not absent. And `sra_vault_account_group` is unchanged: it carries a schema default, genuinely does supply a value the configuration omits, and keeps `Computed`.
+
+- Provider debug logging no longer includes API request or response bodies. Log lines now record the method, URL, endpoint and payload size instead of the payload itself, and the plan/state dumps on create, read, update and delete no longer print the resource's attribute values. Debug output is substantially smaller, and no longer contains the values of the attributes being managed. If you were relying on `TF_LOG=DEBUG` to inspect exact request payloads, use the appliance's own API logs.
+- Failed `create` diagnostics no longer echo the request body back in the error message. The error text now carries only the API's own error; diagnostics are shown to the operator regardless of `TF_LOG`.
+- `group_policy_id` is now validated as a numeric ID on every resource that accepts it (`sra_jump_group`, `sra_jumpoint`, `sra_vault_account_group`, `sra_vault_ssh_account`, `sra_vault_token_account`, `sra_vault_username_password_account`). This matches the Configuration API, which types the field as `integer, minimum: 1`. A configuration supplying a non-numeric value now fails at plan time with a clear message rather than building a malformed request path. Values sourced from `data.sra_group_policy_list` — the documented pattern — are unaffected.
+- Raised the minimum Go version needed to build the provider from source to 1.26.0 (previously 1.23.7 with a 1.24.1 toolchain pin).
+
+### Known issues
+
+- `terraform import` of `sra_jump_client_installer` forces a destroy/recreate on the next plan, and this cannot be fixed provider-side. `elevate_install`, `elevate_prompt` and `valid_duration` are never refreshed from the API, so imported state holds no value for them and the next plan sees a difference on attributes that require replacement. Recreating an installer invalidates any copies already distributed.
+
+  Verified against a live appliance on 2026-09-15: an installer created with `elevate_install: true` and `elevate_prompt: true` is returned as `false` for both by the `POST` **and** by a subsequent `GET /jump-client/installer/{id}`, and `valid_duration` is absent from the read response entirely. Because the API never reports the real values, there is no read the provider could trust; the fields are deliberately excluded from refresh instead. Import these resources only if you are prepared for the first apply to replace them.
+
+- `terraform import` of `sra_vault_account_group` does not round-trip: the first plan after import always shows a difference on `jump_item_association` and `group_policy_memberships`, and the first apply rewrites them.
+
+  Both attributes are read back from the API on refresh, but the provider only writes them into state when the pre-refresh value is already non-null (`readJIA` at `bt/rs/vault_account_group.go:263`, and the equivalent early return in `ReadGPMemberships`). After `terraform import`, state holds only `id`, so both stay null while the configuration declares them — and `jump_item_association` additionally carries a non-null schema default. The import itself succeeds and the subsequent apply is not destructive; it PATCHes the association into place.
+
+  Not fixed because the guard is not import-specific: removing it changes refresh behaviour for every existing account group, not just imported ones. Tracked for a future release.
+
+### Dependencies
+
+- Bump terraform-plugin-framework to 1.19.0, terraform-plugin-framework-validators to 0.19.0, terraform-plugin-log to 0.10.0, and terraform-plugin-go to 0.31.0.
+- Bump terratest to 1.0.x, terraform-plugin-docs to 0.24.x, pgx to 5.9.x, deckarep/golang-set to 2.9.x and spdystream to 0.5.1.
 - Promote `terraform-plugin-go` to a direct dependency (used by the new helper unit tests).
 
-### CI / QA
-- Added Semgrep workflow & pinned GitHub Action SHAs for improved supply-chain security.
-- Narrowed CODEOWNERS.
+### Internal
+
+- Extracted shared generic Group Policy membership and Jump Item Association CRUD helpers (removing ~1,200 lines of duplicated resource code) and genericized `DiffGPLists`; deleted dead code and replaced `golang.org/x/exp/slices` with the stdlib.
 - Pinned the CI build/lint/E2E Go toolchain to `go.mod` (fixes the `go >= 1.26` build failures) and excluded the E2E `test/` directory from `golangci-lint`.
-- Resolved all `golangci-lint` findings and added extensive unit tests for the model transforms, `DiffGPLists`, and the Group Policy membership / Jump Item Association helpers.
+- Resolved all `golangci-lint` findings and added unit tests for the model transforms, `DiffGPLists`, and the Group Policy membership / Jump Item Association helpers.
+- Removed the `git-chglog` release workflow and its `.chglog/` config; this file is now maintained by hand.
+
+<a name="v1.3.0"></a>
+## [v1.3.0] - 2025-09-15
+
+> Reconstructed after the fact. This release shipped without a changelog entry,
+> and its contents were mistakenly listed under `Unreleased` until now.
+
+### Added
+
+- 25.2 API support: updated models and resources for new / changed Jump / Tunnel types (PostgreSQL / MySQL / Network / Protocol) and Jump Client Installer adjustments.
+
+### Fixed
+
+- Compatibility fixes for network tunnel and jump client installer resources against 25.2 API changes.
+
+### Dependencies
+
+- Bump terraform-plugin-framework to 1.15.x and validators to 0.18.x, terraform-plugin-docs to 0.22.x, and terratest to 0.50.x.
+- Dependency updates: oauth2, net, crypto, circl, xz, deckarep/golang-set, testify and others.
+
+### Internal
+
+- Added the Semgrep workflow and pinned GitHub Action SHAs for supply-chain security.
+- Narrowed CODEOWNERS.
+- GitHub Actions updates: checkout, download-artifact, upload-pages-artifact, upload-artifact, setup-go, goreleaser-action, golangci-lint-action, codeql-action, create-pull-request, ghaction-import-gpg.
 
 ---
 
@@ -153,7 +222,8 @@
 <a name="v1.0.2"></a>
 ## [v1.0.2] - 2023-07-05
 
-[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.3.0...HEAD
+[v1.3.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.6...v1.1.0
 [v1.0.6]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.5...v1.0.6

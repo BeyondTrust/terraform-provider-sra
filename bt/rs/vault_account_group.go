@@ -2,7 +2,6 @@ package rs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -81,6 +80,11 @@ func (r *vaultAccountGroupResource) Schema(ctx context.Context, _ resource.Schem
 
 	// tfDefault, _ = types.ObjectValueFrom(ctx, map[string]attr.Type{"filter_type": types.StringType, "criteria": criteriaDefaultType, "jump_items": jiDefaultType}, map[string]any{})
 
+	// Computed belongs with the Default, not in the shared helper. This resource
+	// supplies a value when the configuration omits the block; the three vault
+	// ACCOUNT resources do not, and Computed there is what lets an association
+	// be removed without the plan saying so.
+	jiaSchema.Computed = true
 	jiaSchema.Default = objectdefault.StaticValue(tfDefault)
 
 	resp.Schema = schema.Schema{
@@ -112,6 +116,7 @@ func (r *vaultAccountGroupResource) Schema(ctx context.Context, _ resource.Schem
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Account Group is a member of",
+							Validators:  groupPolicyIDValidators(),
 						},
 						"role": schema.StringAttribute{
 							Required: true,
@@ -163,9 +168,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		var tfStateObj types.Object
 		diags = req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
@@ -181,10 +184,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		var item *api.AccountGroupJumpItemAssociation
 		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
-		rb, _ := json.Marshal(item)
-		tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
+		logItem(ctx, "🙀 got item", item)
 
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -247,25 +247,20 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading item",
+				"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
+			)
+			return
+		}
 
 		if item != nil && !tfObj.IsNull() {
-			rb, _ := json.Marshal(item)
-			tflog.Debug(ctx, "🙀 got item", map[string]interface{}{
-				"data": string(rb),
-			})
+			logItem(ctx, "🙀 got item", item)
 
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error reading item",
-					"Unexpected reading item ID ["+strconv.Itoa(id)+"]: "+err.Error(),
-				)
-				return
-			}
 			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 			resp.Diagnostics.Append(diags...)
 			if resp.Diagnostics.HasError() {
@@ -317,32 +312,22 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
-
-		var tfStateObj types.Object
-		diags = req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		if apiSub.Criteria == nil {
 			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
 		}
 
+		// The account-group jump-item-association endpoint only ever documents
+		// GET and PATCH (PRA openapi/bt-pra-configuration.openapi.yaml:5286,5299;
+		// RS openapi/bt-rs-configuration.openapi.yaml:4201,4214) — there is no
+		// POST to fall back to on a fresh `terraform import`, where state has
+		// only `id` and this attribute's static default makes the plan diff
+		// route here. Always PATCH, exactly as the Create-path updateJIA above.
 		var item *api.AccountGroupJumpItemAssociation
-		if tfStateObj.IsNull() {
-			item, err = api.CreateItem(r.ApiClient, apiSub)
-		} else {
-			item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
-		}
+		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
-		rb, _ := json.Marshal(item)
-		tflog.Trace(ctx, "🙀 got item", map[string]interface{}{
-			"data": string(rb),
-		})
+		logItem(ctx, "🙀 got item", item)
 
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -351,6 +336,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 			)
 			return
 		}
+
 		diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {

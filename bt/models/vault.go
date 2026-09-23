@@ -43,11 +43,21 @@ type VaultSSHAccount struct {
 	AccountGroupID types.Int64  `tfsdk:"account_group_id"`
 	AccountPolicy  types.String `tfsdk:"account_policy"`
 
-	Username              types.String `tfsdk:"username"`
-	PublicKey             types.String `tfsdk:"public_key"`
-	PrivateKey            types.String `tfsdk:"private_key" sra:"persist_state"`
-	PrivateKeyPassphrase  types.String `tfsdk:"private_key_passphrase" sra:"persist_state"`
-	PrivateKeyPublicCert  types.String `tfsdk:"private_key_public_cert"`
+	Username types.String `tfsdk:"username"`
+
+	PublicKey            types.String `tfsdk:"public_key"`
+	PrivateKey           types.String `tfsdk:"private_key" sra:"persist_state"`
+	PrivateKeyPassphrase types.String `tfsdk:"private_key_passphrase" sra:"persist_state"`
+
+	// The API never returns private_key_public_cert on a read — verified against
+	// a live appliance: a create that omits it succeeds, and the subsequent GET
+	// has no such key at all. Without persist_state the refresh writes null over
+	// whatever the configuration set, and an apply fails with "provider produced
+	// inconsistent result after apply: was cty.StringVal(...), but now null".
+	//
+	// It sits alongside private_key and private_key_passphrase for the same
+	// reason: there is no read to trust, so the configured value is authoritative.
+	PrivateKeyPublicCert  types.String `tfsdk:"private_key_public_cert" sra:"persist_state"`
 	LastCheckoutTimestamp types.String `tfsdk:"last_checkout_timestamp"`
 
 	JumpItemAssociation    types.Object `tfsdk:"jump_item_association"`

@@ -103,18 +103,47 @@ type WebJump struct {
 	SessionPolicyID       types.Int64  `tfsdk:"session_policy_id"`
 }
 
+// UsernameFormatDescription documents web_jump's username_format attribute.
+// It lives in the schema rather than being injected from the OpenAPI specs like
+// most field docs, because username_format has no `description` key in either
+// spec (it is a bare enum). openapi.go leaves a field's generated line alone
+// when it finds no spec description, so this text survives `go generate ./...`.
+const UsernameFormatDescription = "One of the following:\n" +
+	"  * default\n" +
+	"  * username_only\n" +
+	"  * force_upn_format\n" +
+	"  * force_dlln_format\n" +
+	" _This field only applies to PRA_"
+
 type JumpClientInstaller struct {
-	ID                             types.String `tfsdk:"id"`
-	JumpGroupID                    types.Int64  `tfsdk:"jump_group_id"`
-	Name                           types.String `tfsdk:"name"`
-	Tag                            types.String `tfsdk:"tag"`
-	Comments                       types.String `tfsdk:"comments"`
-	JumpPolicyID                   types.Int64  `tfsdk:"jump_policy_id"`
-	ConnectionType                 types.String `tfsdk:"connection_type"`
-	JumpGroupType                  types.String `tfsdk:"jump_group_type"`
-	MaxOfflineMinutes              types.Int64  `tfsdk:"max_offline_minutes"`
-	InstallerID                    types.String `tfsdk:"installer_id"`
-	KeyInfo                        types.Object `tfsdk:"key_info"`
+	ID                types.String `tfsdk:"id"`
+	JumpGroupID       types.Int64  `tfsdk:"jump_group_id"`
+	Name              types.String `tfsdk:"name"`
+	Tag               types.String `tfsdk:"tag"`
+	Comments          types.String `tfsdk:"comments"`
+	JumpPolicyID      types.Int64  `tfsdk:"jump_policy_id"`
+	ConnectionType    types.String `tfsdk:"connection_type"`
+	JumpGroupType     types.String `tfsdk:"jump_group_type"`
+	MaxOfflineMinutes types.Int64  `tfsdk:"max_offline_minutes"`
+	InstallerID       types.String `tfsdk:"installer_id"`
+	KeyInfo           types.Object `tfsdk:"key_info"`
+	// ElevateInstall and ElevatePrompt keep sra:"persist_state" permanently.
+	//
+	// Both appear in the JumpClientInstaller component schema (PRA
+	// openapi/bt-pra-configuration.openapi.yaml:7870,:7874) that the create 201
+	// and the GET both $ref, so the contract says they are readable. The
+	// appliance does not honour that. Probed against a live instance on
+	// 2026-09-15: an installer created with both set to true came back false
+	// from the POST response AND from GET /jump-client/installer/{id}.
+	//
+	// So do not "fix" refresh for these by trusting the read. Copying the GET
+	// value into state would write false over the schema's true default on
+	// every refresh, and since jumpClientInstallerResource.ModifyPlan marks
+	// every optional attribute RequiresReplace, that destroys and recreates
+	// every installer sitting at the default on the next plan — invalidating
+	// every already-distributed copy, every cycle. Not refreshing them is the
+	// lesser evil; the resulting terraform import limitation is documented
+	// under Known issues in CHANGELOG.md.
 	ElevateInstall                 types.Bool   `tfsdk:"elevate_install" sra:"persist_state"`
 	ElevatePrompt                  types.Bool   `tfsdk:"elevate_prompt" sra:"persist_state"`
 	ExpirationTimestamp            types.String `tfsdk:"expiration_timestamp"`
@@ -124,7 +153,13 @@ type JumpClientInstaller struct {
 	AllowOverrideTag               types.Bool   `tfsdk:"allow_override_tag"`
 	AllowOverrideComments          types.Bool   `tfsdk:"allow_override_comments"`
 	AllowOverrideMaxOfflineMinutes types.Bool   `tfsdk:"allow_override_max_offline_minutes"`
-	ValidDuration                  types.Int64  `tfsdk:"valid_duration" sra:"persist_state"`
+	// ValidDuration is request-only: it appears once per spec, inside the
+	// installer POST body (PRA openapi/bt-pra-configuration.openapi.yaml:602,
+	// RS openapi/bt-rs-configuration.openapi.yaml:627), and is absent from the
+	// JumpClientInstaller component schema (PRA :7805) that both the 201 and
+	// the GET return. There is no read response to trust it from, so it keeps
+	// sra:"persist_state" permanently — do not move it to persist_create.
+	ValidDuration types.Int64 `tfsdk:"valid_duration" sra:"persist_state"`
 
 	SessionPolicyID            types.Int64 `tfsdk:"session_policy_id" sraproduct:"pra"`
 	AllowOverrideSessionPolicy types.Bool  `tfsdk:"allow_override_session_policy" sraproduct:"pra"`

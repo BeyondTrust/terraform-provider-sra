@@ -61,8 +61,9 @@ For descriptions of individual fields, please see the Configuration API document
 							Required: true,
 						},
 						"username_format": schema.StringAttribute{
-							Optional: true,
-							Computed: true,
+							Optional:    true,
+							Computed:    true,
+							Description: models.UsernameFormatDescription,
 						},
 						"verify_certificate": schema.BoolAttribute{
 							Optional: true,

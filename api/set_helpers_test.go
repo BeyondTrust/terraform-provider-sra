@@ -162,6 +162,27 @@ func TestDiffGPJumpItemLists(t *testing.T) {
 	assert.Equal(t, *noChangeItem.JumpPolicyID, *noChange.ToSlice()[0].JumpPolicyID)
 }
 
+// A nil JumpPolicyID (RS, which has no jump_policy_id field at all) must
+// round-trip as nil, not silently become a 0 pointer, through the gpJumpGroupKey
+// key/reconstruct pair (the 5f4d3bb fix).
+func TestDiffGPJumpItemLists_NilJumpPolicyIDRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	gpID := "1"
+	groupID := 1
+	toAddItem := GroupPolicyJumpGroup{
+		GroupPolicyID:  &gpID,
+		JumpGroupID:    &groupID,
+		JumpItemRoleID: 1,
+		JumpPolicyID:   nil,
+	}
+
+	toAdd, _, _ := DiffGPJumpItemLists([]GroupPolicyJumpGroup{toAddItem}, nil)
+
+	assert.Len(t, toAdd.ToSlice(), 1)
+	assert.Nil(t, toAdd.ToSlice()[0].JumpPolicyID, "a nil JumpPolicyID must round-trip as nil, not a 0 pointer")
+}
+
 func TestDiffGPJumpointLists(t *testing.T) {
 	t.Parallel()
 

@@ -69,6 +69,7 @@ func (r *jumpGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						"group_policy_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The ID of the Group Policy this Account is a member of",
+							Validators:  groupPolicyIDValidators(),
 						},
 						"jump_item_role_id": schema.Int64Attribute{
 							Description: `The ID of the Jump Item Role that applies to this membership. Omitting or 0 means "User's Default"`,
@@ -94,6 +95,9 @@ func (r *jumpGroupResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	tflog.Debug(ctx, "Starting plan modification")
 	if req.Plan.Raw.IsNull() {
 		tflog.Debug(ctx, "No plan to modify")
+		return
+	}
+	if r.ApiClient == nil {
 		return
 	}
 
