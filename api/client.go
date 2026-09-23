@@ -253,7 +253,7 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 	}
 
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("status: %d, body: %s", status, body)
+		return nil, &StatusError{Status: status, Body: string(body)}
 	}
 
 	if status == http.StatusNoContent {

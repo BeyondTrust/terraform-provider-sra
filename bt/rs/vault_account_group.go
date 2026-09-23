@@ -80,6 +80,11 @@ func (r *vaultAccountGroupResource) Schema(ctx context.Context, _ resource.Schem
 
 	// tfDefault, _ = types.ObjectValueFrom(ctx, map[string]attr.Type{"filter_type": types.StringType, "criteria": criteriaDefaultType, "jump_items": jiDefaultType}, map[string]any{})
 
+	// Computed belongs with the Default, not in the shared helper. This resource
+	// supplies a value when the configuration omits the block; the three vault
+	// ACCOUNT resources do not, and Computed there is what lets an association
+	// be removed without the plan saying so.
+	jiaSchema.Computed = true
 	jiaSchema.Default = objectdefault.StaticValue(tfDefault)
 
 	resp.Schema = schema.Schema{
@@ -163,9 +168,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		var tfStateObj types.Object
 		diags = req.Plan.GetAttribute(ctx, path.Root("jump_item_association"), &tfStateObj)
@@ -244,9 +247,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
 		if err != nil {
@@ -311,9 +312,7 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		}
 
 		apiSub.ID = &id
-		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()), map[string]interface{}{
-			"data": apiSub,
-		})
+		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		if apiSub.Criteria == nil {
 			apiSub.Criteria = &api.JumpItemAssociationCriteria{}

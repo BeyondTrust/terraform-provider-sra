@@ -101,6 +101,37 @@ resource "sra_vault_ssh_account" "stand_alone_both" {
   }
 }
 
+# The other two legal filter_type values. Until these existed, every fixture in
+# the repo used "criteria", so two thirds of the enum had never been executed
+# anywhere -- which is how a provider that could not create either of them
+# shipped.
+#
+# The nested criteria block is deliberately ABSENT rather than empty. An absent
+# block is what makes Criteria nil, which is the case that used to marshal as
+# "criteria": null and be rejected. Writing `criteria = {}` here would pass
+# against the unfixed provider and prove nothing.
+resource "sra_vault_ssh_account" "stand_alone_any" {
+  name                   = "Standalone Key Any ${var.name} ${var.random_bits}"
+  username               = "${var.random_bits}any"
+  private_key            = var.private_key
+  private_key_passphrase = ""
+
+  jump_item_association = {
+    filter_type = "any_jump_items"
+  }
+}
+
+resource "sra_vault_ssh_account" "stand_alone_none" {
+  name                   = "Standalone Key None ${var.name} ${var.random_bits}"
+  username               = "${var.random_bits}none"
+  private_key            = var.private_key
+  private_key_passphrase = ""
+
+  jump_item_association = {
+    filter_type = "no_jump_items"
+  }
+}
+
 data "sra_vault_account_list" "acc" {
   account_group_id = module.account_group.group.id
 }

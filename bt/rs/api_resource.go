@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -371,6 +372,106 @@ func groupPolicyIDValidators() []validator.String {
 	}
 }
 
+// jumpItemAssociationFilterValidator encodes a precondition the API states and
+// the schema did not: a filter_type of "criteria" needs something to filter on.
+//
+// Measured against a live appliance, a request with filter_type "criteria" and:
+//   - neither criteria nor jump_items -> 422 "`criteria` or `jump_items` are
+//     required if the `filter_type` is being changed to \"criteria\""
+//   - criteria present but all five properties empty, and no jump_items -> 422
+//     "You must either define some association criteria or choose a different
+//     association method."
+//
+// Both are configuration errors that used to surface only once the apply was
+// under way. Either criteria or jump_items satisfies the appliance, so either
+// satisfies this.
+//
+// Scope, stated precisely because an earlier version of this comment overclaimed:
+// this gate covers configuration validity and nothing else. It does NOT make the
+// omitempty on Criteria safe -- a configuration with jump_items and no criteria
+// block passes here and still sends a nil Criteria. What makes that safe is
+// AccountJumpItemAssociation.MarshalJSON, which decides omit-versus-empty from
+// the filter type rather than from nil-ness.
+type jumpItemAssociationFilterValidator struct{}
+
+func (v jumpItemAssociationFilterValidator) Description(context.Context) string {
+	return `criteria or jump_items must be set when filter_type is "criteria"`
+}
+
+func (v jumpItemAssociationFilterValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v jumpItemAssociationFilterValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	attrs := req.ConfigValue.Attributes()
+	filterType, ok := attrs["filter_type"].(types.String)
+	if !ok || filterType.IsNull() || filterType.IsUnknown() || filterType.ValueString() != "criteria" {
+		// any_jump_items and no_jump_items ignore criteria entirely.
+		return
+	}
+
+	// An unknown criteria carries no attributes, and must not be judged on that.
+	criteria, _ := attrs["criteria"].(types.Object)
+	if criteria.IsUnknown() {
+		return
+	}
+
+	if criteria.IsNull() {
+		// No criteria block at all. jump_items may carry the scope instead -- the
+		// appliance accepts that, and both the plan and the applied state then say
+		// the criteria is null, so they agree.
+		if setHasElements(attrs["jump_items"]) {
+			return
+		}
+	} else {
+		// A criteria block that IS written must carry something. jump_items does not
+		// excuse an empty one: the five sub-attributes default to empty sets, so the
+		// plan holds an object, the wire carries that object, and the appliance reads
+		// an all-empty criteria as "clear it" and reports null back. State would then
+		// contradict the plan, and a refresh re-proposes the same object forever.
+		for _, value := range criteria.Attributes() {
+			if setHasElements(value) {
+				return
+			}
+		}
+	}
+
+	resp.Diagnostics.AddAttributeError(
+		req.Path,
+		"Missing Jump Item Association Criteria",
+		`filter_type is "criteria", so this association must say what to filter on: `+
+			"set at least one property of `criteria` (host, name, tag, comment or "+
+			"shared_jump_groups), or drop the `criteria` block entirely and list "+
+			"`jump_items`. An empty `criteria` block is not the same as no block: the "+
+			"appliance reads it as an instruction to clear the criteria, and reports "+
+			"back a null that contradicts the plan.\n\n"+
+			`To associate every Jump Item, or none, use filter_type "any_jump_items" `+
+			`or "no_jump_items" instead — those ignore criteria.`,
+	)
+}
+
+// setHasElements reports whether v is a set carrying at least one element. An
+// unknown set counts as carrying one: its contents are not decidable at plan
+// time, and a validator must not reject a configuration it cannot evaluate.
+//
+// Length rather than len(Elements()): Elements() materialises a defensive copy of
+// the whole slice, which this would measure and discard. The IsUnknown and IsNull
+// guards are what make the zero-value options safe.
+func setHasElements(v attr.Value) bool {
+	set, ok := v.(types.Set)
+	if !ok {
+		return false
+	}
+	if set.IsUnknown() {
+		return true
+	}
+	return !set.IsNull() && set.Length(basetypes.CollectionLengthOptions{}) > 0
+}
+
 // logItem records that an item was handled, without recording the item.
 //
 // The generic paths carry every resource type, and build their item from the
@@ -394,8 +495,8 @@ func jumpGroupTypeValidator() []validator.String {
 
 func accountJumpItemAssociationSchema() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
-		Optional: true,
-		Computed: true,
+		Optional:   true,
+		Validators: []validator.Object{jumpItemAssociationFilterValidator{}},
 		Attributes: map[string]schema.Attribute{
 			"filter_type": schema.StringAttribute{
 				Required: true,

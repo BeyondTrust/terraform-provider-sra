@@ -1,19 +1,25 @@
 package rs
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"terraform-provider-sra/api"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/hashicorp/terraform-plugin-log/tflogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -466,4 +472,347 @@ func TestUpdateAccountJIA_NoOpResolvesAnUnknownPlan(t *testing.T) {
 	assert.False(t, d.HasError())
 	assert.False(t, tfObj.IsUnknown(), "an unknown left in applied state fails the apply outright")
 	assert.True(t, tfObj.IsNull(), "and the value it resolves to is null, because there is no association")
+}
+
+// The association's criteria say which Jump Items a stored credential may be
+// injected into. That is infrastructure scope rather than a secret, but it has
+// no business in a debug log either, and the repo's logging convention is to
+// record the type via logItem rather than the value.
+//
+// Masking cannot be the safety net here: it rides on a context, and a resource
+// handler's context is built per RPC rather than inherited from the one the
+// provider configured. So the only thing keeping scope out of these lines is the
+// call sites not passing it, which is exactly what this test pins.
+//
+// Scope: the three vault ACCOUNT handlers only. sra_vault_account_group has the
+// same three handlers over AccountGroupJumpItemAssociation, and they were carrying
+// the same field until it was removed alongside these. They are not covered here
+// because their association logic is inline in the resource methods rather than in
+// callable functions, so reaching it means standing up a full schema raw value and
+// a mock serving the generic read as well. If you add such a harness, extend this
+// test rather than writing a second one.
+//
+// The canary contains no character json.Marshal would escape. A value with a
+// quote or backslash serialises differently from its Go form, so NotContains
+// against the raw string would pass while the value sat in the output escaped.
+func TestAccountJIAHandlersDoNotLogAssociationScope(t *testing.T) {
+	const canary = "c4n4ryJumpItemTagMustNotBeLogged"
+
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if !strings.HasSuffix(r.URL.Path, "/jump-item-association") {
+			return false
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	})
+
+	sch := jiaTestSchema()
+	withTag := tftypes.NewValue(jiaSchemaType, map[string]tftypes.Value{
+		"jump_item_association": tftypes.NewValue(jiaInnerType, map[string]tftypes.Value{
+			"filter_type": tftypes.NewValue(tftypes.String, "criteria"),
+			"criteria": tftypes.NewValue(jiaCriteriaType, map[string]tftypes.Value{
+				"shared_jump_groups": tftypes.NewValue(tftypes.Set{ElementType: tftypes.Number}, nil),
+				"host":               tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, nil),
+				"name":               tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, nil),
+				"tag": tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, []tftypes.Value{
+					tftypes.NewValue(tftypes.String, canary),
+				}),
+				"comment": tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, nil),
+			}),
+			"jump_items": tftypes.NewValue(tftypes.Set{ElementType: jiaJumpItemType}, nil),
+		}),
+	})
+
+	for _, tc := range []struct {
+		name string
+		run  func(ctx context.Context, diags *diag.Diagnostics)
+	}{
+		{"create", func(ctx context.Context, diags *diag.Diagnostics) {
+			state := tfsdk.State{Schema: sch, Raw: withTag}
+			CreateAccountJIA(ctx, client, tfsdk.Plan{Schema: sch, Raw: withTag}, &state, diags, 99)
+		}},
+		{"read", func(ctx context.Context, diags *diag.Diagnostics) {
+			respState := tfsdk.State{Schema: sch, Raw: withTag}
+			ReadAccountJIA(ctx, client, tfsdk.State{Schema: sch, Raw: withTag}, &respState, diags, 99)
+		}},
+		{"update", func(ctx context.Context, diags *diag.Diagnostics) {
+			respState := tfsdk.State{Schema: sch, Raw: withTag}
+			UpdateAccountJIA(ctx, client, tfsdk.Plan{Schema: sch, Raw: withTag},
+				tfsdk.State{Schema: sch, Raw: withTag}, &respState, diags, 99)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			ctx := tflogtest.RootLogger(context.Background(), &buf)
+			var diags diag.Diagnostics
+			tc.run(ctx, &diags)
+
+			require.NotEmpty(t, buf.String(), "nothing was logged, so this would pass vacuously")
+			assert.NotContains(t, buf.String(), canary,
+				"the %s handler logged the association's criteria: %s", tc.name, buf.String())
+		})
+	}
+}
+
+// jump_item_association must be Optional and NOT Computed on the three vault
+// ACCOUNT resources, and Computed on the account GROUP resource.
+//
+// The distinction is not stylistic. Computed tells Terraform the provider will
+// supply a value when the configuration does not, so for a null config the
+// planned value becomes unknown rather than null, and a plan that is in fact
+// removing an association renders it as "(known after apply)" under "1 to
+// change". Measured against a live appliance: an account imported with an
+// association, whose configuration declares no block, had that association
+// deleted by an apply that changed only its description, with nothing in the
+// plan saying so. Without Computed the same plan renders the removal.
+//
+// The account group is the opposite case and keeps Computed: it carries an
+// objectdefault, so it really does supply a value the configuration omits, and
+// the framework rejects a default on a non-computed attribute outright.
+func TestJumpItemAssociationIsComputedOnlyWhereItSuppliesAValue(t *testing.T) {
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name string
+		res  resource.Resource
+	}{
+		{"sra_vault_ssh_account", &vaultSSHAccountResource{}},
+		{"sra_vault_token_account", &vaultTokenAccountResource{}},
+		{"sra_vault_username_password_account", &vaultUsernamePasswordAccountResource{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var resp resource.SchemaResponse
+			tc.res.Schema(ctx, resource.SchemaRequest{}, &resp)
+			require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+
+			attr, ok := resp.Schema.Attributes["jump_item_association"]
+			require.True(t, ok, "attribute missing from the schema")
+
+			assert.True(t, attr.IsOptional(), "must stay settable")
+			assert.False(t, attr.IsComputed(),
+				"Computed here makes a removal plan as (known after apply), so an association "+
+					"is deleted without the plan announcing it")
+		})
+	}
+
+	t.Run("sra_vault_account_group keeps it", func(t *testing.T) {
+		var resp resource.SchemaResponse
+		(&vaultAccountGroupResource{}).Schema(ctx, resource.SchemaRequest{}, &resp)
+		require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+
+		attr, ok := resp.Schema.Attributes["jump_item_association"]
+		require.True(t, ok, "attribute missing from the schema")
+		assert.True(t, attr.IsComputed(),
+			"this resource carries an objectdefault, which the framework requires be Computed")
+	})
+}
+
+// jiaConfig builds a jump_item_association object value the way a configuration
+// would, so these tests exercise the real schema rather than a hand-built struct.
+// criteriaTags == nil means the criteria block is absent entirely.
+func jiaConfig(t *testing.T, filterType string, criteriaTags []string, withJumpItem bool) types.Object {
+	t.Helper()
+	strSet := func(vals []string) types.Set {
+		elems := make([]attr.Value, 0, len(vals))
+		for _, v := range vals {
+			elems = append(elems, types.StringValue(v))
+		}
+		return types.SetValueMust(types.StringType, elems)
+	}
+	// Derived from the schema, not restated: a hand-written copy silently drifts
+	// when a criteria property is added, and the symptom is ObjectValueMust
+	// panicking rather than a test reporting the gap.
+	outer := accountJumpItemAssociationSchema().GetType().(types.ObjectType).AttrTypes
+	criteriaTypes := outer["criteria"].(types.ObjectType).AttrTypes
+	criteria := types.ObjectNull(criteriaTypes)
+	if criteriaTags != nil {
+		criteria = types.ObjectValueMust(criteriaTypes, map[string]attr.Value{
+			"shared_jump_groups": types.SetValueMust(types.Int64Type, []attr.Value{}),
+			"host":               strSet([]string{}),
+			"name":               strSet([]string{}),
+			"tag":                strSet(criteriaTags),
+			"comment":            strSet([]string{}),
+		})
+	}
+	jumpItemType := outer["jump_items"].(types.SetType).ElementType().(types.ObjectType)
+	jumpItems := types.SetValueMust(jumpItemType, []attr.Value{})
+	if withJumpItem {
+		jumpItems = types.SetValueMust(jumpItemType, []attr.Value{
+			types.ObjectValueMust(jumpItemType.AttrTypes, map[string]attr.Value{
+				"id": types.Int64Value(1), "type": types.StringValue("shell_jump"),
+			}),
+		})
+	}
+	// ObjectValue rather than the Must variant: when the schema grows a criteria
+	// property this fixture does not know about, Must panics and takes the whole
+	// test binary with it, after a cascade of unrelated type failures from the
+	// hand-built tftypes ladder at the top of this file. The real message -- the
+	// fixture no longer matches the schema -- appears nowhere in that. This says it.
+	obj, d := types.ObjectValue(outer, map[string]attr.Value{
+		"filter_type": types.StringValue(filterType),
+		"criteria":    criteria,
+		"jump_items":  jumpItems,
+	})
+	require.False(t, d.HasError(),
+		"this fixture no longer matches accountJumpItemAssociationSchema(): %v", d)
+	return obj
+}
+
+// What goes on the wire for criteria, in all three shapes the appliance
+// distinguishes. Each expectation below was measured against a live appliance.
+//
+//   - criteria sent as an explicit null -> 422 "This value must be an array."
+//     This is what the provider used to send for a bare any_jump_items or
+//     no_jump_items association, so neither could be created at all.
+//   - criteria key omitted -> the appliance PRESERVES whatever the association
+//     already had. Safe only when the filter type ignores criteria.
+//   - criteria present with all five properties empty -> the appliance CLEARS it
+//     and afterwards reports criteria: null, which is what a configuration
+//     declaring no criteria block plans.
+//
+// So the rule is not "omit when nil" -- that would keep a scope the configuration
+// no longer asks for, and the applied state would disagree with the plan. The rule
+// is "omit only when the filter type ignores criteria".
+func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
+	ctx := context.Background()
+
+	for _, filterType := range []string{"any_jump_items", "no_jump_items"} {
+		t.Run(filterType+" with no criteria block", func(t *testing.T) {
+			var apiSub api.AccountJumpItemAssociation
+			d := jiaConfig(t, filterType, nil, false).As(ctx, &apiSub,
+				basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+			require.False(t, d.HasError(), "%v", d)
+
+			blob, err := json.Marshal(apiSub)
+			require.NoError(t, err)
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(blob, &body))
+
+			_, present := body["criteria"]
+			assert.False(t, present,
+				"the appliance rejects an explicit null, so the key must be absent entirely: %s", blob)
+		})
+	}
+
+	// The case that makes omitempty safe. jump_items carries the scope, the
+	// configuration declares no criteria block, and the validator allows it -- so
+	// the wire shape is the only thing standing between this and an association
+	// quietly keeping criteria the configuration dropped.
+	t.Run("criteria filter with no criteria block sends an empty one, not nothing", func(t *testing.T) {
+		var apiSub api.AccountJumpItemAssociation
+		d := jiaConfig(t, "criteria", nil, true).As(ctx, &apiSub,
+			basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		require.False(t, d.HasError(), "%v", d)
+		require.Nil(t, apiSub.Criteria, "fixture assumption: no criteria block means a nil Criteria")
+
+		blob, err := json.Marshal(apiSub)
+		require.NoError(t, err)
+
+		// The whole body rather than a sweep over its properties. Every key here was
+		// measured against a live appliance: an omitted criteria property PRESERVES
+		// the old value, an explicit null is the 422, and only the empty array
+		// clears. A property-by-property loop asserts nothing at all if the object
+		// ever comes back empty, which is exactly what adding omitempty to those
+		// five fields would produce.
+		require.JSONEq(t, `{
+			"filter_type": "criteria",
+			"criteria": {"shared_jump_groups":[],"host":[],"name":[],"tag":[],"comment":[]},
+			"jump_items": [{"id":1,"type":"shell_jump"}]
+		}`, string(blob))
+	})
+
+	t.Run("a populated criteria still sends its empty sets", func(t *testing.T) {
+		var apiSub api.AccountJumpItemAssociation
+		d := jiaConfig(t, "criteria", []string{"keep"}, false).As(ctx, &apiSub,
+			basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		require.False(t, d.HasError(), "%v", d)
+
+		blob, err := json.Marshal(apiSub)
+		require.NoError(t, err)
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(blob, &body))
+
+		criteria, ok := body["criteria"].(map[string]any)
+		require.True(t, ok, "criteria must be present when it is configured: %s", blob)
+		assert.Equal(t, []any{"keep"}, criteria["tag"])
+		for _, empty := range []string{"host", "name", "comment", "shared_jump_groups"} {
+			value, present := criteria[empty]
+			assert.True(t, present, "%s must be sent, not omitted: omitting it PRESERVES the old value", empty)
+			assert.Equal(t, []any{}, value, "%s must marshal as an empty array, not null", empty)
+		}
+	})
+}
+
+// jiaConfigUnknownCriteria builds the one shape jiaConfig cannot: a criteria
+// block whose value is unknown at plan time, as it is when populated from another
+// resource's computed output.
+//
+// jump_items is deliberately empty. With it populated the validator would return
+// at the jump_items arm before criteria is examined, and the row would pass
+// without ever reaching the guard it exists to cover.
+func jiaConfigUnknownCriteria() types.Object {
+	outer := accountJumpItemAssociationSchema().GetType().(types.ObjectType).AttrTypes
+	jumpItemType := outer["jump_items"].(types.SetType).ElementType().(types.ObjectType)
+	return types.ObjectValueMust(outer, map[string]attr.Value{
+		"filter_type": types.StringValue("criteria"),
+		"criteria":    types.ObjectUnknown(outer["criteria"].(types.ObjectType).AttrTypes),
+		"jump_items":  types.SetValueMust(jumpItemType, []attr.Value{}),
+	})
+}
+
+// The validator encodes the appliance's own precondition. Every rejected case
+// here was measured returning 422 from a live appliance; every accepted one
+// returned 200.
+func TestJumpItemAssociationFilterValidator(t *testing.T) {
+	ctx := context.Background()
+
+	jiaTypes := jiaConfig(t, "criteria", nil, false).AttributeTypes(ctx)
+
+	for _, tc := range []struct {
+		name    string
+		value   types.Object
+		wantErr bool
+	}{
+		{"criteria with a tag", jiaConfig(t, "criteria", []string{"t"}, false), false},
+		{"criteria with only jump_items", jiaConfig(t, "criteria", nil, true), false},
+		{"criteria with no criteria block and no jump items", jiaConfig(t, "criteria", nil, false), true},
+		{"criteria with an all-empty criteria block", jiaConfig(t, "criteria", []string{}, false), true},
+		// jump_items does not excuse a written-but-empty block. The plan would hold
+		// an object (the sub-attributes default to empty sets), the appliance reads
+		// that as "clear the criteria" and reports null, and state then contradicts
+		// the plan on every refresh.
+		{"an empty criteria block is not excused by jump_items", jiaConfig(t, "criteria", []string{}, true), true},
+		// The distinction the row above turns on. An unknown criteria is not null,
+		// so it reaches the written-but-empty branch, where its nil attribute map
+		// looks exactly like an empty block -- and gets rejected. Rejecting a
+		// configuration that cannot be evaluated yet would break any criteria fed
+		// from another resource's output. This row is the only thing covering that
+		// guard: deleting it leaves the whole package green.
+		{"an unknown criteria block cannot be judged", jiaConfigUnknownCriteria(), false},
+		{"any_jump_items needs nothing", jiaConfig(t, "any_jump_items", nil, false), false},
+		{"no_jump_items needs nothing", jiaConfig(t, "no_jump_items", nil, false), false},
+		// These two pin the contract -- neither may be rejected -- and not the early
+		// return that appears to implement it. Deleting that guard leaves both green:
+		// Attributes() on a null or unknown object yields a nil map, the filter_type
+		// type assertion fails, and the !ok branch returns anyway. The guard is
+		// deliberate defence rather than the load-bearing path, and is kept so the
+		// intent does not rest on that fallthrough.
+		{"a null association is not this validator's business", types.ObjectNull(jiaTypes), false},
+		{"an unknown association cannot be judged", types.ObjectUnknown(jiaTypes), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := &validator.ObjectResponse{}
+			jumpItemAssociationFilterValidator{}.ValidateObject(ctx,
+				validator.ObjectRequest{Path: path.Root("jump_item_association"), ConfigValue: tc.value}, resp)
+
+			if tc.wantErr {
+				require.True(t, resp.Diagnostics.HasError(),
+					"this configuration is rejected by the appliance with a 422; it must not reach apply")
+				assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "criteria",
+					"the message must name the attribute the operator has to fix")
+				return
+			}
+			assert.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+		})
+	}
 }
