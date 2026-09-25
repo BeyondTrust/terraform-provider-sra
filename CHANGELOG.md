@@ -14,6 +14,9 @@ so almost nothing was captured. That automation has been removed.
 <a name="Unreleased"></a>
 ## [Unreleased]
 
+<a name="v1.4.0"></a>
+## [v1.4.0] - 2026-09-25
+
 ### Fixed
 
 - `sra_vault_ssh_account` / `sra_vault_token_account` / `sra_vault_username_password_account`: a `jump_item_association` with `filter_type = "any_jump_items"` or `"no_jump_items"` can now be created. With no nested `criteria` block the provider sent `"criteria": null`, which the appliance rejects with `422 This value must be an array.`, so neither of those two `filter_type` values worked at all — only `"criteria"` did. The criteria key is now omitted for those two filter types, which is what the appliance accepts.
@@ -222,7 +225,8 @@ so almost nothing was captured. That automation has been removed.
 <a name="v1.0.2"></a>
 ## [v1.0.2] - 2023-07-05
 
-[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.4.0...HEAD
+[v1.4.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.0.6...v1.1.0
