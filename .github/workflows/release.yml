@@ -16,6 +16,17 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    # Only true release tags publish. The trigger above matches any tag starting
+    # with "v", and everything downstream treats whatever it gets as a release:
+    # .goreleaser.yml leaves release.prerelease at its default of false, so a tag
+    # like v1.4.0-rc1 would publish as a FULL GitHub release, and the Terraform
+    # Registry ingests prerelease versions because they are valid semver. The net
+    # effect is that a stray or experimental tag becomes a permanent public
+    # version of the provider on registry.terraform.io.
+    #
+    # A hyphen is what separates a semver prerelease from a release, so skipping
+    # hyphenated tags is exactly the right cut.
+    if: ${{ !contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
