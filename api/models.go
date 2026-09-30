@@ -420,10 +420,22 @@ type VaultUsernamePasswordAccount struct {
 
 	Username              string  `json:"username"`
 	Password              string  `json:"password,omitempty"`
-	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp,omitempty"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
+}
+
+// UpdateRequestPreparer removes response-only fields before an API update.
+// The values remain available when decoding responses into Terraform state.
+type UpdateRequestPreparer interface {
+	PrepareUpdateRequest()
+}
+
+func (a *VaultUsernamePasswordAccount) PrepareUpdateRequest() {
+	a.Personal = nil
+	a.OwnerUserID = nil
+	a.LastCheckoutTimestamp = nil
 }
 
 func (VaultUsernamePasswordAccount) Endpoint() string {
@@ -445,7 +457,7 @@ type VaultSSHAccount struct {
 	PrivateKey            *string `json:"private_key,omitempty"`
 	PrivateKeyPassphrase  *string `json:"private_key_passphrase,omitempty"`
 	PrivateKeyPublicCert  *string `json:"private_key_public_cert,omitempty"`
-	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp,omitempty"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
@@ -453,6 +465,12 @@ type VaultSSHAccount struct {
 
 func (VaultSSHAccount) Endpoint() string {
 	return "vault/account"
+}
+
+func (a *VaultSSHAccount) PrepareUpdateRequest() {
+	a.Personal = nil
+	a.OwnerUserID = nil
+	a.LastCheckoutTimestamp = nil
 }
 
 type VaultTokenAccount struct {
@@ -466,7 +484,7 @@ type VaultTokenAccount struct {
 	AccountPolicy  *string `json:"account_policy"`
 
 	Token                 string  `json:"token,omitempty"`
-	LastCheckoutTimestamp *string `json:"last_checkout_timestamp"`
+	LastCheckoutTimestamp *string `json:"last_checkout_timestamp,omitempty"`
 
 	JumpItemAssociation    AccountJumpItemAssociation `json:"-" sraapi:"skip"`
 	GroupPolicyMemberships []GroupPolicyVaultAccount  `json:"-" sraapi:"skip"`
@@ -474,6 +492,12 @@ type VaultTokenAccount struct {
 
 func (VaultTokenAccount) Endpoint() string {
 	return "vault/account"
+}
+
+func (a *VaultTokenAccount) PrepareUpdateRequest() {
+	a.Personal = nil
+	a.OwnerUserID = nil
+	a.LastCheckoutTimestamp = nil
 }
 
 type VaultAccountGroup struct {

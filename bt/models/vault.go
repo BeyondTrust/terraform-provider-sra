@@ -27,6 +27,8 @@ type VaultUsernamePasswordAccount struct {
 
 	Username              types.String `tfsdk:"username"`
 	Password              types.String `tfsdk:"password" sra:"persist_state"`
+	PasswordWO            types.String `tfsdk:"password_wo"`
+	PasswordWOVersion     types.Int64  `tfsdk:"password_wo_version"`
 	LastCheckoutTimestamp types.String `tfsdk:"last_checkout_timestamp"`
 
 	JumpItemAssociation    types.Object `tfsdk:"jump_item_association"`

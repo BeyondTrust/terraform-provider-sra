@@ -6,7 +6,10 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -21,14 +24,18 @@ import (
 // These throw away variable declarations are to allow the compiler to
 // enforce compliance to these interfaces
 var (
-	_ resource.Resource                = &vaultUsernamePasswordAccountResource{}
-	_ resource.ResourceWithConfigure   = &vaultUsernamePasswordAccountResource{}
-	_ resource.ResourceWithImportState = &vaultUsernamePasswordAccountResource{}
+	_ resource.Resource                     = &vaultUsernamePasswordAccountResource{}
+	_ resource.ResourceWithConfigure        = &vaultUsernamePasswordAccountResource{}
+	_ resource.ResourceWithConfigValidators = &vaultUsernamePasswordAccountResource{}
+	_ resource.ResourceWithImportState      = &vaultUsernamePasswordAccountResource{}
 	// _ resource.ResourceWithModifyPlan  = &vaultUsernamePasswordAccountResource{}
 )
 
 func newVaultUsernamePasswordAccountResource() resource.Resource {
-	return &vaultUsernamePasswordAccountResource{}
+	r := &vaultUsernamePasswordAccountResource{}
+	r.apiResource.prepareCreate = r.prepareCreatePassword
+	r.apiResource.prepareUpdate = r.prepareUpdatePassword
+	return r
 }
 
 type vaultUsernamePasswordAccountResource struct {
@@ -75,8 +82,22 @@ func (r *vaultUsernamePasswordAccountResource) Schema(_ context.Context, _ resou
 				Required: true,
 			},
 			"password": schema.StringAttribute{
-				Required:  true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Password stored in Terraform state. Use password_wo for ephemeral credentials.",
+			},
+			"password_wo": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				WriteOnly:   true,
+				Description: "Write-only password sent to BeyondTrust without being stored in Terraform plan or state.",
+			},
+			"password_wo_version": schema.Int64Attribute{
+				Optional:    true,
+				Description: "Version trigger for password_wo. Increment this value to update the password in BeyondTrust.",
+				Validators: []validator.Int64{
+					int64validator.AtLeast(1),
+				},
 			},
 			"last_checkout_timestamp": schema.StringAttribute{
 				Computed: true,
@@ -102,6 +123,19 @@ func (r *vaultUsernamePasswordAccountResource) Schema(_ context.Context, _ resou
 				},
 			},
 		},
+	}
+}
+
+func (r *vaultUsernamePasswordAccountResource) ConfigValidators(context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.ExactlyOneOf(
+			path.MatchRoot("password"),
+			path.MatchRoot("password_wo"),
+		),
+		resourcevalidator.RequiredTogether(
+			path.MatchRoot("password_wo"),
+			path.MatchRoot("password_wo_version"),
+		),
 	}
 }
 
@@ -185,4 +219,46 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 		api.DiffGPAccountLists,
 		&accountMembershipMutex,
 	)
+}
+
+func (r *vaultUsernamePasswordAccountResource) prepareCreatePassword(ctx context.Context, req resource.CreateRequest, item *api.VaultUsernamePasswordAccount, diagnostics *diag.Diagnostics) {
+	var config, plan models.VaultUsernamePasswordAccount
+	diagnostics.Append(req.Config.Get(ctx, &config)...)
+	diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if diagnostics.HasError() {
+		return
+	}
+	if password, ok := vaultAccountPassword(config, plan, true, diagnostics); ok {
+		item.Password = password
+	}
+}
+
+func (r *vaultUsernamePasswordAccountResource) prepareUpdatePassword(ctx context.Context, req resource.UpdateRequest, item *api.VaultUsernamePasswordAccount, diagnostics *diag.Diagnostics) {
+	var config, plan, state models.VaultUsernamePasswordAccount
+	diagnostics.Append(req.Config.Get(ctx, &config)...)
+	diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	diagnostics.Append(req.State.Get(ctx, &state)...)
+	if diagnostics.HasError() {
+		return
+	}
+	if password, ok := vaultAccountPassword(config, plan, !plan.PasswordWOVersion.Equal(state.PasswordWOVersion), diagnostics); ok {
+		item.Password = password
+	}
+}
+
+func vaultAccountPassword(config, plan models.VaultUsernamePasswordAccount, useWriteOnly bool, diagnostics *diag.Diagnostics) (string, bool) {
+	if !plan.Password.IsNull() && !plan.Password.IsUnknown() {
+		return plan.Password.ValueString(), true
+	}
+	if !useWriteOnly {
+		return "", true
+	}
+	if config.PasswordWO.IsNull() || config.PasswordWO.IsUnknown() {
+		diagnostics.AddError(
+			"Missing write-only Vault password",
+			"password_wo must be known when creating the account or changing password_wo_version.",
+		)
+		return "", false
+	}
+	return config.PasswordWO.ValueString(), true
 }

@@ -18,10 +18,17 @@ For descriptions of individual fields, please see the Configuration API document
 ```terraform
 # Create and manage a new Username/Password account in Vault
 
+variable "account_password" {
+  type      = string
+  sensitive = true
+  ephemeral = true
+}
+
 resource "sra_vault_username_password_account" "new_account" {
-  name     = "Test User/Pass Account"
-  username = "test"
-  password = "this-is-a-test-password-that-should-be-generated-somehow"
+  name                = "Test User/Pass Account"
+  username            = "test"
+  password_wo         = var.account_password
+  password_wo_version = 1
 
   # Omit the following configuration to use account group settings
   group_policy_memberships = [
@@ -47,16 +54,20 @@ resource "sra_vault_username_password_account" "new_account" {
 ### Required
 
 - `name` (String) The name of the Account.
-- `password` (String, Sensitive)
 - `username` (String) The username that will be injected and/or checked out.
 
 ### Optional
+
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
 - `account_group_id` (Number) The unique identifier the Vault Account Group. The `account_group_id` defaults to `1`, which is the default Account Group.
 - `account_policy` (String) The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
 - `description` (String) The Account's description.
 - `group_policy_memberships` (Attributes Set) (see [below for nested schema](#nestedatt--group_policy_memberships))
 - `jump_item_association` (Attributes) (see [below for nested schema](#nestedatt--jump_item_association))
+- `password` (String, Sensitive) Password stored in Terraform state. Use password_wo for ephemeral credentials.
+- `password_wo` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only password sent to BeyondTrust without being stored in Terraform plan or state.
+- `password_wo_version` (Number) Version trigger for password_wo. Increment this value to update the password in BeyondTrust.
 
 ### Read-Only
 

@@ -14,6 +14,18 @@ so almost nothing was captured. That automation has been removed.
 <a name="Unreleased"></a>
 ## [Unreleased]
 
+### Added
+
+- `sra_vault_username_password_account` supports `password_wo` and `password_wo_version` for ephemeral passwords. The write-only password is sent to the appliance on create and when the version changes, without being stored in Terraform plan or state. Terraform 1.11 or later is required to use write-only arguments.
+
+### Changed
+
+- `sra_vault_username_password_account` now accepts either the existing state-backed `password` or the new write-only password. Existing configurations using `password` continue to work.
+
+### Fixed
+
+- Updates to username/password, SSH, and token Vault accounts no longer send `personal`, `owner_user_id`, or `last_checkout_timestamp`, which the Configuration API marks as read-only.
+
 <a name="v1.4.0"></a>
 ## [v1.4.0] - 2026-09-25
 

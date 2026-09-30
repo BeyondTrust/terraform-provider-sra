@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -51,7 +52,9 @@ func ResourceList() []func() resource.Resource {
 // file. This has 2 generic types defined tha must be supplied. The first is the type of the
 // API model, the second is the type of the Terraform model
 type apiResource[TApi api.APIResource, TTf any] struct {
-	ApiClient *api.APIClient
+	ApiClient     *api.APIClient
+	prepareCreate func(context.Context, resource.CreateRequest, *TApi, *diag.Diagnostics)
+	prepareUpdate func(context.Context, resource.UpdateRequest, *TApi, *diag.Diagnostics)
 }
 
 // Generic Configure function for resource providers. It simply maps the ProviderData as the API client on the resource
@@ -124,6 +127,12 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
 	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
+	if r.prepareCreate != nil {
+		r.prepareCreate(ctx, req, &item, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 
 	tflog.Debug(ctx, "🙀 executing item post", map[string]interface{}{
 		"endpoint": item.Endpoint(),
@@ -252,6 +261,15 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
 	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
+	if preparer, ok := any(&item).(api.UpdateRequestPreparer); ok {
+		preparer.PrepareUpdateRequest()
+	}
+	if r.prepareUpdate != nil {
+		r.prepareUpdate(ctx, req, &item, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 
 	logItem(ctx, "🙀 executing item update", item)
 	newItem, err := api.UpdateItem(r.ApiClient, item)
