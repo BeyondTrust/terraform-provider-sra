@@ -14,6 +14,11 @@ so almost nothing was captured. That automation has been removed.
 <a name="Unreleased"></a>
 ## [Unreleased]
 
+### Added
+
+- `sra_group_policy`: manage PRA and RS group policies, including product-specific permissions, with import support and explicit defaults that revoke permissions removed from configuration.
+- `sra_group_policy_member`: manage and provision individual group policy memberships by user ID, LDAP distinguished name, or group name, with import support and recovery of accepted creations after ID-discovery or provisioning failures.
+
 <a name="v1.4.0"></a>
 ## [v1.4.0] - 2026-09-25
 

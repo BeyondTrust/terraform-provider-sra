@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -152,10 +153,18 @@ func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
 // returning a JSON array for at least one of them — so this decodes whichever
 // shape the endpoint actually returns (a lone object becomes a one-element
 // slice). Returns an empty slice on a 204/no-content response.
-func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error) {
+func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string, query ...map[string]string) ([]I, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(query) > 0 {
+		q := req.URL.Query()
+		for k, v := range query[0] {
+			q.Add(k, v)
+		}
+		req.URL.RawQuery = q.Encode()
 	}
 
 	body, err := c.doRequest(req)
@@ -197,7 +206,8 @@ func ListItemsEndpoint[I APIResource](c *APIClient, endpoint string) ([]I, error
 
 // CreateItem POSTs item to its endpoint.
 //
-// It returns (nil, nil) when the API answers 204 No Content: the item WAS
+// It returns (nil, nil) when the API answers 204 No Content or an empty success
+// body (including 201 Created): the item WAS
 // created, there is simply no body to decode. Callers that dereference or
 // store the result must handle a nil item — writing it straight into Terraform
 // state produces a null attribute and an "inconsistent result after apply".
@@ -226,8 +236,8 @@ func CreateItem[I APIResource](c *APIClient, item I) (*I, error) {
 		return nil, err
 	}
 
-	if body == nil {
-		// success, but no content (204)
+	if len(bytes.TrimSpace(body)) == 0 {
+		// Successful create with no response body; callers must discover the ID.
 		return nil, nil
 	}
 

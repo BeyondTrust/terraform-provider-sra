@@ -70,6 +70,7 @@ Optional:
 - `perm_remote_rdp` (Boolean) Allowed to use Remote RDP.
 - `perm_remote_vnc` (Boolean) Allowed to use Remote VNC.
 - `perm_routing_idle_timeout` (Number) Do not assign sessions if the representative has been idle in seconds. Allowed values are 0, 180, 300, 600, 900, 1200, 1800, 2700, and 3600. 0 Means "No timeout". _This field only applies to RS_
+- `perm_sd_static_port_for_external_tools` (Boolean) Allowed to use static port and username for external tool sessions. _This field only applies to PRA_
 - `perm_send_ios_profiles` (Boolean) Allowed to generate access keys for sending iOS profiles. _This field only applies to RS_
 - `perm_session_idle_timeout` (Number) Remove User from the session after they've been inactive for a certain number of seconds. Allowed values are -1, 0, 300, 600, 900, 1800, 3600, 7200, 14400, 28800, 43200, and 86400. -1 means "Use site wide setting". 0 means "No timeout".
 - `perm_share_other_team` (Boolean) Allowed to share sessions with teams which they do not belong to.

@@ -16,6 +16,30 @@ type testAPIResource struct {
 	Location string
 }
 
+func TestEmptySuccessBodyIsOnlyAcceptedForCreate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/oauth2/token" {
+			_, _ = w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"test"}`))
+			return
+		}
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+		}
+	}))
+	defer server.Close()
+	id, secret := "id", "secret"
+	client, err := NewClient(server.URL, &id, &secret)
+	assert.NoError(t, err)
+	created, err := CreateItem(client, testAPIResource{})
+	assert.NoError(t, err)
+	assert.Nil(t, created)
+	_, err = ListItemsEndpoint[testAPIResource](client, "members")
+	assert.Error(t, err, "empty HTTP 200 must not be treated as a successful empty member list")
+	_, err = GetItemEndpoint[testAPIResource](client, "member/1")
+	assert.Error(t, err, "empty HTTP 200 must not be treated as a successful read")
+}
+
 func (t testAPIResource) Endpoint() string {
 	return fmt.Sprintf("test-resource/%s", t.Location)
 }
@@ -250,6 +274,38 @@ func TestListItemsEndpoint(t *testing.T) {
 	}
 }
 
+func TestListItemsEndpointWithQuery(t *testing.T) {
+	t.Parallel()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "oauth2/token") {
+			w.Header().Set("Content-Type", "application/json")
+			_, err := w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"secret_access_granted"}`))
+			assert.Nil(t, err)
+			return
+		}
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/api/config/v1/group-policy/9/member", r.URL.Path)
+		assert.Equal(t, "100", r.URL.Query().Get("per_page"))
+		assert.Equal(t, "2", r.URL.Query().Get("current_page"))
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(`[{"Location":"the_apartment"}]`))
+		assert.Nil(t, err)
+	}))
+	defer ts.Close()
+
+	clientID, clientSecret := "id", "secret"
+	c, err := NewClient(ts.URL, &clientID, &clientSecret)
+	assert.Nil(t, err)
+
+	items, err := ListItemsEndpoint[testAPIResource](c, "group-policy/9/member", map[string]string{
+		"per_page":     "100",
+		"current_page": "2",
+	})
+	assert.Nil(t, err)
+	assert.Len(t, items, 1)
+	assert.Equal(t, "the_apartment", items[0].Location)
+}
+
 func TestGetItem(t *testing.T) {
 	t.Parallel()
 
@@ -369,6 +425,8 @@ func TestCreateItem(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 				_, err := w.Write([]byte(""))
 				assert.Nil(t, err)
+			} else if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "test-resource/empty-created") {
+				w.WriteHeader(http.StatusCreated)
 			} else if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "test-resource/error") {
 				w.WriteHeader(http.StatusBadRequest)
 				_, err := w.Write([]byte("error"))
@@ -395,6 +453,13 @@ func TestCreateItem(t *testing.T) {
 
 	{
 		test := testAPIResource{nil, "the_sewers"}
+		resp, err := CreateItem(c, test)
+		assert.Nil(t, err)
+		assert.Nil(t, resp)
+	}
+
+	{
+		test := testAPIResource{nil, "empty-created"}
 		resp, err := CreateItem(c, test)
 		assert.Nil(t, err)
 		assert.Nil(t, resp)
