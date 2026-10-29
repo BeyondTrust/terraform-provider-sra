@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"terraform-provider-sra/api"
 	"testing"
@@ -170,4 +171,42 @@ func assertSoleMembership(t *testing.T, parsed *gabs.Container, wantGroupPolicyI
 	assert.Equal(t, wantGroupPolicyID, membership["group_policy_id"],
 		"the membership must reference the group policy from the config")
 	assert.Equal(t, "inject", membership["role"])
+}
+
+// skipWithoutEndpoint skips a PRA test when the appliance has no endpoint for
+// item type T, because it predates minVersion. The appliance has no fallback
+// route, so a missing endpoint answers 404; any other error fails the test. On
+// RS it does nothing: the test still asserts the PRA-only error there.
+func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
+	t.Helper()
+	if !mechs.IsPRA() {
+		return
+	}
+	var tmp T
+	_, err := api.ListItems[T](client)
+	if api.IsNotFound(err) {
+		t.Skipf("%s requires PRA %s or later; this appliance has no such endpoint", tmp.Endpoint(), minVersion)
+	}
+	require.NoError(t, err, "probing %s", tmp.Endpoint())
+}
+
+// applySettledAndPlanClean applies options twice and then requires an empty
+// plan. The second apply is not a retry: a list datasource with no dependency
+// on the resources is read before they change, so its output only catches up
+// on the next apply, and until then the plan exits 2 on "Changes to Outputs".
+// A provider that leaves a real diff still fails, because a perpetual diff
+// survives any number of applies.
+func applySettledAndPlanClean(t *testing.T, options *terraform.Options, msg string) {
+	t.Helper()
+	terraform.Apply(t, options)
+	terraform.Apply(t, options)
+	require.Equal(t, 0, terraform.PlanExitCode(t, options), msg)
+}
+
+// itemID parses the id attribute of a resource output.
+func itemID(t *testing.T, item map[string]string) int {
+	t.Helper()
+	id, err := strconv.Atoi(item["id"])
+	require.NoError(t, err)
+	return id
 }

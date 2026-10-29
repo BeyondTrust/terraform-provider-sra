@@ -152,6 +152,36 @@ func (MySQLTunnelJump) Endpoint() string { return "jump-item/mysql-tunnel-jump" 
 func (MySQLTunnelJump) AllowPRA() bool   { return true }
 func (MySQLTunnelJump) AllowRS() bool    { return false }
 
+// MongodbTunnelJump is named "Mongodb", not "MongoDB", because the published
+// resource name is ToSnakeCase of this type name: MongoDB would publish as
+// sra_mongo_db_tunnel_jump, as MySQL already publishes as sra_my_sql_*.
+//
+// Username and Database are plain strings so they are always sent, and setting
+// either to "" in configuration clears it. AuthDatabase is a pointer: nil is not
+// sent, and a pointer to "" clears it (mongodbTunnelJumpResource.Update). The
+// appliance accepts auth_database from 26.3.1 only, and rejects the key before
+// that, so it must not be sent unless the configuration sets it.
+type MongodbTunnelJump struct {
+	ID                  *int    `json:"id,omitempty"`
+	Name                string  `json:"name"`
+	JumpointID          int     `json:"jumpoint_id"`
+	Hostname            string  `json:"hostname"`
+	JumpGroupID         int     `json:"jump_group_id"`
+	JumpGroupType       string  `json:"jump_group_type"`
+	Tag                 string  `json:"tag"`
+	Comments            string  `json:"comments"`
+	JumpPolicyID        *int    `json:"jump_policy_id,omitempty"`
+	SessionPolicyID     *int    `json:"session_policy_id,omitempty"`
+	TunnelListenAddress *string `json:"local_address,omitempty"`
+	Username            string  `json:"username"`
+	Database            string  `json:"database"`
+	AuthDatabase        *string `json:"auth_database,omitempty"`
+}
+
+func (MongodbTunnelJump) Endpoint() string { return "jump-item/mongodb-tunnel-jump" }
+func (MongodbTunnelJump) AllowPRA() bool   { return true }
+func (MongodbTunnelJump) AllowRS() bool    { return false }
+
 type NetworkTunnelJump struct {
 	ID              *int             `json:"id,omitempty"`
 	Name            string           `json:"name"`

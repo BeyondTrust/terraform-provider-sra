@@ -36,6 +36,7 @@ func ResourceList() []func() resource.Resource {
 		newJumpClientInstallerResource,
 		newPostgreSQLTunnelJumpResource,
 		newMySQLTunnelJumpResource,
+		newMongodbTunnelJumpResource,
 		newNetworkTunnelJumpResource,
 
 		newVaultAccountGroupResource,
