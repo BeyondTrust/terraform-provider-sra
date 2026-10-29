@@ -1,4 +1,4 @@
-# Manage example Remote VNC Jump Item
+# Manage example Protocol Tunnel Jump Items
 resource "sra_protocol_tunnel_jump" "example" {
   name               = "Example TCP Tunnel"
   hostname           = "example.host"
@@ -16,11 +16,14 @@ resource "sra_protocol_tunnel_jump" "mssql" {
   username      = "db_user"
 }
 
-resource "sra_k8s_tunnel_jump" "k8s" {
+# Kubernetes tunnels need a Linux Jumpoint. hostname is omitted: the appliance
+# derives it from url. The appliance trims both values, so trimspace() strips the
+# newline file() leaves at the end of a PEM.
+resource "sra_protocol_tunnel_jump" "k8s" {
   name            = "Example Kubernetes Tunnel"
-  url             = "example.cluster"
+  url             = "https://k8s.example.com:6443"
   jumpoint_id     = 1
   jump_group_id   = 1
   tunnel_type     = "k8s"
-  ca_certificates = "**PEM CA certificate**"
+  ca_certificates = trimspace(file("ca.pem"))
 }

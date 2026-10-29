@@ -280,10 +280,13 @@ func TestProtocolTunnel(t *testing.T) {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		sqlItem := terraform.OutputMap(t, terraformOptions, "sql_item")
+		k8sItem := terraform.OutputMap(t, terraformOptions, "k8s_item")
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, randomBits, sqlItem["tag"])
+		assert.Equal(t, randomBits, k8sItem["tag"])
+		assert.Equal(t, k8sItem["url"], k8sItem["hostname"], "the appliance derives a k8s hostname from url")
 		assert.Equal(t, 0, len(list))
 	})
 
@@ -293,22 +296,30 @@ func TestProtocolTunnel(t *testing.T) {
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 
-		// Need to re-run apply so that the datasource output finds the new item
-		terraform.Apply(t, terraformOptions)
+		// The datasource output only finds the new items on the second apply; the
+		// clean plan after it is the check that k8s items, and the tcp and mssql
+		// items v1.4.0 already created, round-trip without drift.
+		applySettledAndPlanClean(t, terraformOptions, "a protocol tunnel left a diff")
 
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		sqlItem := terraform.OutputMap(t, terraformOptions, "sql_item")
+		k8sItem := terraform.OutputMap(t, terraformOptions, "k8s_item")
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
-		assert.Equal(t, 2, len(list))
-		if len(list) > 0 {
-			idMap := map[string]string{
-				"tcp":   item["id"],
-				"mssql": sqlItem["id"],
+		assert.Equal(t, 3, len(list))
+		idMap := map[string]string{
+			"tcp":   item["id"],
+			"mssql": sqlItem["id"],
+			"k8s":   k8sItem["id"],
+		}
+		byType := map[string]map[string]interface{}{}
+		for _, v := range list {
+			byType[v["tunnel_type"].(string)] = v
+		}
+		for tunnelType, id := range idMap {
+			if assert.Contains(t, byType, tunnelType) {
+				assert.Equal(t, id, byType[tunnelType]["id"], tunnelType)
 			}
-
-			assert.Equal(t, idMap[list[0]["tunnel_type"].(string)], list[0]["id"])
-			assert.Equal(t, idMap[list[1]["tunnel_type"].(string)], list[1]["id"])
 		}
 	})
 }

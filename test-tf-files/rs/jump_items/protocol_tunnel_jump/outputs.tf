@@ -13,6 +13,11 @@ output "sql_item" {
   value       = sra_protocol_tunnel_jump.test_sql
 }
 
+output "k8s_item" {
+  description = "The created kubernetes tunnel jump item"
+  value       = sra_protocol_tunnel_jump.test_k8s
+}
+
 output "list" {
   description = "The datasource query result"
   value       = data.sra_protocol_tunnel_jump_list.list.items

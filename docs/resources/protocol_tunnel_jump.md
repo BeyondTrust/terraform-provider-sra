@@ -3,23 +3,28 @@
 page_title: "sra_protocol_tunnel_jump Resource - sra"
 subcategory: ""
 description: |-
-  Manages a Protocol Tunnel Jump Item.
+  Manages a Protocol Tunnel Jump Item of tunnel_type tcp (the default), mssql or k8s.
   NOTE: Protocol Tunnel Jumps are PRA only.
+  hostname is required unless tunnel_type is k8s. For k8s, omit it: the appliance sets it to the first 128 characters of url.
+  Changing tunnel_type replaces the item, which gives it a new ID.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
 # sra_protocol_tunnel_jump (Resource)
 
-Manages a Protocol Tunnel Jump Item.
+Manages a Protocol Tunnel Jump Item of tunnel_type tcp (the default), mssql or k8s.
 
 NOTE: Protocol Tunnel Jumps are PRA only.
+
+hostname is required unless tunnel_type is k8s. For k8s, omit it: the appliance sets it to the first 128 characters of url.
+Changing tunnel_type replaces the item, which gives it a new ID.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 
 ## Example Usage
 
 ```terraform
-# Manage example Remote VNC Jump Item
+# Manage example Protocol Tunnel Jump Items
 resource "sra_protocol_tunnel_jump" "example" {
   name               = "Example TCP Tunnel"
   hostname           = "example.host"
@@ -37,13 +42,16 @@ resource "sra_protocol_tunnel_jump" "mssql" {
   username      = "db_user"
 }
 
-resource "sra_k8s_tunnel_jump" "k8s" {
+# Kubernetes tunnels need a Linux Jumpoint. hostname is omitted: the appliance
+# derives it from url. The appliance trims both values, so trimspace() strips the
+# newline file() leaves at the end of a PEM.
+resource "sra_protocol_tunnel_jump" "k8s" {
   name            = "Example Kubernetes Tunnel"
-  url             = "example.cluster"
+  url             = "https://k8s.example.com:6443"
   jumpoint_id     = 1
   jump_group_id   = 1
   tunnel_type     = "k8s"
-  ca_certificates = "**PEM CA certificate**"
+  ca_certificates = trimspace(file("ca.pem"))
 }
 ```
 
@@ -52,7 +60,6 @@ resource "sra_k8s_tunnel_jump" "k8s" {
 
 ### Required
 
-- `hostname` (String) The hostname or IP address. The hostname is not required for Kubernetes tunnel Jump Items. It is automatically set to be the same as the url. If the url is longer than 128 characters the hostname will be truncated. _This field only applies to PRA_
 - `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item. _This field only applies to PRA_
 - `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made. For Kubernetes tunnel Jump Items, only Linux jumpoints are supported. _This field only applies to PRA_
 - `name` (String) The name of the Protocol Tunnel Jump Item. _This field only applies to PRA_
@@ -62,6 +69,7 @@ resource "sra_k8s_tunnel_jump" "k8s" {
 - `ca_certificates` (String) The certificate used for Kubernetes tunnel Jump Items. This field is required when `tunnel_type` is `k8s`. _This field only applies to PRA_
 - `comments` (String) The Jump Item's comments. _This field only applies to PRA_
 - `database` (String) The database name used for MSSQL tunnel Jump Items. _This field only applies to PRA_
+- `hostname` (String) The hostname or IP address. The hostname is not required for Kubernetes tunnel Jump Items. It is automatically set to be the same as the url. If the url is longer than 128 characters the hostname will be truncated. _This field only applies to PRA_
 - `jump_group_type` (String) The type of Jump Group that owns this Jump Item. _This field only applies to PRA_
 - `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item. _This field only applies to PRA_
 - `session_policy_id` (Number) The unique identifier of the Session Policy used to control the user's capabilities in the session. _This field only applies to PRA_
@@ -98,5 +106,5 @@ The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/c
 #!/usr/bin/env bash
 
 # Item can be imported by specifying the ID
-terraform import sra_protocol_tunnel.example 123
+terraform import sra_protocol_tunnel_jump.example 123
 ```
