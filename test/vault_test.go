@@ -323,8 +323,6 @@ func TestVaultSSHKey(t *testing.T) {
 		accountID, err := strconv.Atoi(terraform.OutputMap(t, terraformOptions, "stand_alone")["id"])
 		require.NoError(t, err, "could not read the stand_alone account id from outputs")
 
-		// A fresh client: the package-level one has been invalidated by the
-		// applies above (see freshClient).
 		// Lower case deliberately: the appliance normalises tag case, so a mixed-case
 		// canary comes back lowered and a naive Contains would miss it.
 		const tag = "outofbandscope"

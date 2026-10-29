@@ -21,10 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	client *api.APIClient = nil
-	mechs  *api.MechList  = nil
-)
+// mechs is fetched once per test binary: the appliance's product never changes
+// mid-run. The client that fetched it is not kept (see freshClient).
+var mechs *api.MechList
 
 // stageSkipRandomBits is substituted for the usual random suffix whenever any
 // SKIP_<stage> env var is set, so cached fixture state keeps naming the same
@@ -40,16 +39,12 @@ func setEnvAndGetRandom(t *testing.T) string {
 	// os.Setenv("SKIP_setup", "true")
 	// os.Setenv("SKIP_teardown", "true")
 
-	if client == nil {
-		client_id := os.Getenv("BT_CLIENT_ID")
-		client_secret := os.Getenv("BT_CLIENT_SECRET")
+	if mechs == nil {
 		t.Logf("🚀 Running tests against [%s]", os.Getenv("BT_API_HOST"))
-		var err error
-		client, err = api.NewClient(os.Getenv("BT_API_HOST"), &client_id, &client_secret)
+		client, err := freshClientE(t)
 		if err != nil {
 			t.Fatalf("could not create API client for BT_API_HOST [%s]: %v — check BT_API_HOST/BT_CLIENT_ID/BT_CLIENT_SECRET", os.Getenv("BT_API_HOST"), err)
 		}
-		client.SetTestLogger(t)
 
 		mechs, err = api.Get[api.MechList](client)
 		if err != nil {
@@ -129,12 +124,10 @@ func withBaseTFOptions(t *testing.T, originalOptions *terraform.Options) *terraf
 	newOpts := terraform.WithDefaultRetryableErrors(t, originalOptions)
 	pluginPath, _ := filepath.Abs("../test-reg")
 	newOpts.PluginDir = pluginPath
-	if newOpts.EnvVars == nil {
-		newOpts.EnvVars = map[string]string{}
-	}
-	newOpts.EnvVars["BT_API_HOST"] = os.Getenv("BT_API_HOST")
-	newOpts.EnvVars["BT_CLIENT_ID"] = os.Getenv("BT_CLIENT_ID")
-	newOpts.EnvVars["BT_CLIENT_SECRET"] = os.Getenv("BT_CLIENT_SECRET")
+	// Keep BT_* credentials out of EnvVars. terraform inherits this process's
+	// environment anyway (terratest's shell.formatEnvVars starts from
+	// os.Environ), and SaveTerraformOptions logs the options and writes them in
+	// plaintext to a 0644 .test-data/TerraformOptions.json.
 	newOpts.MaxRetries = 0
 	return newOpts
 }
@@ -174,7 +167,8 @@ func assertSoleMembership(t *testing.T, parsed *gabs.Container, wantGroupPolicyI
 	assert.Equal(t, "inject", membership["role"])
 }
 
-// freshClient builds a new API client rather than reusing the package-level one.
+// freshClient builds a new API client for each use. Never cache one across a
+// terraform command.
 //
 // This is load-bearing, not defensive, and the mechanism was measured rather
 // than guessed (against mpam, 2026-09-15):
@@ -190,7 +184,7 @@ func assertSoleMembership(t *testing.T, parsed *gabs.Container, wantGroupPolicyI
 //     token with the same credentials, so a full suite run burns through the
 //     bound quickly.
 //
-// Net effect: the package-level client's token is evicted partway through a run
+// Net effect: a cached client's token is evicted partway through a run
 // while oauth2 still believes it valid, and the next call returns
 // "status: 401 ... Access token is invalid". Observed, not theorised -- this test
 // passed when run alone and failed when run fourth.
@@ -203,10 +197,10 @@ func freshClient(t *testing.T) *api.APIClient {
 }
 
 // freshClientE is freshClient without the t.FailNow. The orphan cleanup needs it:
-// api.NewClient is not a pure constructor -- it mints a token (api/client.go:105)
-// and can fail -- and a require inside t.Cleanup calls FailNow, which Goexits the
-// cleanup goroutine before any of the messages naming the leaked id can print. The
-// one moment the guard exists for is the moment it must not lose its diagnostic.
+// api.NewClient is not a pure constructor -- it mints a token and can fail -- and
+// a require inside t.Cleanup calls FailNow, which Goexits the cleanup goroutine
+// before any of the messages naming the leaked id can print. The one moment the
+// guard exists for is the moment it must not lose its diagnostic.
 func freshClientE(t *testing.T) (*api.APIClient, error) {
 	t.Helper()
 
@@ -217,10 +211,10 @@ func freshClientE(t *testing.T) (*api.APIClient, error) {
 		return nil, err
 	}
 
-	// Mirror setEnvAndGetRandom. Without a logger, doRequest's
-	// request/response tracing is gated off (api/client.go:122) and these calls run
-	// silently -- so an "orphan recovery FAILED ... LEAKED" message would arrive
-	// with no URL or response body to act on, exactly when a human needs them.
+	// Without a logger, doRequest's request/response tracing is gated off and
+	// these calls run silently -- so an "orphan recovery FAILED ... LEAKED"
+	// message would arrive with no URL or response body to act on, exactly when
+	// a human needs them.
 	c.SetTestLogger(t)
 	return c, nil
 }

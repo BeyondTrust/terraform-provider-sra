@@ -27,7 +27,7 @@ so almost nothing was captured. That automation has been removed.
   - the type was edited after the item was created;
   - a mysql, psql, mongodb, oracle or ip item was imported through this resource.
 - `sra_protocol_tunnel_jump`: a field that doesn't apply to the tunnel type is now a plan-time error when it is non-empty. Those fields are `tunnel_definitions` and `tunnel_listen_address` outside `tcp`, `username` and `database` outside `mssql`, and `url` and `ca_certificates` outside `k8s`. These configurations already failed to apply, with a `400` or an inconsistent result. Empty values are still accepted, so existing state and generated configuration are unaffected.
-- `sra_protocol_tunnel_jump`: a tcp `tunnel_listen_address` must be a plain IPv4 address in `127.0.0.0/24`; IPv4-mapped forms such as `::ffff:127.0.0.1` are rejected. An empty `hostname` or `tunnel_listen_address` is a plan-time error. All of these already failed to apply.
+- `sra_protocol_tunnel_jump`: a tcp `tunnel_listen_address` must be a plain IPv4 address in `127.0.0.0/24`; IPv4-mapped forms such as `::ffff:127.0.0.1` are rejected. An empty `hostname` or `tunnel_listen_address` is a plan-time error. All of these already failed to plan or apply.
 
 ### Fixed
 
