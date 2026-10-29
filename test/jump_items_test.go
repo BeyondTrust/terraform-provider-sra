@@ -296,10 +296,11 @@ func TestProtocolTunnel(t *testing.T) {
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 
-		// The datasource output only finds the new items on the second apply; the
-		// clean plan after it is the check that k8s items, and the tcp and mssql
-		// items v1.4.0 already created, round-trip without drift.
-		applySettledAndPlanClean(t, terraformOptions, "a protocol tunnel left a diff")
+		// The plan checks the setup apply: k8s items, and tcp and mssql items with
+		// the same config v1.4.0 accepted, round-trip without drift. The apply
+		// after it is only so the datasource output finds the new items.
+		requireNoResourceChanges(t, terraformOptions, "a protocol tunnel left a diff")
+		terraform.Apply(t, terraformOptions)
 
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		sqlItem := terraform.OutputMap(t, terraformOptions, "sql_item")
@@ -493,7 +494,10 @@ func TestMongodbTunnel(t *testing.T) {
 	test_structure.RunTestStage(t, "Find the new MongoDB Tunnel items with the datasource and plan clean", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 
-		applySettledAndPlanClean(t, terraformOptions, "a freshly created MongoDB tunnel left a diff")
+		// The plan checks the setup apply; the apply after it is only so the
+		// datasource output finds the new items.
+		requireNoResourceChanges(t, terraformOptions, "a freshly created MongoDB tunnel left a diff")
+		terraform.Apply(t, terraformOptions)
 
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
@@ -511,7 +515,7 @@ func TestMongodbTunnel(t *testing.T) {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 		id := itemID(t, terraform.OutputMap(t, terraformOptions, "item"))
 
-		before, err := api.GetItem[api.MongodbTunnelJump](client, &id)
+		before, err := api.GetItem[api.MongodbTunnelJump](freshClient(t), &id)
 		require.NoError(t, err)
 		authDatabaseSupported = before.AuthDatabase != nil
 		t.Logf("auth_database supported by this appliance: %v", authDatabaseSupported)
@@ -525,10 +529,11 @@ func TestMongodbTunnel(t *testing.T) {
 		}
 		terraformOptions = resaveOptions(t, testFolder, vars)
 
-		applySettledAndPlanClean(t, terraformOptions, "updating a MongoDB tunnel left a diff")
+		terraform.Apply(t, terraformOptions)
+		requireNoResourceChanges(t, terraformOptions, "updating a MongoDB tunnel left a diff")
 		assert.Equal(t, id, itemID(t, terraform.OutputMap(t, terraformOptions, "item")), "the update must be in place")
 
-		got, err := api.GetItem[api.MongodbTunnelJump](client, &id)
+		got, err := api.GetItem[api.MongodbTunnelJump](freshClient(t), &id)
 		require.NoError(t, err)
 		require.NotNil(t, got.TunnelListenAddress)
 		assert.Equal(t, "127.0.0.9", *got.TunnelListenAddress)
@@ -552,9 +557,10 @@ func TestMongodbTunnel(t *testing.T) {
 		vars["auth_database"] = ""
 		terraformOptions = resaveOptions(t, testFolder, vars)
 
-		applySettledAndPlanClean(t, terraformOptions, "clearing auth_database left a diff")
+		terraform.Apply(t, terraformOptions)
+		requireNoResourceChanges(t, terraformOptions, "clearing auth_database left a diff")
 
-		got, err := api.GetItem[api.MongodbTunnelJump](client, &id)
+		got, err := api.GetItem[api.MongodbTunnelJump](freshClient(t), &id)
 		require.NoError(t, err)
 		require.NotNil(t, got.AuthDatabase)
 		assert.Equal(t, "", *got.AuthDatabase, "the PATCH must have cleared auth_database")
@@ -607,7 +613,10 @@ func TestOracleTunnel(t *testing.T) {
 	test_structure.RunTestStage(t, "Find the new Oracle Tunnel items with the datasource and plan clean", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 
-		applySettledAndPlanClean(t, terraformOptions, "a freshly created Oracle tunnel left a diff")
+		// The plan checks the setup apply; the apply after it is only so the
+		// datasource output finds the new items.
+		requireNoResourceChanges(t, terraformOptions, "a freshly created Oracle tunnel left a diff")
+		terraform.Apply(t, terraformOptions)
 
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
@@ -633,10 +642,11 @@ func TestOracleTunnel(t *testing.T) {
 		vars["database"] = ""
 		terraformOptions = resaveOptions(t, testFolder, vars)
 
-		applySettledAndPlanClean(t, terraformOptions, "updating an Oracle tunnel left a diff")
+		terraform.Apply(t, terraformOptions)
+		requireNoResourceChanges(t, terraformOptions, "updating an Oracle tunnel left a diff")
 		assert.Equal(t, id, itemID(t, terraform.OutputMap(t, terraformOptions, "item")), "the update must be in place")
 
-		got, err := api.GetItem[api.OracleTunnelJump](client, &id)
+		got, err := api.GetItem[api.OracleTunnelJump](freshClient(t), &id)
 		require.NoError(t, err)
 		require.NotNil(t, got.TunnelListenAddress)
 		assert.Equal(t, "127.0.0.9", *got.TunnelListenAddress)

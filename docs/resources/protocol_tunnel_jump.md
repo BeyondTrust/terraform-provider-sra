@@ -6,7 +6,7 @@ description: |-
   Manages a Protocol Tunnel Jump Item of tunnel_type tcp (the default), mssql or k8s.
   NOTE: Protocol Tunnel Jumps are PRA only.
   hostname is required unless tunnel_type is k8s. For k8s, omit it: the appliance sets it to the first 128 characters of url.
-  Changing tunnel_type replaces the item, which gives it a new ID.
+  Changing tunnel_type replaces the item, which gives it a new ID. The replacement is planned only when the new tunnel_type is known at plan time; if it is unknown and resolves to a different type, the apply fails instead.
   For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 ---
 
@@ -17,7 +17,7 @@ Manages a Protocol Tunnel Jump Item of tunnel_type tcp (the default), mssql or k
 NOTE: Protocol Tunnel Jumps are PRA only.
 
 hostname is required unless tunnel_type is k8s. For k8s, omit it: the appliance sets it to the first 128 characters of url.
-Changing tunnel_type replaces the item, which gives it a new ID.
+Changing tunnel_type replaces the item, which gives it a new ID. The replacement is planned only when the new tunnel_type is known at plan time; if it is unknown and resolves to a different type, the apply fails instead.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance
 

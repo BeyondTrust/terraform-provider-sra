@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // These throw away variable declarations are to allow the compiler to
@@ -45,7 +46,7 @@ func (r *protocolTunnelJumpResource) Schema(_ context.Context, _ resource.Schema
 NOTE: Protocol Tunnel Jumps are PRA only.
 
 hostname is required unless tunnel_type is k8s. For k8s, omit it: the appliance sets it to the first 128 characters of url.
-Changing tunnel_type replaces the item, which gives it a new ID.
+Changing tunnel_type replaces the item, which gives it a new ID. The replacement is planned only when the new tunnel_type is known at plan time; if it is unknown and resolves to a different type, the apply fails instead.
 
 For descriptions of individual fields, please see the Configuration API documentation on your SRA Appliance`,
 		Attributes: map[string]schema.Attribute{
@@ -292,7 +293,9 @@ func validateTunnelDefinitions(defs string) diag.Diagnostics {
 // is read to tell an omitted value (null) from one that is not known yet; the
 // tunnel type is read from the plan, which already carries the default.
 func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	tflog.Debug(ctx, "Starting plan modification (protocol tunnel)")
 	if req.Plan.Raw.IsNull() {
+		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
 	var plan, config, state models.ProtocolTunnelJump
@@ -308,6 +311,7 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 	planProtocolTunnelDefaults(&plan, config, state)
 
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
+	tflog.Debug(ctx, "Finished modification (protocol tunnel)")
 }
 
 // planProtocolTunnelDefaults fills the computed values ModifyPlan plans. On
