@@ -37,6 +37,7 @@ func TestPublishedTypeNames(t *testing.T) {
 
 	for _, name := range []string{
 		"sra_mongodb_tunnel_jump",
+		"sra_oracle_tunnel_jump",
 	} {
 		assert.True(t, resources[name], "resource %s is not registered", name)
 		assert.True(t, dataSources[name+"_list"], "data source %s_list is not registered", name)

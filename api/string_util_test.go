@@ -27,6 +27,7 @@ func TestTransformToSnakeCase(t *testing.T) {
 		{"PostgreSQLTunnelJump", "postgre_sql_tunnel_jump"},
 		{"MySQLTunnelJump", "my_sql_tunnel_jump"},
 		{"MongodbTunnelJump", "mongodb_tunnel_jump"},
+		{"OracleTunnelJump", "oracle_tunnel_jump"},
 		{"JumpClientInstaller", "jump_client_installer"},
 		{"A", "a"},
 		{"ID", "id"},

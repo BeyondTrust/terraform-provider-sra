@@ -31,6 +31,7 @@ func DatasourceList() []func() datasource.DataSource {
 		newPostgreSQLTunnelJumpDataSource,
 		newMySQLTunnelJumpDataSource,
 		newMongodbTunnelJumpDataSource,
+		newOracleTunnelJumpDataSource,
 		newNetworkTunnelJumpDataSource,
 
 		newVaultAccountDataSource,

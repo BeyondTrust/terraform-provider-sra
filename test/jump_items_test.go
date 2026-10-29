@@ -578,6 +578,99 @@ func TestMongodbTunnel(t *testing.T) {
 	})
 }
 
+func TestOracleTunnel(t *testing.T) {
+	randomBits := setEnvAndGetRandom(t)
+	skipWithoutEndpoint[api.OracleTunnelJump](t, "26.3.1")
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/oracle_tunnel_jump", productPath()))
+
+	defer test_structure.RunTestStage(t, "teardown", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		terraform.Destroy(t, terraformOptions)
+	})
+
+	vars := map[string]interface{}{
+		"random_bits": randomBits,
+		"name":        "This is a Name",
+		"hostname":    "this.host",
+	}
+
+	test_structure.RunTestStage(t, "setup", func() {
+		terraformOptions := withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
+
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		if mechs.IsPRA() {
+			terraform.InitAndApply(t, terraformOptions)
+		} else {
+			_, err := terraform.InitAndApplyE(t, terraformOptions)
+			assert.NotNil(t, err)
+		}
+	})
+	if !mechs.IsPRA() {
+		return
+	}
+
+	test_structure.RunTestStage(t, "Create new Oracle Tunnel items", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, randomBits, item["tag"])
+		assert.Equal(t, randomBits, item2["tag"])
+		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "the schema default")
+		assert.Equal(t, 0, len(list))
+	})
+
+	test_structure.RunTestStage(t, "Find the new Oracle Tunnel items with the datasource and plan clean", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+
+		applySettledAndPlanClean(t, terraformOptions, "a freshly created Oracle tunnel left a diff")
+
+		item := terraform.OutputMap(t, terraformOptions, "item")
+		item2 := terraform.OutputMap(t, terraformOptions, "item_secondary")
+		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
+
+		assert.Equal(t, 2, len(list))
+		ids := map[string]bool{item["id"]: true, item2["id"]: true}
+		found := 0
+		for _, v := range list {
+			if ids[v["id"].(string)] {
+				found++
+			}
+		}
+		assert.Equal(t, 2, found)
+
+		// The list carries gateway_id/asset_group_id on the wire; these must land
+		// on the standard attribute names.
+		for _, v := range list {
+			assert.Equal(t, item["jumpoint_id"], fmt.Sprint(v["jumpoint_id"]))
+			assert.Equal(t, item["jump_group_id"], fmt.Sprint(v["jump_group_id"]))
+		}
+	})
+
+	test_structure.RunTestStage(t, "Update Oracle Tunnel items in place, clearing database", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		id := itemID(t, terraform.OutputMap(t, terraformOptions, "item"))
+
+		vars["tunnel_listen_address"] = "127.0.0.9"
+		vars["tag_suffix"] = "-updated"
+		vars["database"] = ""
+		terraformOptions = withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+
+		applySettledAndPlanClean(t, terraformOptions, "updating an Oracle tunnel left a diff")
+		assert.Equal(t, id, itemID(t, terraform.OutputMap(t, terraformOptions, "item")), "the update must be in place")
+
+		got, err := api.GetItem[api.OracleTunnelJump](client, &id)
+		require.NoError(t, err)
+		require.NotNil(t, got.TunnelListenAddress)
+		assert.Equal(t, "127.0.0.9", *got.TunnelListenAddress)
+		assert.Equal(t, randomBits+"-updated", got.Tag)
+		assert.Equal(t, "orauser", got.Username)
+		assert.Equal(t, "", got.Database, `sending "" must clear database`)
+	})
+}
+
 func TestNetworkTunnel(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/network_tunnel_jump", productPath()))

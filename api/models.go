@@ -182,6 +182,31 @@ func (MongodbTunnelJump) Endpoint() string { return "jump-item/mongodb-tunnel-ju
 func (MongodbTunnelJump) AllowPRA() bool   { return true }
 func (MongodbTunnelJump) AllowRS() bool    { return false }
 
+// OracleTunnelJump keeps the provider's standard Go field names, so the
+// Terraform attributes match every other jump item, while the json tags carry
+// the Oracle endpoint's own names: gateway_id, asset_group_id and
+// asset_group_type. CopyTFtoAPI and CopyAPItoTF match fields by Go name, so the
+// tags alone do the renaming.
+type OracleTunnelJump struct {
+	ID                  *int    `json:"id,omitempty"`
+	Name                string  `json:"name"`
+	JumpointID          int     `json:"gateway_id"`
+	Hostname            string  `json:"hostname"`
+	JumpGroupID         int     `json:"asset_group_id"`
+	JumpGroupType       string  `json:"asset_group_type"`
+	Tag                 string  `json:"tag"`
+	Comments            string  `json:"comments"`
+	JumpPolicyID        *int    `json:"jump_policy_id,omitempty"`
+	SessionPolicyID     *int    `json:"session_policy_id,omitempty"`
+	TunnelListenAddress *string `json:"local_address,omitempty"`
+	Username            string  `json:"username"`
+	Database            string  `json:"database"`
+}
+
+func (OracleTunnelJump) Endpoint() string { return "jump-item/oracle-tunnel-jump" }
+func (OracleTunnelJump) AllowPRA() bool   { return true }
+func (OracleTunnelJump) AllowRS() bool    { return false }
+
 type NetworkTunnelJump struct {
 	ID              *int             `json:"id,omitempty"`
 	Name            string           `json:"name"`

@@ -222,6 +222,22 @@ type MongodbTunnelJump struct {
 	AuthDatabase        types.String `tfsdk:"auth_database"`
 }
 
+type OracleTunnelJump struct {
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	JumpointID          types.Int64  `tfsdk:"jumpoint_id"`
+	Hostname            types.String `tfsdk:"hostname"`
+	JumpGroupID         types.Int64  `tfsdk:"jump_group_id"`
+	JumpGroupType       types.String `tfsdk:"jump_group_type"`
+	Tag                 types.String `tfsdk:"tag"`
+	Comments            types.String `tfsdk:"comments"`
+	JumpPolicyID        types.Int64  `tfsdk:"jump_policy_id"`
+	SessionPolicyID     types.Int64  `tfsdk:"session_policy_id"`
+	TunnelListenAddress types.String `tfsdk:"tunnel_listen_address"`
+	Username            types.String `tfsdk:"username"`
+	Database            types.String `tfsdk:"database"`
+}
+
 type NetworkTunnelJump struct {
 	ID              types.String `tfsdk:"id"`
 	Name            types.String `tfsdk:"name"`
