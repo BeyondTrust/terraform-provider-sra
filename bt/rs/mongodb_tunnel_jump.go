@@ -5,16 +5,12 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 var (
@@ -28,14 +24,6 @@ func newMongodbTunnelJumpResource() resource.Resource { return &mongodbTunnelJum
 type mongodbTunnelJumpResource struct {
 	apiResource[api.MongodbTunnelJump, models.MongodbTunnelJump]
 }
-
-// tunnelListenAddressDescription documents the rename for the tunnel types whose
-// API calls the field local_address.
-const tunnelListenAddressDescription = "Local address the tunnel listens on, within 127.0.0.0/24. Defaults to 127.0.0.1. " +
-	"Sent to the API as `local_address`; API errors use that name."
-
-const tunnelJumpNotAssociableNote = "Vault account jump item associations accept only MSSQL protocol tunnels on the appliance, " +
-	"so this type can't be associated with a vault account."
 
 func (r *mongodbTunnelJumpResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -71,25 +59,9 @@ func (r *mongodbTunnelJumpResource) Schema(_ context.Context, _ resource.SchemaR
 	}
 }
 
-// Create, Read and Update wrap the generic implementations to keep
-// auth_database at "" rather than null. Before PRA 26.3.1 the appliance never
-// returns the key, which reads back as null; a null against the planned default
-// of "" fails the apply as an inconsistent result. Normalising here makes state
-// "" on every appliance version, the same as tag.
-
-func (r *mongodbTunnelJumpResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	r.apiResource.Create(ctx, req, resp)
-	normalizeAuthDatabase(ctx, &resp.State, &resp.Diagnostics)
-}
-
-func (r *mongodbTunnelJumpResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	r.apiResource.Read(ctx, req, resp)
-	normalizeAuthDatabase(ctx, &resp.State, &resp.Diagnostics)
-}
-
+// Update sends an emptied auth_database, which the generic Update would drop.
 func (r *mongodbTunnelJumpResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	r.update(ctx, req, resp, clearAuthDatabase)
-	normalizeAuthDatabase(ctx, &resp.State, &resp.Diagnostics)
 }
 
 // clearAuthDatabase sends auth_database as "" when the configuration clears a
@@ -98,26 +70,8 @@ func (r *mongodbTunnelJumpResource) Update(ctx context.Context, req resource.Upd
 // non-empty on 26.3.1 or later, where "" is accepted, so this never sends the
 // key to an appliance that rejects it. An unknown plan value never clears.
 func clearAuthDatabase(state, plan models.MongodbTunnelJump, item *api.MongodbTunnelJump) {
-	planned, prior := plan.AuthDatabase, state.AuthDatabase
-	if planned.IsNull() || planned.IsUnknown() || planned.ValueString() != "" {
-		return
+	if isKnown(plan.AuthDatabase) && plan.AuthDatabase.ValueString() == "" && isSet(state.AuthDatabase) {
+		empty := ""
+		item.AuthDatabase = &empty
 	}
-	if prior.IsNull() || prior.IsUnknown() || prior.ValueString() == "" {
-		return
-	}
-	empty := ""
-	item.AuthDatabase = &empty
-}
-
-func normalizeAuthDatabase(ctx context.Context, state *tfsdk.State, diags *diag.Diagnostics) {
-	// A failed operation, or a Read that removed the resource, leaves nothing to normalise.
-	if diags.HasError() || state.Raw.IsNull() {
-		return
-	}
-	var authDatabase types.String
-	diags.Append(state.GetAttribute(ctx, path.Root("auth_database"), &authDatabase)...)
-	if diags.HasError() || !authDatabase.IsNull() {
-		return
-	}
-	diags.Append(state.SetAttribute(ctx, path.Root("auth_database"), "")...)
 }

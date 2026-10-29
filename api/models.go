@@ -156,11 +156,8 @@ func (MySQLTunnelJump) AllowRS() bool    { return false }
 // resource name is ToSnakeCase of this type name: MongoDB would publish as
 // sra_mongo_db_tunnel_jump, as MySQL already publishes as sra_my_sql_*.
 //
-// Username and Database are plain strings so they are always sent, and setting
-// either to "" in configuration clears it. AuthDatabase is a pointer: nil is not
-// sent, and a pointer to "" clears it (mongodbTunnelJumpResource.Update). The
-// appliance accepts auth_database from 26.3.1 only, and rejects the key before
-// that, so it must not be sent unless the configuration sets it.
+// Username and Database are plain strings, so "" is sent and clears them.
+// AuthDatabase is a pointer so it is sent only when set; see clearAuthDatabase.
 type MongodbTunnelJump struct {
 	ID                  *int    `json:"id,omitempty"`
 	Name                string  `json:"name"`

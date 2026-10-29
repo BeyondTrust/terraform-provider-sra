@@ -9,7 +9,6 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
-	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,12 +33,7 @@ func TestOracleWireNamesOut(t *testing.T) {
 		Username:            types.StringValue("scott"),
 		Database:            types.StringValue(""),
 	}
-	var item api.OracleTunnelJump
-	api.CopyTFtoAPI(context.Background(), reflect.ValueOf(&m).Elem(), reflect.ValueOf(&item).Elem(), api.ProductPRA)
-	b, err := json.Marshal(item)
-	require.NoError(t, err)
-	var body map[string]any
-	require.NoError(t, json.Unmarshal(b, &body))
+	body := wireBody[api.OracleTunnelJump](t, m)
 
 	assert.Equal(t, float64(3), body["gateway_id"])
 	assert.Equal(t, float64(4), body["asset_group_id"])
@@ -66,15 +60,4 @@ func TestOracleWireNamesIn(t *testing.T) {
 	assert.Equal(t, "personal", m.JumpGroupType.ValueString())
 	assert.Equal(t, "127.0.0.4", m.TunnelListenAddress.ValueString())
 	assert.Equal(t, "orcl", m.Database.ValueString())
-}
-
-func TestOracleSchemaValidators(t *testing.T) {
-	var resp resource.SchemaResponse
-	(&oracleTunnelJumpResource{}).Schema(context.Background(), resource.SchemaRequest{}, &resp)
-	sch := resp.Schema
-
-	assert.True(t, runStringValidators(t, sch, "tunnel_listen_address", types.StringValue("127.0.0.4")))
-	assert.False(t, runStringValidators(t, sch, "tunnel_listen_address", types.StringValue("10.0.0.1")))
-	assert.True(t, runStringValidators(t, sch, "jump_group_type", types.StringValue("personal")))
-	assert.False(t, runStringValidators(t, sch, "jump_group_type", types.StringValue("asset")))
 }

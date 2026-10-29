@@ -5,7 +5,21 @@ import (
 	"net/netip"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// tunnelListenAddressDescription documents the rename for the tunnel types whose
+// API calls the field local_address.
+const tunnelListenAddressDescription = "Local address the tunnel listens on, within 127.0.0.0/24. Defaults to 127.0.0.1. " +
+	"Sent to the API as `local_address`; API errors use that name."
+
+const tunnelJumpNotAssociableNote = "Vault account jump item associations accept only MSSQL protocol tunnels on the appliance, " +
+	"so this type can't be associated with a vault account."
+
+func isKnown(v types.String) bool { return !v.IsNull() && !v.IsUnknown() }
+
+// isSet reports a known, non-empty value. Null, unknown and "" are not set.
+func isSet(v types.String) bool { return isKnown(v) && v.ValueString() != "" }
 
 // tunnelListenLoopback is the range the appliance binds tunnel listeners in.
 var tunnelListenLoopback = netip.MustParsePrefix("127.0.0.0/24")
@@ -42,7 +56,7 @@ func (v tunnelListenAddressValidator) MarkdownDescription(ctx context.Context) s
 }
 
 func (v tunnelListenAddressValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
-	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+	if !isKnown(req.ConfigValue) {
 		return
 	}
 	if msg := tunnelListenAddressError(req.ConfigValue.ValueString()); msg != "" {

@@ -219,7 +219,10 @@ type MongodbTunnelJump struct {
 	TunnelListenAddress types.String `tfsdk:"tunnel_listen_address"`
 	Username            types.String `tfsdk:"username"`
 	Database            types.String `tfsdk:"database"`
-	AuthDatabase        types.String `tfsdk:"auth_database"`
+	// Appliances before PRA 26.3.1 never return auth_database. null_as_empty
+	// reads that as "", the schema default, so resource state and the list data
+	// source match on every version.
+	AuthDatabase types.String `tfsdk:"auth_database" sra:"null_as_empty"`
 }
 
 type OracleTunnelJump struct {

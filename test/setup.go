@@ -177,13 +177,17 @@ func assertSoleMembership(t *testing.T, parsed *gabs.Container, wantGroupPolicyI
 // item type T, because it predates minVersion. The appliance has no fallback
 // route, so a missing endpoint answers 404; any other error fails the test. On
 // RS it does nothing: the test still asserts the PRA-only error there.
+//
+// The probe filters on a name nothing has, so only the status matters, not the
+// items already on the appliance. T's endpoint must accept a name filter: an
+// unknown filter key is a 400.
 func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
 	t.Helper()
 	if !mechs.IsPRA() {
 		return
 	}
 	var tmp T
-	_, err := api.ListItems[T](client)
+	_, err := api.ListItems[T](client, map[string]string{"name": "probe-" + random.UniqueId()})
 	if api.IsNotFound(err) {
 		t.Skipf("%s requires PRA %s or later; this appliance has no such endpoint", tmp.Endpoint(), minVersion)
 	}
@@ -209,4 +213,28 @@ func itemID(t *testing.T, item map[string]string) int {
 	id, err := strconv.Atoi(item["id"])
 	require.NoError(t, err)
 	return id
+}
+
+// assertListContainsIDs asserts that every id is the id of an item in a list
+// datasource output.
+func assertListContainsIDs(t *testing.T, list []map[string]interface{}, ids ...string) {
+	t.Helper()
+	listed := map[string]bool{}
+	for _, v := range list {
+		if id, ok := v["id"].(string); ok {
+			listed[id] = true
+		}
+	}
+	for _, id := range ids {
+		assert.True(t, listed[id], "item %s is not in the list", id)
+	}
+}
+
+// resaveOptions rebuilds the options from vars and saves them, so later stages
+// load the changed variables.
+func resaveOptions(t *testing.T, testFolder string, vars map[string]interface{}) *terraform.Options {
+	t.Helper()
+	options := withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
+	test_structure.SaveTerraformOptions(t, testFolder, options)
+	return options
 }

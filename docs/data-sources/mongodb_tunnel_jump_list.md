@@ -43,7 +43,7 @@ data "sra_mongodb_tunnel_jump_list" "filtered" {
 
 Read-Only:
 
-- `auth_database` (String) Null before PRA 26.3.1, which does not return the field.
+- `auth_database` (String) Empty before PRA 26.3.1, which does not return the field.
 - `comments` (String)
 - `database` (String)
 - `hostname` (String)

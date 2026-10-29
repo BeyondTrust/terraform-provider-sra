@@ -50,7 +50,7 @@ func (d *mongodbTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.S
 				"tunnel_listen_address": schema.StringAttribute{Computed: true, Description: "Sent to and returned by the API as `local_address`."},
 				"username":              schema.StringAttribute{Computed: true},
 				"database":              schema.StringAttribute{Computed: true},
-				"auth_database":         schema.StringAttribute{Computed: true, Description: "Null before PRA 26.3.1, which does not return the field."},
+				"auth_database":         schema.StringAttribute{Computed: true, Description: "Empty before PRA 26.3.1, which does not return the field."},
 			}}},
 			"name":            schema.StringAttribute{Optional: true, Description: "Filter by name"},
 			"jumpoint_id":     schema.Int64Attribute{Optional: true, Description: "Filter by jumpoint_id"},

@@ -152,16 +152,9 @@ func tunnelTypeChangeRequiresReplace(_ context.Context, req planmodifier.StringR
 	resp.RequiresReplace = isKnown(req.StateValue) && isKnown(req.PlanValue)
 }
 
-func isKnown(v types.String) bool { return !v.IsNull() && !v.IsUnknown() }
-
 // isMissing reports a required value that is absent: null, or known and empty.
 // An unknown value is not missing; it is checked again once it is known.
 func isMissing(v types.String) bool { return v.IsNull() || (!v.IsUnknown() && v.ValueString() == "") }
-
-// isSet reports a known, non-empty value. Null, unknown and "" are not set, so
-// the wrong-type checks accept v1.4.0 state, generated configuration, and the
-// module pattern `cond ? x : ""`.
-func isSet(v types.String) bool { return isKnown(v) && v.ValueString() != "" }
 
 // k8sHostname is the hostname the appliance derives from a k8s url: PHP
 // substr($url, 0, 128), which counts bytes.
@@ -227,9 +220,13 @@ func validateProtocolTunnelConfig(c models.ProtocolTunnelJump) diag.Diagnostics 
 		required("ca_certificates", c.CACertificates, when)
 		// Any configured hostname, "" included, must match what the appliance will
 		// store, or the apply fails as an inconsistent result.
-		if isKnown(c.Hostname) && (c.Hostname.ValueString() == "" || (isKnown(c.URL) && c.Hostname.ValueString() != k8sHostname(c.URL.ValueString()))) {
-			diags.AddAttributeError(path.Root("hostname"), "Invalid hostname for a k8s tunnel",
-				"hostname is derived from url for k8s; omit it.")
+		if isKnown(c.Hostname) {
+			h := c.Hostname.ValueString()
+			urlMismatch := isKnown(c.URL) && h != k8sHostname(c.URL.ValueString())
+			if h == "" || urlMismatch {
+				diags.AddAttributeError(path.Root("hostname"), "Invalid hostname for a k8s tunnel",
+					"hostname is derived from url for k8s; omit it.")
+			}
 		}
 	default:
 		// The schema's OneOf already reports an unsupported type.
@@ -237,7 +234,9 @@ func validateProtocolTunnelConfig(c models.ProtocolTunnelJump) diag.Diagnostics 
 	}
 
 	// Fields that belong to another tunnel type. Each of these already failed to
-	// apply, with a 400 from the appliance or an inconsistent result.
+	// apply, with a 400 from the appliance or an inconsistent result. Only a set
+	// value is forbidden, so "" passes: v1.4.0 state, generated configuration and
+	// the module pattern `cond ? x : ""` all send it.
 	forbid := func(attr string, v types.String, owner string) {
 		if ttype != owner && isSet(v) {
 			diags.AddAttributeError(path.Root(attr), "Unexpected "+attr,
@@ -296,13 +295,11 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 	if req.Plan.Raw.IsNull() {
 		return
 	}
-	var plan, config models.ProtocolTunnelJump
+	var plan, config, state models.ProtocolTunnelJump
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-	var state *models.ProtocolTunnelJump
 	if !req.State.Raw.IsNull() {
-		state = &models.ProtocolTunnelJump{}
-		resp.Diagnostics.Append(req.State.Get(ctx, state)...)
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	}
 	if resp.Diagnostics.HasError() {
 		return
@@ -313,25 +310,25 @@ func (r *protocolTunnelJumpResource) ModifyPlan(ctx context.Context, req resourc
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 }
 
-// planProtocolTunnelDefaults fills the computed values ModifyPlan plans. state
-// is nil on create.
-func planProtocolTunnelDefaults(plan *models.ProtocolTunnelJump, config models.ProtocolTunnelJump, state *models.ProtocolTunnelJump) {
+// planProtocolTunnelDefaults fills the computed values ModifyPlan plans. On
+// create, state is the zero model, which is all null.
+func planProtocolTunnelDefaults(plan *models.ProtocolTunnelJump, config, state models.ProtocolTunnelJump) {
 	if plan.TunnelType.IsUnknown() {
 		return
 	}
 	ttype := plan.TunnelType.ValueString()
-	sameType := state != nil && state.TunnelType.Equal(plan.TunnelType)
+	sameType := state.TunnelType.Equal(plan.TunnelType)
 
 	// An omitted value keeps what the appliance holds for an item of the same
 	// type, so an imported or console-set listen address such as 127.0.0.5 does
 	// not plan a change. Otherwise it is what the appliance returns for this
 	// type: 127.0.0.1 for a tcp listen address, "" for the rest.
-	omitted := func(configured types.String, prior func(models.ProtocolTunnelJump) types.String, fallback string) types.String {
+	omitted := func(configured, prior types.String, fallback string) types.String {
 		if !configured.IsNull() {
 			return configured
 		}
-		if sameType && isKnown(prior(*state)) {
-			return prior(*state)
+		if sameType && isKnown(prior) {
+			return prior
 		}
 		return types.StringValue(fallback)
 	}
@@ -339,8 +336,8 @@ func planProtocolTunnelDefaults(plan *models.ProtocolTunnelJump, config models.P
 	if ttype == "tcp" {
 		listenDefault = "127.0.0.1"
 	}
-	plan.TunnelListenAddress = omitted(config.TunnelListenAddress, func(m models.ProtocolTunnelJump) types.String { return m.TunnelListenAddress }, listenDefault)
-	plan.TunnelDefinitions = omitted(config.TunnelDefinitions, func(m models.ProtocolTunnelJump) types.String { return m.TunnelDefinitions }, "")
+	plan.TunnelListenAddress = omitted(config.TunnelListenAddress, state.TunnelListenAddress, listenDefault)
+	plan.TunnelDefinitions = omitted(config.TunnelDefinitions, state.TunnelDefinitions, "")
 
 	if ttype == "k8s" && config.Hostname.IsNull() {
 		if plan.URL.IsUnknown() {

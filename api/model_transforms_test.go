@@ -324,6 +324,48 @@ func TestCopyAPItoTF_NilPointersSetToNull(t *testing.T) {
 	assert.True(t, tfObj.ProductField.IsNull())
 }
 
+// sra:"null_as_empty" turns a missing *string, nil or filtered out by product,
+// into "" instead of null. An untagged field keeps null.
+func TestCopyAPItoTF_NullAsEmpty(t *testing.T) {
+	type tfModel struct {
+		ID         types.String
+		Tagged     types.String `sra:"null_as_empty"`
+		TaggedRS   types.String `sra:"null_as_empty" sraproduct:"rs"`
+		Untagged   types.String
+		UntaggedRS types.String `sraproduct:"rs"`
+	}
+	type apiModel struct {
+		ID         *int
+		Tagged     *string
+		TaggedRS   *string
+		Untagged   *string
+		UntaggedRS *string
+	}
+	id, empty, value := 1, "", "v"
+
+	for _, tc := range []struct {
+		name string
+		api  *string
+		want types.String
+		get  func(tfModel) types.String
+	}{
+		{"tagged nil", nil, types.StringValue(""), func(m tfModel) types.String { return m.Tagged }},
+		{"tagged empty", &empty, types.StringValue(""), func(m tfModel) types.String { return m.Tagged }},
+		{"tagged value", &value, types.StringValue("v"), func(m tfModel) types.String { return m.Tagged }},
+		{"tagged, other product", &value, types.StringValue(""), func(m tfModel) types.String { return m.TaggedRS }},
+		{"untagged nil", nil, types.StringNull(), func(m tfModel) types.String { return m.Untagged }},
+		{"untagged, other product", &value, types.StringNull(), func(m tfModel) types.String { return m.UntaggedRS }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			apiObj := apiModel{ID: &id, Tagged: tc.api, TaggedRS: tc.api, Untagged: tc.api, UntaggedRS: tc.api}
+			var tfObj tfModel
+			err := CopyAPItoTF(context.Background(), reflect.ValueOf(&apiObj).Elem(), reflect.ValueOf(&tfObj).Elem(), reflect.TypeOf(apiObj), ProductPRA)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, tc.get(tfObj))
+		})
+	}
+}
+
 func TestCopyTFtoAPI_EmptyStringPointerSkipped(t *testing.T) {
 	ctx := context.Background()
 	product := ProductPRA

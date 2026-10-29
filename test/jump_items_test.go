@@ -382,17 +382,7 @@ func TestPostgresTunnel(t *testing.T) {
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, 2, len(list))
-		if len(list) > 0 {
-			// Ensure both items are present by comparing ids
-			ids := map[string]bool{item["id"]: true, item2["id"]: true}
-			found := 0
-			for _, v := range list {
-				if _, ok := ids[v["id"].(string)]; ok {
-					found++
-				}
-			}
-			assert.Equal(t, 2, found)
-		}
+		assertListContainsIDs(t, list, item["id"], item2["id"])
 	})
 }
 
@@ -452,16 +442,7 @@ func TestMySQLTunnel(t *testing.T) {
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, 2, len(list))
-		if len(list) > 0 {
-			ids := map[string]bool{item["id"]: true, item2["id"]: true}
-			found := 0
-			for _, v := range list {
-				if _, ok := ids[v["id"].(string)]; ok {
-					found++
-				}
-			}
-			assert.Equal(t, 2, found)
-		}
+		assertListContainsIDs(t, list, item["id"], item2["id"])
 	})
 }
 
@@ -519,14 +500,7 @@ func TestMongodbTunnel(t *testing.T) {
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, 2, len(list))
-		ids := map[string]bool{item["id"]: true, item2["id"]: true}
-		found := 0
-		for _, v := range list {
-			if ids[v["id"].(string)] {
-				found++
-			}
-		}
-		assert.Equal(t, 2, found)
+		assertListContainsIDs(t, list, item["id"], item2["id"])
 	})
 
 	// auth_database exists from PRA 26.3.1. Older appliances never return the
@@ -549,8 +523,7 @@ func TestMongodbTunnel(t *testing.T) {
 		if authDatabaseSupported {
 			vars["auth_database"] = "authdb"
 		}
-		terraformOptions = withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
-		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraformOptions = resaveOptions(t, testFolder, vars)
 
 		applySettledAndPlanClean(t, terraformOptions, "updating a MongoDB tunnel left a diff")
 		assert.Equal(t, id, itemID(t, terraform.OutputMap(t, terraformOptions, "item")), "the update must be in place")
@@ -577,8 +550,7 @@ func TestMongodbTunnel(t *testing.T) {
 		id := itemID(t, terraform.OutputMap(t, terraformOptions, "item"))
 
 		vars["auth_database"] = ""
-		terraformOptions = withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
-		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraformOptions = resaveOptions(t, testFolder, vars)
 
 		applySettledAndPlanClean(t, terraformOptions, "clearing auth_database left a diff")
 
@@ -642,14 +614,7 @@ func TestOracleTunnel(t *testing.T) {
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, 2, len(list))
-		ids := map[string]bool{item["id"]: true, item2["id"]: true}
-		found := 0
-		for _, v := range list {
-			if ids[v["id"].(string)] {
-				found++
-			}
-		}
-		assert.Equal(t, 2, found)
+		assertListContainsIDs(t, list, item["id"], item2["id"])
 
 		// The list carries gateway_id/asset_group_id on the wire; these must land
 		// on the standard attribute names.
@@ -666,8 +631,7 @@ func TestOracleTunnel(t *testing.T) {
 		vars["tunnel_listen_address"] = "127.0.0.9"
 		vars["tag_suffix"] = "-updated"
 		vars["database"] = ""
-		terraformOptions = withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
-		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		terraformOptions = resaveOptions(t, testFolder, vars)
 
 		applySettledAndPlanClean(t, terraformOptions, "updating an Oracle tunnel left a diff")
 		assert.Equal(t, id, itemID(t, terraform.OutputMap(t, terraformOptions, "item")), "the update must be in place")
@@ -737,16 +701,7 @@ func TestNetworkTunnel(t *testing.T) {
 		list := terraform.OutputListOfObjects(t, terraformOptions, "list")
 
 		assert.Equal(t, 2, len(list))
-		if len(list) > 0 {
-			ids := map[string]bool{item["id"]: true, item2["id"]: true}
-			found := 0
-			for _, v := range list {
-				if _, ok := ids[v["id"].(string)]; ok {
-					found++
-				}
-			}
-			assert.Equal(t, 2, found)
-		}
+		assertListContainsIDs(t, list, item["id"], item2["id"])
 	})
 }
 

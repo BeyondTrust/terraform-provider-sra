@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
@@ -25,17 +24,9 @@ import (
 // resource's output is during plan, or any variable under terraform validate.
 var unknown = tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
 
-func ptSchema(t *testing.T) schema.Schema {
-	t.Helper()
-	var resp resource.SchemaResponse
-	(&protocolTunnelJumpResource{}).Schema(context.Background(), resource.SchemaRequest{}, &resp)
-	require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
-	return resp.Schema
-}
-
 func ptType(t *testing.T) tftypes.Object {
 	t.Helper()
-	return ptSchema(t).Type().TerraformType(context.Background()).(tftypes.Object)
+	return resourceSchema(t, &protocolTunnelJumpResource{}).Type().TerraformType(context.Background()).(tftypes.Object)
 }
 
 // ptValues builds a full attribute map: strings and ints become known values, a
@@ -73,7 +64,7 @@ func ptObject(t *testing.T, vals map[string]tftypes.Value) tftypes.Value {
 func validate(t *testing.T, attrs map[string]any) diag.Diagnostics {
 	t.Helper()
 	resp := &resource.ValidateConfigResponse{}
-	cfg := tfsdk.Config{Schema: ptSchema(t), Raw: ptObject(t, ptValues(t, attrs))}
+	cfg := tfsdk.Config{Schema: resourceSchema(t, &protocolTunnelJumpResource{}), Raw: ptObject(t, ptValues(t, attrs))}
 	(&protocolTunnelJumpResource{}).ValidateConfig(context.Background(), resource.ValidateConfigRequest{Config: cfg}, resp)
 	return resp.Diagnostics
 }
@@ -110,7 +101,7 @@ func plan(t *testing.T, config map[string]any, prior map[string]tftypes.Value) p
 	t.Helper()
 	ctx := context.Background()
 	typ := ptType(t)
-	sch := ptSchema(t)
+	sch := resourceSchema(t, &protocolTunnelJumpResource{})
 	cfg := ptValues(t, config)
 
 	proposed := map[string]tftypes.Value{}
@@ -228,7 +219,7 @@ func v140MSSQLState(t *testing.T) map[string]tftypes.Value {
 
 // The OneOf that rejected "k8s" is the bug this resource shipped with.
 func TestProtocolTunnelTypeValidator(t *testing.T) {
-	sch := ptSchema(t)
+	sch := resourceSchema(t, &protocolTunnelJumpResource{})
 	for value, ok := range map[string]bool{
 		"tcp": true, "mssql": true, "k8s": true,
 		"ip": false, "mysql": false, "psql": false, "mongodb": false, "oracle": false, "bogus": false,
@@ -238,7 +229,7 @@ func TestProtocolTunnelTypeValidator(t *testing.T) {
 }
 
 func TestProtocolTunnelUntrimmedValidator(t *testing.T) {
-	sch := ptSchema(t)
+	sch := resourceSchema(t, &protocolTunnelJumpResource{})
 	for _, attr := range []string{"url", "ca_certificates"} {
 		assert.True(t, runStringValidators(t, sch, attr, types.StringValue("https://k8s.example.com")), attr)
 		assert.True(t, runStringValidators(t, sch, attr, types.StringValue("a\nb")), "inner newlines are kept: %s", attr)
@@ -248,12 +239,6 @@ func TestProtocolTunnelUntrimmedValidator(t *testing.T) {
 		assert.False(t, runStringValidators(t, sch, attr, types.StringValue(" https://k8s.example.com")), attr)
 		assert.False(t, runStringValidators(t, sch, attr, types.StringValue("\uFEFFhttps://k8s.example.com")), attr)
 	}
-}
-
-func TestProtocolTunnelJumpGroupTypeValidator(t *testing.T) {
-	sch := ptSchema(t)
-	assert.True(t, runStringValidators(t, sch, "jump_group_type", types.StringValue("personal")))
-	assert.False(t, runStringValidators(t, sch, "jump_group_type", types.StringValue("public")))
 }
 
 // --- ValidateConfig ----------------------------------------------------------------

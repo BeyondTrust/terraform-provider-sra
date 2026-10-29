@@ -237,11 +237,9 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	r.update(ctx, req, resp, nil)
 }
 
-// update is the body of the generic Update. The request is built from the plan
-// alone. adjust, when non-nil, is called after the plan has been copied into the
-// request item, with the prior state and the plan, so a resource can change what
-// is sent based on what is changing. CopyTFtoAPI drops an empty *string, so the
-// plan alone cannot say "clear this field"; comparing against state can.
+// update is the body of the generic Update. adjust, when non-nil, runs after the
+// plan is copied into the request item and may change it using the prior state;
+// see clearAuthDatabase.
 func (r *apiResource[TApi, TTf]) update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse, adjust func(state, plan TTf, item *TApi)) {
 	var item TApi
 	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
