@@ -57,6 +57,7 @@ so almost nothing was captured. That automation has been removed.
 
 ### Internal
 
+- E2E: the 21 tests run in parallel (`-parallel 4`, in `make teste2e` and CI), except under `SKIP_<stage>`. `make teste2e` uses CI's 30-minute timeout.
 - E2E: fixture markers are now `e2e` plus a creation timestamp plus 6 `crypto/rand` characters, replacing terratest's `UniqueId`. `TestE2EOrphanSweep` (`make sweepe2e`) lists, and in delete mode removes, objects that interrupted runs leaked; see CONTRIBUTING.md. CI runs it as a dry-run before the suite, and runs its offline tests with the unit tests.
 - `sra_vault_account_group`: the `jump_item_association` request body now uses the same encoder as the vault account resources. A missing `criteria` was sent as five explicit nulls; it is now omitted for `any_jump_items` and `no_jump_items`, and sent as five empty arrays under `criteria`. The appliance treats both forms alike, so its behaviour doesn't change.
 

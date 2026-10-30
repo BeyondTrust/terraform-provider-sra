@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"terraform-provider-sra/api"
 	"testing"
 	"time"
@@ -24,9 +25,49 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mechs is fetched once per test binary: the appliance's product never changes
-// mid-run. The client that fetched it is not kept (see freshClient).
-var mechs *api.MechList
+// loadMechs fetches the appliance's mech list once per test binary: the
+// product never changes mid-run. sync.OnceValues makes the first fetch safe
+// under t.Parallel and keeps its error for every later caller. The client that
+// fetched it is not kept (see freshClient).
+var loadMechs = sync.OnceValues(func() (*api.MechList, error) {
+	host := os.Getenv("BT_API_HOST")
+	id, secret := os.Getenv("BT_CLIENT_ID"), os.Getenv("BT_CLIENT_SECRET")
+	client, err := api.NewClient(host, &id, &secret)
+	if err != nil {
+		return nil, fmt.Errorf("could not create API client for BT_API_HOST [%s]: %w — check BT_API_HOST/BT_CLIENT_ID/BT_CLIENT_SECRET", host, err)
+	}
+	m, err := api.Get[api.MechList](client)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch mechs from BT_API_HOST [%s]: %w", host, err)
+	}
+	return m, nil
+})
+
+// mechs returns the appliance's mech list, failing the test if it can't be
+// fetched.
+func mechs(t *testing.T) *api.MechList {
+	t.Helper()
+	m, err := loadMechs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+// parallel runs the calling E2E test in parallel with the others, except under
+// SKIP_<stage>. Stage-skipping runs share the source fixture folders (no temp
+// copy is made) and the not_so_random marker, and three fixture folders are each
+// used by two tests, so those tests would trample each other's state.
+//
+// Do not introduce t.Setenv in this package: it panics in a test that has
+// called t.Parallel, and changes the environment of every test running beside
+// it.
+func parallel(t *testing.T) {
+	t.Helper()
+	if !test_structure.SkipStageEnvVarSet() {
+		t.Parallel()
+	}
+}
 
 // stageSkipRandomBits is substituted for the usual random suffix whenever any
 // SKIP_<stage> env var is set, so cached fixture state keeps naming the same
@@ -42,19 +83,7 @@ func setEnvAndGetRandom(t *testing.T) string {
 	// os.Setenv("SKIP_setup", "true")
 	// os.Setenv("SKIP_teardown", "true")
 
-	if mechs == nil {
-		t.Logf("🚀 Running tests against [%s]", os.Getenv("BT_API_HOST"))
-		client, err := freshClientE(t)
-		if err != nil {
-			t.Fatalf("could not create API client for BT_API_HOST [%s]: %v — check BT_API_HOST/BT_CLIENT_ID/BT_CLIENT_SECRET", os.Getenv("BT_API_HOST"), err)
-		}
-
-		mechs, err = api.Get[api.MechList](client)
-		if err != nil {
-			t.Fatalf("could not fetch mechs from BT_API_HOST [%s]: %v", os.Getenv("BT_API_HOST"), err)
-		}
-		t.Logf("Got mechs [%+v]", mechs)
-	}
+	t.Logf("🚀 Running tests against [%s], product %s", os.Getenv("BT_API_HOST"), mechs(t).Product)
 
 	randomBits := newMarker(time.Now())
 
@@ -200,8 +229,9 @@ func findRepoRoot() (string, error) {
 	return "", fmt.Errorf("repo root not found")
 }
 
-func productPath() string {
-	if mechs.IsRS() {
+func productPath(t *testing.T) string {
+	t.Helper()
+	if mechs(t).IsRS() {
 		return "rs"
 	} else {
 		return "pra"
@@ -317,7 +347,7 @@ func freshClientE(t *testing.T) (*api.APIClient, error) {
 // unknown filter key is a 400.
 func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
 	t.Helper()
-	if !mechs.IsPRA() {
+	if !mechs(t).IsPRA() {
 		return
 	}
 	var tmp T

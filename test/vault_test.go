@@ -17,10 +17,10 @@ import (
 )
 
 func TestAccountGroup(t *testing.T) {
-	// t.Parallel()
+	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -75,10 +75,10 @@ func TestAccountGroup(t *testing.T) {
 }
 
 func TestAccountPolicy(t *testing.T) {
-	// t.Parallel()
+	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_policy", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_policy", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -147,10 +147,10 @@ func TestAccountPolicy(t *testing.T) {
 }
 
 func TestVaultSSHKey(t *testing.T) {
-	// t.Parallel()
+	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/ssh_account", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/ssh_account", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -367,10 +367,10 @@ func TestVaultSSHKey(t *testing.T) {
 }
 
 func TestVaultUserPass(t *testing.T) {
-	// t.Parallel()
+	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/user_pass_account", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/user_pass_account", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -433,10 +433,10 @@ func TestVaultUserPass(t *testing.T) {
 }
 
 func TestVaultToken(t *testing.T) {
-	// t.Parallel()
+	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/token_account", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/token_account", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -499,10 +499,10 @@ func TestVaultToken(t *testing.T) {
 }
 
 func TestVaultSecret(t *testing.T) {
-	// t.Parallel()
+	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/secret", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/secret", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
