@@ -750,6 +750,76 @@ func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
 // jump_items is deliberately empty. With it populated the validator would return
 // at the jump_items arm before criteria is examined, and the row would pass
 // without ever reaching the guard it exists to cover.
+// The account group association used to send five explicit nulls for a nil
+// criteria (it had no encoder of its own, and Create/Update papered over the nil
+// with a zero-value struct). It now sends exactly what the vault account
+// association sends, for every shape the schema can produce.
+func TestAccountGroupJumpItemAssociationOnTheWire(t *testing.T) {
+	ctx := context.Background()
+
+	encode := func(t *testing.T, obj types.Object) (group, account string) {
+		t.Helper()
+		var g api.AccountGroupJumpItemAssociation
+		d := obj.As(ctx, &g, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		require.False(t, d.HasError(), "%v", d)
+		var a api.AccountJumpItemAssociation
+		d = obj.As(ctx, &a, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
+		require.False(t, d.HasError(), "%v", d)
+
+		gb, err := json.Marshal(g)
+		require.NoError(t, err)
+		ab, err := json.Marshal(a)
+		require.NoError(t, err)
+		return string(gb), string(ab)
+	}
+
+	for _, filterType := range []string{"any_jump_items", "no_jump_items"} {
+		t.Run(filterType, func(t *testing.T) {
+			group, account := encode(t, jiaConfig(t, filterType, nil, false))
+			require.JSONEq(t, `{"filter_type":"`+filterType+`","jump_items":[]}`, group, "no criteria key at all")
+			require.JSONEq(t, account, group)
+		})
+	}
+
+	t.Run("criteria with jump_items and no criteria block", func(t *testing.T) {
+		group, account := encode(t, jiaConfig(t, "criteria", nil, true))
+		require.JSONEq(t, `{
+			"filter_type": "criteria",
+			"criteria": {"shared_jump_groups":[],"host":[],"name":[],"tag":[],"comment":[]},
+			"jump_items": [{"id":1,"type":"shell_jump"}]
+		}`, group)
+		require.JSONEq(t, account, group)
+	})
+
+	// In a plan the unset criteria properties carry their empty-set default, so
+	// they arrive as empty arrays.
+	t.Run("populated criteria", func(t *testing.T) {
+		group, account := encode(t, jiaConfig(t, "criteria", []string{"keep"}, false))
+		require.JSONEq(t, `{
+			"filter_type": "criteria",
+			"criteria": {"shared_jump_groups":[],"host":[],"name":[],"tag":["keep"],"comment":[]},
+			"jump_items": []
+		}`, group)
+		require.JSONEq(t, account, group)
+	})
+
+	// Without the defaults (a nil Go slice, not reachable from a plan) a property
+	// encodes as null on both types: the encoder fills in only a nil Criteria.
+	t.Run("populated criteria with nil properties", func(t *testing.T) {
+		criteria := &api.JumpItemAssociationCriteria{Tag: []string{"keep"}}
+		group, err := json.Marshal(api.AccountGroupJumpItemAssociation{FilterType: "criteria", Criteria: criteria})
+		require.NoError(t, err)
+		account, err := json.Marshal(api.AccountJumpItemAssociation{FilterType: "criteria", Criteria: criteria})
+		require.NoError(t, err)
+		require.JSONEq(t, `{
+			"filter_type": "criteria",
+			"criteria": {"shared_jump_groups":null,"host":null,"name":null,"tag":["keep"],"comment":null},
+			"jump_items": null
+		}`, string(group))
+		require.JSONEq(t, string(account), string(group))
+	})
+}
+
 func jiaConfigUnknownCriteria() types.Object {
 	outer := accountJumpItemAssociationSchema().GetType().(types.ObjectType).AttrTypes
 	jumpItemType := outer["jump_items"].(types.SetType).ElementType().(types.ObjectType)

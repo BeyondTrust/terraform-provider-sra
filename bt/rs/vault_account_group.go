@@ -177,10 +177,6 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 			return
 		}
 
-		if apiSub.Criteria == nil {
-			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
-		}
-
 		var item *api.AccountGroupJumpItemAssociation
 		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
@@ -313,10 +309,6 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 
 		apiSub.ID = &id
 		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
-
-		if apiSub.Criteria == nil {
-			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
-		}
 
 		// The account-group jump-item-association endpoint only ever documents
 		// GET and PATCH (PRA openapi/bt-pra-configuration.openapi.yaml:5286,5299;

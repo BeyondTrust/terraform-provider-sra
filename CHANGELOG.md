@@ -44,6 +44,10 @@ so almost nothing was captured. That automation has been removed.
 - `sra_protocol_tunnel_jump`: `tunnel_listen_address` on a non-tcp tunnel now gives a clear error instead of an invalid plan. An omitted listen address keeps the value the appliance holds, so an imported item listening on, say, `127.0.0.5` no longer plans a change back to `127.0.0.1`.
 - `sra_protocol_tunnel_jump`: the `k8s` usage example used a resource type that doesn't exist and a `url` with no scheme. The import example named the wrong resource address.
 
+### Internal
+
+- `sra_vault_account_group`: the `jump_item_association` request body now uses the same encoder as the vault account resources. A missing `criteria` was sent as five explicit nulls; it is now omitted for `any_jump_items` and `no_jump_items`, and sent as five empty arrays under `criteria`. The appliance treats both forms alike, so its behaviour doesn't change.
+
 <a name="v1.4.0"></a>
 ## [v1.4.0] - 2026-09-25
 

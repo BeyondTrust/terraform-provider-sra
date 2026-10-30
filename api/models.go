@@ -628,6 +628,17 @@ type AccountGroupJumpItemAssociation struct {
 	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
 }
 
+// MarshalJSON sends the same body the vault account association does; see
+// AccountJumpItemAssociation.MarshalJSON for the three criteria shapes and why
+// only two of them are ever sent. The account-group endpoint reads criteria the
+// same way (both go through AccountBaseRepo).
+//
+// The conversion is also the guard against the two structs drifting apart: it
+// stops compiling if their fields ever differ.
+func (a AccountGroupJumpItemAssociation) MarshalJSON() ([]byte, error) {
+	return json.Marshal(AccountJumpItemAssociation(a))
+}
+
 func (a AccountGroupJumpItemAssociation) Endpoint() string {
 	return fmt.Sprintf("vault/account-group/%d/jump-item-association", *a.ID)
 }
