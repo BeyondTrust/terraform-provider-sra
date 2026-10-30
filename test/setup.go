@@ -302,7 +302,7 @@ func assertSoleMembership(t *testing.T, parsed *gabs.Container, wantGroupPolicyI
 // terraform command.
 //
 // This is load-bearing, not defensive, and the mechanism was measured rather
-// than guessed (against mpam, 2026-09-15):
+// than guessed (against a PRA test appliance, 2026-09-15):
 //
 //   - The appliance retains only a bounded number of concurrent tokens per client
 //     credential and evicts the OLDEST when that bound is exceeded. Probing with
