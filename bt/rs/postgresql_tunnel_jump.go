@@ -3,7 +3,6 @@ package rs
 import (
 	"context"
 	"fmt"
-	"net"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -21,6 +20,7 @@ var (
 	_ resource.Resource                = &postgresqlTunnelJumpResource{}
 	_ resource.ResourceWithConfigure   = &postgresqlTunnelJumpResource{}
 	_ resource.ResourceWithImportState = &postgresqlTunnelJumpResource{}
+	_ resource.ResourceWithModifyPlan  = &postgresqlTunnelJumpResource{}
 )
 
 func newPostgreSQLTunnelJumpResource() resource.Resource { return &postgresqlTunnelJumpResource{} }
@@ -33,19 +33,24 @@ func (r *postgresqlTunnelJumpResource) Schema(_ context.Context, _ resource.Sche
 	resp.Schema = schema.Schema{
 		Description: "Manages a PostgreSQL Tunnel Jump Item. NOTE: PRA only.",
 		Attributes: map[string]schema.Attribute{
-			"id":                    schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"name":                  schema.StringAttribute{Required: true},
-			"jumpoint_id":           schema.Int64Attribute{Required: true},
-			"hostname":              schema.StringAttribute{Required: true},
-			"jump_group_id":         schema.Int64Attribute{Required: true},
-			"jump_group_type":       schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("shared")},
-			"tag":                   schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
-			"comments":              schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
-			"jump_policy_id":        schema.Int64Attribute{Optional: true},
-			"session_policy_id":     schema.Int64Attribute{Optional: true},
-			"tunnel_listen_address": schema.StringAttribute{Optional: true, Computed: true},
-			"username":              schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
-			"database":              schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"id":                schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"name":              schema.StringAttribute{Required: true},
+			"jumpoint_id":       schema.Int64Attribute{Required: true},
+			"hostname":          schema.StringAttribute{Required: true},
+			"jump_group_id":     schema.Int64Attribute{Required: true},
+			"jump_group_type":   schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("shared")},
+			"tag":               schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"comments":          schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"jump_policy_id":    schema.Int64Attribute{Optional: true},
+			"session_policy_id": schema.Int64Attribute{Optional: true},
+			"tunnel_listen_address": schema.StringAttribute{
+				Description: tunnelListenAddressDescription,
+				Optional:    true,
+				Computed:    true,
+				Validators:  []validator.String{tunnelListenAddressValidator{allowEmpty: true}},
+			},
+			"username": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"database": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
 		},
 	}
 }
@@ -56,14 +61,20 @@ func (r *postgresqlTunnelJumpResource) ModifyPlan(ctx context.Context, req resou
 		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
-	var plan models.PostgreSQLTunnelJump
-	diags := req.Plan.Get(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
+	var plan, config, state models.PostgreSQLTunnelJump
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if !req.State.Raw.IsNull() {
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	}
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	plan.TunnelListenAddress = planTunnelListenAddress(config.TunnelListenAddress, state.TunnelListenAddress)
+
 	// apply validation/defaulting logic
-	diags = applyPostgresDefaultsAndValidate(&plan)
+	diags := applyPostgresDefaultsAndValidate(&plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -114,26 +125,6 @@ func applyPostgresDefaultsAndValidate(plan *models.PostgreSQLTunnelJump) diag.Di
 	if !plan.JumpGroupID.IsNull() && !plan.JumpGroupID.IsUnknown() {
 		if plan.JumpGroupID.ValueInt64() < 0 {
 			diags.Append(diag.NewErrorDiagnostic("jump_group_id invalid", "jump_group_id must be >= 0"))
-		}
-	}
-
-	// tunnel_listen_address default and subnet constraint (127.0.0.0/24)
-	if plan.TunnelListenAddress.IsNull() || plan.TunnelListenAddress.ValueString() == "" {
-		plan.TunnelListenAddress = types.StringValue("127.0.0.1")
-	} else {
-		addr := plan.TunnelListenAddress.ValueString()
-		if len(addr) > 32 {
-			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address length", "tunnel_listen_address must be at most 32 characters"))
-		}
-		// precise subnet check: must be valid IP and within 127.0.0.0/24
-		ip := net.ParseIP(addr)
-		if ip == nil {
-			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address invalid", "tunnel_listen_address must be a valid IP address"))
-		} else {
-			_, cidr, _ := net.ParseCIDR("127.0.0.0/24")
-			if !cidr.Contains(ip) {
-				diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address subnet", "tunnel_listen_address must be within the 127.0.0.0/24 subnet"))
-			}
 		}
 	}
 	return diags

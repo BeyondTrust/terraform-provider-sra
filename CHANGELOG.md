@@ -18,7 +18,7 @@ so almost nothing was captured. That automation has been removed.
 
 - `sra_mongodb_tunnel_jump` and `sra_mongodb_tunnel_jump_list`, for MongoDB tunnel Jump Items. PRA only, PRA 26.1.1 or later. `auth_database` requires PRA 26.3.1 or later: it is sent only when set, because older appliances reject the field, and it reads as `""` on every version. Setting it back to `""` clears it in place.
 - `sra_oracle_tunnel_jump` and `sra_oracle_tunnel_jump_list`, for Oracle tunnel Jump Items. PRA only, PRA 26.3.1 or later. The attributes use the provider's standard names. The Oracle API calls three of them by other names: `jumpoint_id` is sent as `gateway_id`, `jump_group_id` as `asset_group_id` and `jump_group_type` as `asset_group_type`. API errors use those names.
-- On both new resources, `tunnel_listen_address` is sent to the API as `local_address`. It defaults to `127.0.0.1` and must be an IPv4 address within `127.0.0.0/24`. Neither type can be used in a vault account `jump_item_association`, which the appliance limits to MSSQL protocol tunnels.
+- On both new resources, `tunnel_listen_address` is sent to the API as `local_address`. It must be an IPv4 address within `127.0.0.0/24`. When omitted it keeps the value the appliance holds, and defaults to `127.0.0.1` on create. Neither type can be used in a vault account `jump_item_association`, which the appliance limits to MSSQL protocol tunnels.
 
 ### Changed
 
@@ -32,6 +32,8 @@ so almost nothing was captured. That automation has been removed.
   - a map keyed by a field that was unique only within the first 100 can fail with "Duplicate object key".
 
   `items[0]` is unchanged. Each further 100 items costs one more API call per read. If objects of that type are created, deleted or updated during each of 3 attempts to read the list (for vault accounts, check-outs and password rotations count), the read fails with "The list of … objects changed while it was being read" instead of returning a partial list. Re-run, or add filters so fewer objects match.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: `tunnel_listen_address` is validated at plan time as a plain IPv4 address in `127.0.0.0/24`, so IPv4-mapped forms such as `::ffff:127.0.0.1` are rejected. They already failed at apply. An empty string is still accepted.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: removing `tunnel_listen_address` from the configuration now keeps the appliance's value instead of resetting it to `127.0.0.1`. Set `127.0.0.1` explicitly to reset it.
 - `sra_protocol_tunnel_jump`: `hostname` is now optional. It is still required unless `tunnel_type` is `k8s`. For `k8s` the appliance derives it from `url`, so omit it.
 - `sra_protocol_tunnel_jump`: changing a known `tunnel_type` now forces replacement. `terraform plan` shows "must be replaced", and the new item gets a new ID. Update anything outside this configuration that references the old ID, such as mssql vault account jump item associations and group policy memberships. `-auto-approve` pipelines get no prompt. Only configurations whose `tunnel_type` differs from the appliance's are affected, and those fail to apply today:
   - the type was edited after the item was created;
@@ -42,6 +44,8 @@ so almost nothing was captured. That automation has been removed.
 ### Fixed
 
 - `terraform import` of the six resources above now plans clean when the configuration matches the appliance. The vault account resources still plan an update for their write-only secret (`private_key`, `password` or `token`), which the API never returns. The first apply after importing a configuration that declares memberships no longer fails with "already exists". This resolves the v1.4.0 known issue about importing `sra_vault_account_group`.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: a `tunnel_listen_address` set from another resource's output no longer gives an invalid plan or a failed apply. The unknown value was planned as `127.0.0.1`.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: an imported item whose listen address is outside `127.0.0.0/24` (the appliance accepts any `127.x.x.x` address) no longer fails plans when the configuration omits the address. Only the configured value is validated.
 - `sra_single_vault_ssh_account`: the provider no longer crashes when no account matches the filters. The read now fails with "No SSH account matched".
 - `sra_single_vault_ssh_account`: without `id`, it could return a username/password or token account. It now lists SSH accounts only.
 - `sra_single_vault_ssh_account` / `sra_vault_account_list`: `include_personal` was ignored. It is now sent, so a configuration that sets it gets personal accounts included.

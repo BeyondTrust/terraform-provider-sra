@@ -24,16 +24,33 @@ import (
 // resource's output is during plan, or any variable under terraform validate.
 var unknown = tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
 
-func ptType(t *testing.T) tftypes.Object {
-	t.Helper()
-	return resourceSchema(t, &protocolTunnelJumpResource{}).Type().TerraformType(context.Background()).(tftypes.Object)
+// planHarness drives one resource type through the framework's own server, so
+// a plan runs defaults, the unknown-marking of computed attributes, attribute
+// plan modifiers and ModifyPlan in the order Terraform runs them.
+type planHarness struct {
+	newResource func() resource.Resource
 }
 
-// ptValues builds a full attribute map: strings and ints become known values, a
-// tftypes.Value is used as given, and every attribute not named is null.
-func ptValues(t *testing.T, attrs map[string]any) map[string]tftypes.Value {
+var protocolHarness = planHarness{newProtocolTunnelJumpResource}
+
+func (h planHarness) typeName(t *testing.T) string {
 	t.Helper()
-	typ := ptType(t)
+	var resp resource.MetadataResponse
+	h.newResource().Metadata(context.Background(), resource.MetadataRequest{ProviderTypeName: "sra"}, &resp)
+	require.NotEmpty(t, resp.TypeName)
+	return resp.TypeName
+}
+
+func (h planHarness) typ(t *testing.T) tftypes.Object {
+	t.Helper()
+	return resourceSchema(t, h.newResource()).Type().TerraformType(context.Background()).(tftypes.Object)
+}
+
+// values builds a full attribute map: strings and ints become known values, a
+// tftypes.Value is used as given, and every attribute not named is null.
+func (h planHarness) values(t *testing.T, attrs map[string]any) map[string]tftypes.Value {
+	t.Helper()
+	typ := h.typ(t)
 	vals := map[string]tftypes.Value{}
 	for name, attrType := range typ.AttributeTypes {
 		vals[name] = tftypes.NewValue(attrType, nil)
@@ -55,54 +72,16 @@ func ptValues(t *testing.T, attrs map[string]any) map[string]tftypes.Value {
 	return vals
 }
 
-func ptObject(t *testing.T, vals map[string]tftypes.Value) tftypes.Value {
-	t.Helper()
-	return tftypes.NewValue(ptType(t), vals)
-}
-
-// validate runs the resource's ValidateConfig against a configuration.
-func validate(t *testing.T, attrs map[string]any) diag.Diagnostics {
-	t.Helper()
-	resp := &resource.ValidateConfigResponse{}
-	cfg := tfsdk.Config{Schema: resourceSchema(t, &protocolTunnelJumpResource{}), Raw: ptObject(t, ptValues(t, attrs))}
-	(&protocolTunnelJumpResource{}).ValidateConfig(context.Background(), resource.ValidateConfigRequest{Config: cfg}, resp)
-	return resp.Diagnostics
-}
-
-// ptProvider serves only the protocol tunnel resource, so a plan can be driven
-// through the real framework server: defaults, the unknown-marking of computed
-// attributes, attribute plan modifiers and ModifyPlan, in the order Terraform
-// runs them. The rs package can't import bt's provider without a cycle.
-type ptProvider struct{}
-
-func (ptProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "sra"
-}
-func (ptProvider) Schema(context.Context, provider.SchemaRequest, *provider.SchemaResponse) {}
-func (ptProvider) Configure(context.Context, provider.ConfigureRequest, *provider.ConfigureResponse) {
-}
-func (ptProvider) DataSources(context.Context) []func() datasource.DataSource { return nil }
-func (ptProvider) Resources(context.Context) []func() resource.Resource {
-	return []func() resource.Resource{newProtocolTunnelJumpResource}
-}
-
-type ptPlanResult struct {
-	planned         map[string]tftypes.Value
-	plannedRaw      tftypes.Value
-	requiresReplace []*tftypes.AttributePath
-	diags           []*tfprotov6.Diagnostic
-}
-
 // plan asks the framework for a plan, as `terraform plan` would. prior is nil
 // on create. The proposed new state is built the way Terraform core builds it:
 // the configured value where there is one, otherwise the prior value for a
 // computed attribute.
-func plan(t *testing.T, config map[string]any, prior map[string]tftypes.Value) ptPlanResult {
+func (h planHarness) plan(t *testing.T, config map[string]any, prior map[string]tftypes.Value) ptPlanResult {
 	t.Helper()
 	ctx := context.Background()
-	typ := ptType(t)
-	sch := resourceSchema(t, &protocolTunnelJumpResource{})
-	cfg := ptValues(t, config)
+	typ := h.typ(t)
+	sch := resourceSchema(t, h.newResource())
+	cfg := h.values(t, config)
 
 	proposed := map[string]tftypes.Value{}
 	for name, v := range cfg {
@@ -121,9 +100,9 @@ func plan(t *testing.T, config map[string]any, prior map[string]tftypes.Value) p
 		require.NoError(t, err)
 		return &d
 	}
-	server := providerserver.NewProtocol6(ptProvider{})()
+	server := providerserver.NewProtocol6(harnessProvider{h})()
 	resp, err := server.PlanResourceChange(ctx, &tfprotov6.PlanResourceChangeRequest{
-		TypeName:         "sra_protocol_tunnel_jump",
+		TypeName:         h.typeName(t),
 		PriorState:       dv(priorRaw),
 		ProposedNewState: dv(tftypes.NewValue(typ, proposed)),
 		Config:           dv(tftypes.NewValue(typ, cfg)),
@@ -137,6 +116,60 @@ func plan(t *testing.T, config map[string]any, prior map[string]tftypes.Value) p
 		require.NoError(t, res.plannedRaw.As(&res.planned))
 	}
 	return res
+}
+
+func ptType(t *testing.T) tftypes.Object {
+	t.Helper()
+	return protocolHarness.typ(t)
+}
+
+func ptValues(t *testing.T, attrs map[string]any) map[string]tftypes.Value {
+	t.Helper()
+	return protocolHarness.values(t, attrs)
+}
+
+func ptObject(t *testing.T, vals map[string]tftypes.Value) tftypes.Value {
+	t.Helper()
+	return tftypes.NewValue(ptType(t), vals)
+}
+
+// validate runs the resource's ValidateConfig against a configuration.
+func validate(t *testing.T, attrs map[string]any) diag.Diagnostics {
+	t.Helper()
+	resp := &resource.ValidateConfigResponse{}
+	cfg := tfsdk.Config{Schema: resourceSchema(t, &protocolTunnelJumpResource{}), Raw: ptObject(t, ptValues(t, attrs))}
+	(&protocolTunnelJumpResource{}).ValidateConfig(context.Background(), resource.ValidateConfigRequest{Config: cfg}, resp)
+	return resp.Diagnostics
+}
+
+// harnessProvider serves only the harness's resource. The rs package can't
+// import bt's provider without a cycle.
+type harnessProvider struct {
+	h planHarness
+}
+
+func (harnessProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "sra"
+}
+func (harnessProvider) Schema(context.Context, provider.SchemaRequest, *provider.SchemaResponse) {}
+func (harnessProvider) Configure(context.Context, provider.ConfigureRequest, *provider.ConfigureResponse) {
+}
+func (harnessProvider) DataSources(context.Context) []func() datasource.DataSource { return nil }
+func (p harnessProvider) Resources(context.Context) []func() resource.Resource {
+	return []func() resource.Resource{p.h.newResource}
+}
+
+type ptPlanResult struct {
+	planned         map[string]tftypes.Value
+	plannedRaw      tftypes.Value
+	requiresReplace []*tftypes.AttributePath
+	diags           []*tfprotov6.Diagnostic
+}
+
+// plan is protocolHarness.plan.
+func plan(t *testing.T, config map[string]any, prior map[string]tftypes.Value) ptPlanResult {
+	t.Helper()
+	return protocolHarness.plan(t, config, prior)
 }
 
 func str(t *testing.T, v tftypes.Value) string {

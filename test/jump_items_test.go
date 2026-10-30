@@ -486,7 +486,7 @@ func TestMongodbTunnel(t *testing.T) {
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, randomBits, item2["tag"])
-		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "the schema default")
+		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "an omitted address is planned as 127.0.0.1 on create")
 		assert.Equal(t, "", item2["auth_database"], "state is empty, not null, on every appliance version")
 		assert.Equal(t, 0, len(list))
 	})
@@ -606,7 +606,7 @@ func TestOracleTunnel(t *testing.T) {
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, randomBits, item2["tag"])
-		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "the schema default")
+		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "an omitted address is planned as 127.0.0.1 on create")
 		assert.Equal(t, 0, len(list))
 	})
 

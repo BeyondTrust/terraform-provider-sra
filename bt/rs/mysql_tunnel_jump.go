@@ -2,7 +2,6 @@ package rs
 
 import (
 	"context"
-	"net"
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -20,6 +19,7 @@ var (
 	_ resource.Resource                = &mysqlTunnelJumpResource{}
 	_ resource.ResourceWithConfigure   = &mysqlTunnelJumpResource{}
 	_ resource.ResourceWithImportState = &mysqlTunnelJumpResource{}
+	_ resource.ResourceWithModifyPlan  = &mysqlTunnelJumpResource{}
 )
 
 func newMySQLTunnelJumpResource() resource.Resource { return &mysqlTunnelJumpResource{} }
@@ -34,18 +34,19 @@ func (r *mysqlTunnelJumpResource) ModifyPlan(ctx context.Context, req resource.M
 		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
-	var plan models.MySQLTunnelJump
-	diags := req.Plan.Get(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
+	var plan, config, state models.MySQLTunnelJump
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if !req.State.Raw.IsNull() {
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	}
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if plan.TunnelListenAddress.IsNull() {
-		plan.TunnelListenAddress = types.StringValue("127.0.0.1")
-	}
+	plan.TunnelListenAddress = planTunnelListenAddress(config.TunnelListenAddress, state.TunnelListenAddress)
 
-	diags = applyMySQLDefaultsAndValidate(&plan)
+	diags := applyMySQLDefaultsAndValidate(&plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -88,24 +89,6 @@ func applyMySQLDefaultsAndValidate(plan *models.MySQLTunnelJump) diag.Diagnostic
 			diags.Append(diag.NewErrorDiagnostic("jump_group_id invalid", "jump_group_id must be >= 0"))
 		}
 	}
-
-	if plan.TunnelListenAddress.IsNull() || plan.TunnelListenAddress.ValueString() == "" {
-		plan.TunnelListenAddress = types.StringValue("127.0.0.1")
-	} else {
-		addr := plan.TunnelListenAddress.ValueString()
-		if len(addr) > 32 {
-			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address length", "tunnel_listen_address must be at most 32 characters"))
-		}
-		ip := net.ParseIP(addr)
-		if ip == nil {
-			diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address invalid", "tunnel_listen_address must be a valid IP address"))
-		} else {
-			_, cidr, _ := net.ParseCIDR("127.0.0.0/24")
-			if !cidr.Contains(ip) {
-				diags.Append(diag.NewErrorDiagnostic("tunnel_listen_address subnet", "tunnel_listen_address must be within the 127.0.0.0/24 subnet"))
-			}
-		}
-	}
 	return diags
 }
 
@@ -113,19 +96,24 @@ func (r *mysqlTunnelJumpResource) Schema(_ context.Context, _ resource.SchemaReq
 	resp.Schema = schema.Schema{
 		Description: "Manages a MySQL Tunnel Jump Item. NOTE: PRA only.",
 		Attributes: map[string]schema.Attribute{
-			"id":                    schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"name":                  schema.StringAttribute{Required: true},
-			"jumpoint_id":           schema.Int64Attribute{Required: true},
-			"hostname":              schema.StringAttribute{Required: true},
-			"jump_group_id":         schema.Int64Attribute{Required: true},
-			"jump_group_type":       schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("shared")},
-			"tag":                   schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
-			"comments":              schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
-			"jump_policy_id":        schema.Int64Attribute{Optional: true},
-			"session_policy_id":     schema.Int64Attribute{Optional: true},
-			"tunnel_listen_address": schema.StringAttribute{Optional: true, Computed: true},
-			"username":              schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
-			"database":              schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"id":                schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"name":              schema.StringAttribute{Required: true},
+			"jumpoint_id":       schema.Int64Attribute{Required: true},
+			"hostname":          schema.StringAttribute{Required: true},
+			"jump_group_id":     schema.Int64Attribute{Required: true},
+			"jump_group_type":   schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("shared")},
+			"tag":               schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"comments":          schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"jump_policy_id":    schema.Int64Attribute{Optional: true},
+			"session_policy_id": schema.Int64Attribute{Optional: true},
+			"tunnel_listen_address": schema.StringAttribute{
+				Description: tunnelListenAddressDescription,
+				Optional:    true,
+				Computed:    true,
+				Validators:  []validator.String{tunnelListenAddressValidator{allowEmpty: true}},
+			},
+			"username": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
+			"database": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
 		},
 	}
 }

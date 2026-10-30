@@ -30,7 +30,7 @@ Manages a MySQL Tunnel Jump Item. NOTE: PRA only.
 - `jump_policy_id` (Number)
 - `session_policy_id` (Number)
 - `tag` (String)
-- `tunnel_listen_address` (String)
+- `tunnel_listen_address` (String) Local address the tunnel listens on: a plain IPv4 address within 127.0.0.0/24. When omitted, it keeps the value the appliance holds, and defaults to 127.0.0.1 on create. To reset an item to 127.0.0.1, set it explicitly. Omit it rather than setting it to an empty string.
 - `username` (String)
 
 ### Read-Only
