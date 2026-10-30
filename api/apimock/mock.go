@@ -302,5 +302,7 @@ func writeJSON(w http.ResponseWriter, status int, header http.Header, v any) {
 		return
 	}
 	w.WriteHeader(status)
-	_, _ = w.Write(body)
+	// json.Marshal output served as application/json by a test-only server:
+	// there is no HTML to escape.
+	_, _ = w.Write(body) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 }
