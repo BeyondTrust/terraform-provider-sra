@@ -28,6 +28,12 @@ jobs:
       - name: "Unit Tests"
         run: go test $(go list ./... | grep -v /test)
 
+      - name: "Offline E2E harness tests"
+        # The E2E package's own safety logic (markers, the import orphan guard,
+        # the orphan sweeper) tested against in-process mocks. No appliance and
+        # no credentials; the live tests are not matched by this pattern.
+        run: go test -count=1 -run '^(TestMarker|TestSafeToReclaim|TestSweep[A-Z])' ./test
+
   lint:
     runs-on: ubuntu-latest
     permissions:

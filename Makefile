@@ -18,6 +18,12 @@ unittest: build
 teste2e: testrelease
 	go test -v -timeout 10m ./test
 
+# Lists (dry-run, the default) or deletes leaked E2E fixture objects. See
+# CONTRIBUTING.md before setting E2E_SWEEP=delete. Never sets
+# E2E_SWEEP_CONFIRM_HOST: type that yourself.
+sweepe2e:
+	E2E_SWEEP=$${E2E_SWEEP:-dry-run} go test -count=1 -v -timeout 60m -run '^TestE2EOrphanSweep$$' ./test
+
 tfapply: install
 	cd ./test-tf-files && terraform apply
 

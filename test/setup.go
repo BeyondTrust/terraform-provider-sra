@@ -1,15 +1,18 @@
 package test
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"terraform-provider-sra/api"
 	"testing"
+	"time"
 
 	"github.com/Jeffail/gabs"
 	"github.com/gruntwork-io/terratest/modules/logger"
@@ -53,13 +56,98 @@ func setEnvAndGetRandom(t *testing.T) string {
 		t.Logf("Got mechs [%+v]", mechs)
 	}
 
-	randomBits := strings.ToLower(random.UniqueId())
+	randomBits := newMarker(time.Now())
 
 	if test_structure.SkipStageEnvVarSet() {
 		randomBits = stageSkipRandomBits
 	}
 
 	return randomBits
+}
+
+// markerUsable reports whether randomBits can establish ownership at all. An empty
+// marker makes a Contains check unconditionally true, and the stage-skip
+// constant is shared by every test in such a run (see setEnvAndGetRandom), so it
+// also matches objects left behind by earlier runs.
+func markerUsable(randomBits string) bool {
+	return randomBits != "" && randomBits != stageSkipRandomBits
+}
+
+// A marker is the random_bits every fixture object is named, tagged or
+// code-named with: "e2e", then the creation time as 6 zero-padded base36 digits
+// of Unix minutes, then 6 random [0-9a-z] characters. 15 characters; the longest
+// field built from one is code_name "gp_example_<marker>2", 28 characters,
+// within the appliance's 64.
+//
+// The timestamp is what lets the orphan sweeper (sweep.go) tell an abandoned
+// object from a live run's: no fixture type has a creation timestamp of its own.
+// The random part comes from crypto/rand. terratest's random.UniqueId re-seeds
+// from UnixNano on every call, so parallel tests starting in the same instant
+// could draw the same value.
+const (
+	markerPrefix      = "e2e"
+	markerTimeDigits  = 6
+	markerRandomChars = 6
+	markerAlphabet    = "0123456789abcdefghijklmnopqrstuvwxyz"
+	markerLen         = len(markerPrefix) + markerTimeDigits + markerRandomChars
+)
+
+func newMarker(now time.Time) string {
+	minutes := strconv.FormatInt(now.Unix()/60, 36)
+	b := []byte(markerPrefix + strings.Repeat("0", markerTimeDigits-len(minutes)) + minutes)
+
+	// Rejection sampling keeps every character equally likely: 252 is the
+	// largest multiple of 36 that fits in a byte.
+	buf := make([]byte, 1)
+	for len(b) < markerLen {
+		if _, err := rand.Read(buf); err != nil {
+			panic(fmt.Sprintf("crypto/rand: %v", err))
+		}
+		if buf[0] < 252 {
+			b = append(b, markerAlphabet[buf[0]%36])
+		}
+	}
+	return string(b)
+}
+
+type markerKind int
+
+const (
+	markerUnusable markerKind = iota
+	// markerLegacy is the 6-character UniqueId marker used before timestamps.
+	// Nothing about it says when it was made.
+	markerLegacy
+	markerTimestamped
+)
+
+var (
+	legacyMarkerRE      = regexp.MustCompile(`^[0-9a-z]{6}$`)
+	timestampedMarkerRE = regexp.MustCompile(`^e2e[0-9a-z]{12}$`)
+)
+
+// parseMarker classifies s, splitting off the single trailing "2" that the
+// vault/secret fixture appends when it passes "${var.random_bits}2" down to the
+// ssh_account module. base is the marker without it. For a timestamped marker,
+// at is its creation time, to the minute.
+func parseMarker(s string) (kind markerKind, base, suffix string, at time.Time) {
+	if !markerUsable(s) {
+		return markerUnusable, "", "", time.Time{}
+	}
+	base = s
+	if (len(s) == markerLen+1 || len(s) == 7) && strings.HasSuffix(s, "2") {
+		base, suffix = s[:len(s)-1], "2"
+	}
+	switch {
+	case timestampedMarkerRE.MatchString(base):
+		minutes, err := strconv.ParseInt(base[len(markerPrefix):len(markerPrefix)+markerTimeDigits], 36, 64)
+		if err != nil {
+			return markerUnusable, "", "", time.Time{}
+		}
+		return markerTimestamped, base, suffix, time.Unix(minutes*60, 0)
+	case legacyMarkerRE.MatchString(base):
+		return markerLegacy, base, suffix, time.Time{}
+	}
+	return markerUnusable, "", "", time.Time{}
 }
 
 // Load .env file (if present) when the test package is initialized. This helps when running

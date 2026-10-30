@@ -27,6 +27,7 @@ package test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -50,14 +51,7 @@ import (
 //
 // The rule is split in two because the guard applies it at two points: the marker
 // is checked before any network call, and ownership only after the object is read.
-//
-// markerUsable reports whether randomBits can establish ownership at all. An empty
-// marker makes the Contains check below unconditionally true, and the stage-skip
-// constant is shared by every test in such a run (see setEnvAndGetRandom), so it
-// also matches objects left behind by earlier runs.
-func markerUsable(randomBits string) bool {
-	return randomBits != "" && randomBits != stageSkipRandomBits
-}
+// markerUsable, the first half, lives in setup.go beside the marker itself.
 
 // safeToReclaim reports whether blob -- the marshalled object as read back from
 // the API -- may be deleted as this run's orphan. It re-checks the marker rather
@@ -135,14 +129,8 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 			return
 		}
 
-		c, err := freshClientE(t)
-		if err != nil {
-			t.Errorf("orphan recovery: could not build a client to reclaim %s %d — LEAKED on the appliance: %v", g.addr, id, err)
-			return
-		}
-
 		// Confirm ownership BEFORE deleting. The type parameter I and the address
-		// string are supplied independently by the caller, and DeleteItem derives
+		// string are supplied independently by the caller, and the delete derives
 		// its path solely from I.Endpoint() -- so a mis-paired case (say
 		// sra_jump_group's address with api.VaultAccountGroup) would delete a
 		// same-numbered object in a DIFFERENT id namespace, on a shared appliance,
@@ -150,39 +138,40 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 		// a datasource rather than a managed resource. Every fixture names its
 		// resources with the run's randomBits, so requiring that marker turns both
 		// mistakes into a loud refusal instead of a silent deletion.
-		item, err := api.GetItem[I](c, &id)
-		if err != nil && !api.IsNotFound(err) {
-			// Retry once with a new client. The documented failure here is a 401
-			// from token eviction (see freshClient), for which a fresh mint IS the
-			// remedy -- and without the retry a single unlucky read costs a real
-			// object that the delete below would have reclaimed.
-			if retry, rerr := freshClientE(t); rerr == nil {
-				c = retry
-				item, err = api.GetItem[I](c, &id)
+		owned := func(item *I) error {
+			blob, err := json.Marshal(item)
+			if err != nil || !safeToReclaim(blob, g.randomBits) {
+				return errors.New("object does not carry this run's marker")
 			}
-		}
-		switch {
-		case api.IsNotFound(err):
-			return // already gone: destroy reclaimed it, or it was never created
-		case err != nil:
-			t.Errorf("orphan recovery: could not read %s %d to confirm ownership — LEAKED on the appliance: %v", g.addr, id, err)
-			return
-		}
-		blob, err := json.Marshal(item)
-		if err != nil || !safeToReclaim(blob, g.randomBits) {
-			t.Errorf("orphan recovery REFUSED for %s %d: object does not carry this run's marker %q, so it is not ours to delete. "+
-				"Check the case's API type matches its address. Nothing was deleted; if an object really did leak, remove it by hand.",
-				g.addr, id, g.randomBits)
-			return
+			return nil
 		}
 
-		switch err := api.DeleteItem[I](c, &id); {
-		case err == nil:
-			t.Logf("orphan recovery: reclaimed %s %d", g.addr, id)
-		case api.IsNotFound(err):
-			// Raced with something else that removed it. Still the desired end state.
-		default:
+		var outcome deleteOutcome
+		err := errors.New("no attempt made")
+		// Two attempts, each with a new client. The documented failure here is a
+		// 401 from token eviction (see freshClient), for which a fresh mint IS the
+		// remedy -- and without the retry a single unlucky read costs a real
+		// object that the delete would have reclaimed. A retry re-reads and
+		// re-checks ownership, so it cannot delete on stale information.
+		for attempt := 0; attempt < 2 && err != nil; attempt++ {
+			c, cerr := freshClientE(t)
+			if cerr != nil {
+				err = fmt.Errorf("could not build a client: %w", cerr)
+				continue
+			}
+			var tmp I
+			outcome, err = deleteIfStill(c, tmp.Endpoint(), id, owned)
+		}
+
+		switch {
+		case err != nil:
 			t.Errorf("orphan recovery FAILED for %s %d — LEAKED on the appliance: %v", g.addr, id, err)
+		case outcome.refused != nil:
+			t.Errorf("orphan recovery REFUSED for %s %d: %v (%q), so it is not ours to delete. "+
+				"Check the case's API type matches its address. Nothing was deleted; if an object really did leak, remove it by hand.",
+				g.addr, id, outcome.refused, g.randomBits)
+		case outcome.result == "deleted":
+			t.Logf("orphan recovery: reclaimed %s %d", g.addr, id)
 		}
 	})
 }
