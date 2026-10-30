@@ -688,69 +688,76 @@ func TestReadGPMemberships_NullStateNeverListsGroupPolicies(t *testing.T) {
 
 // Every resource with group_policy_memberships discovers them on import through
 // its own ImportState, not the generic passthrough, and keeps only the imported
-// object's row: the policy also lists object 6.
+// object's row. Object 6 is listed first, by policy 1 and again by policy 2, and
+// its rows differ from object 5's: a lookup that took another object's row
+// shows in group_policy_id and in the type's own fields.
 func TestImportStateDiscoversMembershipsOnEveryResource(t *testing.T) {
 	t.Parallel()
 
 	vaultMember := func(field string) func(int, string) apimock.Row {
 		return func(id int, role string) apimock.Row { return apimock.Row{field: id, "role": role} }
 	}
+	inject := map[string]any{"role": types.StringValue("inject")}
 	for name, tc := range map[string]struct {
 		newResource func(*api.APIClient) resource.ResourceWithImportState
 		relation    string
 		// member is the policy's row for object id; role is used by vault types.
 		member func(id int, role string) apimock.Row
-		vault  bool
+		// want is object 5's membership fields besides group_policy_id.
+		want map[string]any
 	}{
 		"jump_group": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &jumpGroupResource{}
 			r.ApiClient = c
 			return r
-		}, "jump-group", func(id int, _ string) apimock.Row { return jgMember(id, 1) }, false},
+		}, "jump-group", func(id int, _ string) apimock.Row { return jgMember(id, id) },
+			map[string]any{"jump_item_role_id": types.Int64Value(5)}},
 		"jumpoint": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &jumpointResource{}
 			r.ApiClient = c
 			return r
-		}, "jumpoint", func(id int, _ string) apimock.Row { return apimock.Row{"jumpoint_id": id} }, false},
+		}, "jumpoint", func(id int, _ string) apimock.Row { return apimock.Row{"jumpoint_id": id} }, nil},
 		"vault_account_group": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultAccountGroupResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account-group", vaultMember("account_group_id"), true},
+		}, "vault-account-group", vaultMember("account_group_id"), inject},
 		"vault_ssh_account": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultSSHAccountResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account", vaultMember("account_id"), true},
+		}, "vault-account", vaultMember("account_id"), inject},
 		"vault_token_account": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultTokenAccountResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account", vaultMember("account_id"), true},
+		}, "vault-account", vaultMember("account_id"), inject},
 		"vault_username_password_account": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultUsernamePasswordAccountResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account", vaultMember("account_id"), true},
+		}, "vault-account", vaultMember("account_id"), inject},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			srv := apimock.New()
 			defer srv.Close()
-			srv.Rows("group-policy", gpRows(1)...)
-			srv.Rows("group-policy/1/"+tc.relation, tc.member(6, "inject_and_checkout"), tc.member(5, "inject"))
+			srv.Rows("group-policy", gpRows(1, 2)...)
+			srv.Rows("group-policy/1/"+tc.relation, tc.member(6, "inject_and_checkout"))
+			srv.Rows("group-policy/2/"+tc.relation, tc.member(6, "inject_and_checkout"), tc.member(5, "inject"))
 
 			state, diags := importResource(t, tc.newResource(apimockClient(srv)), "5")
 			require.False(t, diags.HasError(), "%v", diags)
 			assert.Equal(t, 1, srv.Calls(http.MethodGet, "group-policy/1/"+tc.relation))
+			assert.Equal(t, 1, srv.Calls(http.MethodGet, "group-policy/2/"+tc.relation))
 
 			var set types.Set
 			require.False(t, state.GetAttribute(context.Background(), path.Root("group_policy_memberships"), &set).HasError())
 			require.Len(t, set.Elements(), 1, "only object 5's membership")
 			attrs := set.Elements()[0].(types.Object).Attributes()
-			assert.Equal(t, types.StringValue("1"), attrs["group_policy_id"])
-			if tc.vault {
-				assert.Equal(t, types.StringValue("inject"), attrs["role"], "the row for object 5, not 6")
+			assert.Equal(t, types.StringValue("2"), attrs["group_policy_id"], "policy 2's row for object 5, not policy 1's for 6")
+			for field, want := range tc.want {
+				assert.Equal(t, want, attrs[field], "%s: the row for object 5, not 6", field)
 			}
 		})
 	}

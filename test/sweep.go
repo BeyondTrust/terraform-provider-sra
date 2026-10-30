@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"terraform-provider-sra/api"
+
+	"golang.org/x/oauth2"
 )
 
 // sweepEnvironment is every E2E_SWEEP* variable, read once.
@@ -317,10 +319,26 @@ type sweepRef struct {
 
 	// sharedJumpGroups, when set, replaces field: it reads the jump groups an
 	// object's jump item association names in criteria.shared_jump_groups.
-	// standalone limits it to accounts in the Default group, since the others
-	// inherit their group's association.
+	// standalone marks from as accounts: only those that can hold their own
+	// association are read (holdsOwnAssociation).
 	sharedJumpGroups func(c *api.APIClient, id int) ([]int, error)
 	standalone       bool
+}
+
+// holdsOwnAssociation says whether account r can have a jump item association
+// of its own. VaultAccountJumpItemAssociationApiController::store refuses
+// personal, x509_ca and windows_local accounts (and AccountRepo never stores one
+// for the last two), and an account in any group but Default uses its group's.
+func holdsOwnAssociation(r sweepRow) bool {
+	if personal, _ := r["personal"].(bool); personal {
+		return false
+	}
+	switch r.str("type") {
+	case "x509_ca", "windows_local":
+		return false
+	}
+	g, _ := r.num("account_group_id")
+	return g <= 1
 }
 
 // references lists what may point at a container of type st.
@@ -836,7 +854,7 @@ func (s *sweeper) readSharedJumpGroups(ref sweepRef, from *sweepType, live bool)
 	by := map[int]int{}
 	read, notFound := 0, 0
 	for _, r := range rows {
-		if g, _ := r.num("account_group_id"); ref.standalone && g > 1 {
+		if ref.standalone && !holdsOwnAssociation(r) {
 			continue
 		}
 		read++
@@ -855,9 +873,11 @@ func (s *sweeper) readSharedJumpGroups(ref sweepRef, from *sweepType, live bool)
 			by[g] = r.id()
 		}
 	}
-	if read > 0 && notFound == read {
-		// No object of the type has an association: more likely a wrong path,
-		// which must not remove the check.
+	if !ref.standalone && read > 0 && notFound == read {
+		// Every account group is created with an association (AccountGroupRepo),
+		// so a 404 for every group is more likely a wrong path, which must not
+		// remove the check. Most accounts have none, so for accounts every read
+		// 404ing is normal.
 		return jiaRefs{err: fmt.Errorf("every %s association read was a 404", from.name)}
 	}
 	return jiaRefs{by: by}
@@ -908,21 +928,24 @@ func (s *sweeper) report() []string {
 		}
 	}
 	for name, err := range s.failed {
-		s.logf("sweep-list-failed %s: %s", name, listFailureClass(err))
+		s.logf("sweep-list-failed %s: %s", name, failureClass(err))
 	}
 	return over
 }
 
-// listFailureClass names what kind of failure a list call had, and nothing
-// else. The error itself can carry the response body or, for a transport error,
-// the request URL with the appliance's host.
-func listFailureClass(err error) string {
+// failureClass names what kind of failure an API call or api.NewClient had,
+// and nothing else. The error itself can carry the response body, the token
+// URL, or, for a transport error, the request URL with the appliance's host.
+func failureClass(err error) string {
 	var status *api.StatusError
+	var token *oauth2.RetrieveError
 	var unstable *api.ErrUnstableList
 	var transport *url.Error
 	switch {
 	case errors.As(err, &status):
 		return "status " + strconv.Itoa(status.Status)
+	case errors.As(err, &token) && token.Response != nil:
+		return "token request status " + strconv.Itoa(token.Response.StatusCode)
 	case errors.As(err, &unstable):
 		switch unstable.Cause {
 		case api.ListOverlapped:
@@ -932,6 +955,9 @@ func listFailureClass(err error) string {
 		}
 		return "unstable list: changed while read"
 	case errors.As(err, &transport):
+		if transport.Op == "parse" {
+			return "invalid host"
+		}
 		return "transport error"
 	}
 	return "other error"

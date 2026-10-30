@@ -6,7 +6,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -46,7 +48,7 @@ func TestE2EOrphanSweep(t *testing.T) {
 	// No test logger: request tracing would print every URL.
 	c, err := newEnvClient()
 	if err != nil {
-		t.Fatalf("could not create an API client: %v", err)
+		t.Fatalf("could not create an API client: %s", failureClass(err))
 	}
 	if err := runSweep(c, set, t.Logf); err != nil {
 		t.Fatal(err)
@@ -762,6 +764,34 @@ func TestSweepOutputNeverNamesNonFixture(t *testing.T) {
 	}
 }
 
+// TestE2EOrphanSweep prints only the class of a client creation failure: the
+// token error carries the token URL and the response body.
+func TestSweepClientFailureClass(t *testing.T) {
+	const secret = "secret token body"
+	refused := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(secret))
+	}))
+	defer refused.Close()
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+
+	id, key := "id", "key"
+	for host, want := range map[string]string{
+		refused.URL:      "token request status 401",
+		closed.URL:       "transport error",
+		"://" + testHost: "invalid host",
+	} {
+		_, err := api.NewClient(host, &id, &key)
+		require.Error(t, err)
+		got := failureClass(err)
+		assert.Equal(t, want, got, "%s", host)
+		for _, s := range []string{secret, strings.TrimPrefix(host, "http://"), testHost, "oauth2"} {
+			assert.NotContains(t, got, s)
+		}
+	}
+}
+
 // Deleting an account group moves its accounts into Default, so a group holding
 // anything this run won't delete is kept.
 func TestSweepAccountGroupHoldingOtherAccountsIsSkipped(t *testing.T) {
@@ -856,8 +886,9 @@ func TestSweepAssociationRecheckedAtDelete(t *testing.T) {
 	assert.Contains(t, deletes(srv), "jumpoint/21", "jumpoints have no association reference")
 }
 
-// Some objects of a type having no association (404) is normal. Every one of
-// them 404ing is more likely a wrong path, so it keeps every jump group.
+// An association read that 404s is "no association". Every account group has
+// one, so every group's read 404ing is more likely a wrong path, and it keeps
+// every jump group.
 func TestSweepAssociation404s(t *testing.T) {
 	notFound := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }
 	for name, tc := range map[string]struct {
@@ -888,18 +919,55 @@ func TestSweepAssociation404s(t *testing.T) {
 		})
 	}
 
-	t.Run("standalone accounts", func(t *testing.T) {
+	// Most accounts have no association of their own, so for accounts every
+	// read 404ing is normal.
+	t.Run("every account read is a 404", func(t *testing.T) {
 		srv := newFixtureWorld(t)
 		srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{
 			account(8, oldT, 7),
 			{"id": 101, "name": "Payroll admin", "type": "username_password", "username": "payroll", "account_group_id": 1},
+			{"id": 102, "name": "Finance admin", "type": "username_password", "username": "finance", "account_group_id": 1},
 		}})
 
 		out, err := runOn(t, srv, settings(sweepDryRun))
 		require.NoError(t, err)
-		assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" skip jump-item-association-check-failed",
-			"account 101's association read is the only one, and it 404s")
+		assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" eligible")
+		assert.Contains(t, srv.Requests(), "GET vault/account/101/jump-item-association")
+		assert.Contains(t, srv.Requests(), "GET vault/account/102/jump-item-association")
 	})
+}
+
+// Accounts that can't hold an association of their own are never read. Each
+// one's association here names the fixture jump group, so a read would keep it.
+func TestSweepSkipsAccountsWithoutOwnAssociation(t *testing.T) {
+	for name, tc := range map[string]struct {
+		row  apimock.Row
+		read bool
+	}{
+		"personal":      {apimock.Row{"type": "username_password", "personal": true, "account_group_id": nil}, false},
+		"x509_ca":       {apimock.Row{"type": "x509_ca", "personal": false, "account_group_id": nil}, false},
+		"windows_local": {apimock.Row{"type": "windows_local", "personal": false, "account_group_id": 1}, false},
+		"another group": {apimock.Row{"type": "username_password", "personal": false, "account_group_id": 100}, false},
+		"default group": {apimock.Row{"type": "username_password", "personal": false, "account_group_id": 1}, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := newFixtureWorld(t)
+			row := apimock.Row{"id": 103, "name": "Real account"}
+			maps.Copy(row, tc.row)
+			srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{account(8, oldT, 7), row}})
+			srv.Handle(http.MethodGet, "vault/account/103/jump-item-association",
+				association(`{"filter_type":"criteria","criteria":{"shared_jump_groups":[20]},"jump_items":[]}`))
+
+			out, err := runOn(t, srv, settings(sweepDryRun))
+			require.NoError(t, err)
+			if tc.read {
+				assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" skip criteria of vault_account 103")
+				return
+			}
+			assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" eligible")
+			assert.NotContains(t, srv.Requests(), "GET vault/account/103/jump-item-association")
+		})
+	}
 }
 
 // A candidate kept at delete time is a live object again: what it references

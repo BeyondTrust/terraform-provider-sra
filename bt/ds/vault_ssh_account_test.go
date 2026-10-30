@@ -31,8 +31,9 @@ func readSSHAccount(t *testing.T, srv *apimock.Server, config map[string]tftypes
 }
 
 // The single SSH account data source uses only the first match, so it reads one
-// row, asks for SSH accounts only, and sends include_personal (a bool filter,
-// which used to be dropped).
+// row per lookup: type=ssh first, and type=ssh_ca only when that finds nothing.
+// Here an SSH account matches, so there is no ssh_ca lookup. It also sends
+// include_personal (a bool filter, which used to be dropped).
 func TestSingleSSHAccountReadsOnePageOfSSHAccounts(t *testing.T) {
 	t.Parallel()
 	srv := apimock.New()
