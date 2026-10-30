@@ -17,7 +17,6 @@ var (
 	_ resource.Resource                = &oracleTunnelJumpResource{}
 	_ resource.ResourceWithConfigure   = &oracleTunnelJumpResource{}
 	_ resource.ResourceWithImportState = &oracleTunnelJumpResource{}
-	_ resource.ResourceWithModifyPlan  = &oracleTunnelJumpResource{}
 )
 
 func newOracleTunnelJumpResource() resource.Resource { return &oracleTunnelJumpResource{} }
@@ -53,33 +52,14 @@ func (r *oracleTunnelJumpResource) Schema(_ context.Context, _ resource.SchemaRe
 			"jump_policy_id":    schema.Int64Attribute{Optional: true},
 			"session_policy_id": schema.Int64Attribute{Optional: true},
 			"tunnel_listen_address": schema.StringAttribute{
-				Description: tunnelListenAddressDescription + tunnelListenAddressLocalAddressNote,
-				Optional:    true,
-				Computed:    true,
-				Validators:  []validator.String{tunnelListenAddressValidator{}},
+				Description:   tunnelListenAddressDescription + tunnelListenAddressLocalAddressNote,
+				Optional:      true,
+				Computed:      true,
+				Validators:    []validator.String{tunnelListenAddressValidator{}},
+				PlanModifiers: []planmodifier.String{tunnelListenAddressPlan{}},
 			},
 			"username": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
 			"database": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
 		},
 	}
-}
-
-// ModifyPlan plans an omitted tunnel_listen_address as the value the appliance
-// holds (127.0.0.1 on create); see planTunnelListenAddress.
-func (r *oracleTunnelJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.Plan.Raw.IsNull() {
-		return
-	}
-	var plan, config, state models.OracleTunnelJump
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-	if !req.State.Raw.IsNull() {
-		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	}
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	plan.TunnelListenAddress = planTunnelListenAddress(config.TunnelListenAddress, state.TunnelListenAddress)
-	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 }

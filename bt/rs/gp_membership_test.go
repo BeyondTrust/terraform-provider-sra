@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/api/apimock"
@@ -83,13 +84,6 @@ func gpRaw(members []tftypes.Value) tftypes.Value {
 	return tftypes.NewValue(gpSchemaType, map[string]tftypes.Value{"group_policy_memberships": set})
 }
 
-// gpJumpGroupCallbacks returns the same callbacks jump_group.Update passes.
-func gpJumpGroupCallbacks() (func(*api.GroupPolicyJumpGroup, int), func(*api.GroupPolicyJumpGroup) *string, func(*api.GroupPolicyJumpGroup, *string)) {
-	return func(m *api.GroupPolicyJumpGroup, entityID int) { m.JumpGroupID = &entityID },
-		func(m *api.GroupPolicyJumpGroup) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyJumpGroup, gpID *string) { m.GroupPolicyID = gpID }
-}
-
 // mockGPClient stands up an httptest server that satisfies the OAuth handshake
 // plus membership create/delete/provision, and returns a client pointed at it.
 // The optional handler lets a test assert on or customize responses.
@@ -151,9 +145,8 @@ func TestUpdateGPMemberships_RemoveAllWritesNull(t *testing.T) {
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7")})}
 	var diags diag.Diagnostics
 
-	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
 	UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
-		setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+		api.DiffGPJumpItemLists, &sync.Mutex{})
 
 	assert.False(t, diags.HasError(), "update should succeed")
 	assert.Equal(t, 1, deleted, "the stale membership should be deleted")
@@ -185,9 +178,8 @@ func TestUpdateGPMemberships_NoChangePreservesState(t *testing.T) {
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw(members)}
 	var diags diag.Diagnostics
 
-	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
 	UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
-		setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+		api.DiffGPJumpItemLists, &sync.Mutex{})
 
 	assert.False(t, diags.HasError())
 	assert.Equal(t, 0, deleted, "no membership should be deleted on a no-op update")
@@ -205,9 +197,9 @@ func TestUpdateGPMemberships_NoChangePreservesState(t *testing.T) {
 // This must NOT be folded into TestUpdateGPMemberships_204NoContentTolerated:
 // on a 204, createdOrSent(nil, m) returns the plan value m, which already
 // carries GroupPolicyID, so re-applying it there is a no-op that cannot catch
-// a broken setGroupPolicyID. Here the mock returns a body, so
+// a broken WithGroupPolicyID. Here the mock returns a body, so
 // api.GroupPolicyJumpGroup's `json:"-"` GroupPolicyID arrives nil from the
-// API and setGroupPolicyID is the only thing that puts it back.
+// API and WithGroupPolicyID is the only thing that puts it back.
 func TestUpdateGPMemberships_WritesResults(t *testing.T) {
 	ctx := context.Background()
 
@@ -219,9 +211,8 @@ func TestUpdateGPMemberships_WritesResults(t *testing.T) {
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
 	var diags diag.Diagnostics
 
-	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
 	UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
-		setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+		api.DiffGPJumpItemLists, &sync.Mutex{})
 
 	assert.False(t, diags.HasError())
 
@@ -263,8 +254,7 @@ func TestReadGPMemberships_RefreshesAndDropsRemoved(t *testing.T) {
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw([]tftypes.Value{gpMember("7"), gpMember("8")})}
 	var diags diag.Diagnostics
 
-	_, getGP, setGP := gpJumpGroupCallbacks()
-	ReadGPMemberships[api.GroupPolicyJumpGroup](ctx, client, state, &respState, &diags, 42, getGP, setGP)
+	ReadGPMemberships[api.GroupPolicyJumpGroup](ctx, client, state, &respState, &diags, 42)
 
 	assert.False(t, diags.HasError())
 
@@ -293,9 +283,7 @@ func TestCreateGPMemberships_WritesResults(t *testing.T) {
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
 	var diags diag.Diagnostics
 
-	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
-	CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, &respState, &diags, 42,
-		setEntityID, getGP, setGP, &sync.Mutex{})
+	CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, &respState, &diags, 42, &sync.Mutex{})
 
 	assert.False(t, diags.HasError())
 
@@ -334,10 +322,8 @@ func TestCreateGPMemberships_204NoContentTolerated(t *testing.T) {
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
 	var diags diag.Diagnostics
 
-	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
 	assert.NotPanics(t, func() {
-		CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, &respState, &diags, 42,
-			setEntityID, getGP, setGP, &sync.Mutex{})
+		CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, &respState, &diags, 42, &sync.Mutex{})
 	})
 
 	assert.False(t, diags.HasError())
@@ -378,10 +364,9 @@ func TestUpdateGPMemberships_204NoContentTolerated(t *testing.T) {
 	respState := tfsdk.State{Schema: sch, Raw: gpRaw(nil)}
 	var diags diag.Diagnostics
 
-	setEntityID, getGP, setGP := gpJumpGroupCallbacks()
 	assert.NotPanics(t, func() {
 		UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, client, plan, state, &respState, &diags, 42,
-			setEntityID, getGP, setGP, api.DiffGPJumpItemLists, &sync.Mutex{})
+			api.DiffGPJumpItemLists, &sync.Mutex{})
 	})
 
 	assert.False(t, diags.HasError())
@@ -404,7 +389,7 @@ func TestUpdateGPMemberships_204NoContentTolerated(t *testing.T) {
 // --- import discovery -------------------------------------------------------
 
 func apimockClient(srv *apimock.Server) *api.APIClient {
-	return &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client()}
+	return &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client(), ListRetryBackoff: []time.Duration{0, 0}}
 }
 
 // importResource runs r.ImportState for id the way the framework does: the
@@ -560,7 +545,7 @@ func TestImportGPMemberships_OtherErrorsFailTheImport(t *testing.T) {
 		assert.Equal(t, "Error reading group policy memberships", diags.Errors()[0].Summary())
 	})
 
-	// Retried with the real 1s + 2s backoff before it gives up.
+	// Retried, without pausing (see apimockClient), before it gives up.
 	t.Run("a list that keeps changing", func(t *testing.T) {
 		t.Parallel()
 		srv := apimock.New()
@@ -611,6 +596,27 @@ func TestImportGPMemberships_IndexIsBuiltOnce(t *testing.T) {
 	}
 
 	assert.Equal(t, 5, srv.CallsWithMethod(http.MethodGet), "1 group policy list + 4 member lists")
+}
+
+// The four membership types share one group policy listing per client.
+func TestImportGPMemberships_GroupPolicyListIsShared(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+	srv.Rows("group-policy", gpRows(1)...)
+	srv.Rows("group-policy/1/jump-group", jgMember(5, 1))
+	srv.Rows("group-policy/1/jumpoint", apimock.Row{"jumpoint_id": 5})
+	client := apimockClient(srv)
+
+	_, diags := importJumpGroup(t, client, "5")
+	require.False(t, diags.HasError(), "%v", diags)
+	jp := &jumpointResource{}
+	jp.ApiClient = client
+	_, diags = importResource(t, jp, "5")
+	require.False(t, diags.HasError(), "%v", diags)
+
+	assert.Equal(t, 1, srv.Calls(http.MethodGet, "group-policy"))
+	assert.Equal(t, 1, srv.Calls(http.MethodGet, "group-policy/1/jumpoint"))
 }
 
 // A group policy deleted between the list and its member fetch has no members.
@@ -727,9 +733,6 @@ func TestImportStateDiscoversMembershipsOnEveryResource(t *testing.T) {
 			defer srv.Close()
 			srv.Rows("group-policy", gpRows(1)...)
 			srv.Rows("group-policy/1/"+tc.relation, tc.member)
-			srv.Handle(http.MethodGet, "vault/account-group/5/jump-item-association", func(w http.ResponseWriter, _ *http.Request) {
-				_, _ = w.Write([]byte(`{"filter_type":"any_jump_items","criteria":null,"jump_items":[]}`))
-			})
 
 			state, diags := importResource(t, tc.newResource(apimockClient(srv)), "5")
 			require.False(t, diags.HasError(), "%v", diags)

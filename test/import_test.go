@@ -36,6 +36,7 @@ import (
 
 	"terraform-provider-sra/api"
 
+	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
 	"github.com/stretchr/testify/require"
@@ -146,21 +147,23 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 			return nil
 		}
 
-		var outcome deleteOutcome
-		err := errors.New("no attempt made")
-		// Two attempts, each with a new client. The documented failure here is a
-		// 401 from token eviction (see freshClient), for which a fresh mint IS the
-		// remedy -- and without the retry a single unlucky read costs a real
-		// object that the delete would have reclaimed. A retry re-reads and
-		// re-checks ownership, so it cannot delete on stale information.
-		for attempt := 0; attempt < 2 && err != nil; attempt++ {
-			c, cerr := freshClientE(t)
-			if cerr != nil {
-				err = fmt.Errorf("could not build a client: %w", cerr)
-				continue
+		reclaim := func() (deleteOutcome, error) {
+			c, err := freshClientE(t)
+			if err != nil {
+				return deleteOutcome{}, fmt.Errorf("could not build a client: %w", err)
 			}
 			var tmp I
-			outcome, err = deleteIfStill(c, tmp.Endpoint(), id, owned)
+			return deleteIfStill(c, tmp.Endpoint(), id, owned)
+		}
+		// A second attempt, with a new client, on any error. The documented
+		// failure here is a 401 from token eviction (see freshClient), for which a
+		// fresh mint IS the remedy -- and without the retry a single unlucky read
+		// costs a real object that the delete would have reclaimed. A retry
+		// re-reads and re-checks ownership, so it cannot delete on stale
+		// information.
+		outcome, err := reclaim()
+		if err != nil {
+			outcome, err = reclaim()
 		}
 
 		switch {
@@ -449,10 +452,9 @@ func TestImportRoundTrip(t *testing.T) {
 //
 // The plan JSON holds the fixture's private key in clear, so it is never logged.
 func assertOnlySecretPlanned(t *testing.T, opts *terraform.Options, addr string) {
-	// A copy: the helper sets PlanFilePath, which would add -out to every later
-	// plan made with these options.
-	planOpts := *opts
-	plan := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFile(t, &planOpts)
+	quiet := *opts
+	quiet.Logger = logger.Discard
+	plan := planStruct(t, &quiet)
 
 	change, ok := plan.ResourceChangesMap[addr]
 	require.True(t, ok, "%s is missing from the plan", addr)

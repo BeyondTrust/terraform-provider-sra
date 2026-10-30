@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"terraform-provider-sra/api"
@@ -108,7 +109,30 @@ func TestPlanTunnelListenAddress(t *testing.T) {
 	}
 }
 
-// tunnelHarnesses are the tunnel types whose listen address ModifyPlan plans.
+func TestValidateSQLTunnelPlan(t *testing.T) {
+	name, host := types.StringValue("example"), types.StringValue("db.example")
+	id := types.Int64Value(1)
+	for label, tc := range map[string]struct {
+		name, hostname      types.String
+		jumpoint, jumpGroup types.Int64
+		ok                  bool
+	}{
+		"valid":                  {name, host, id, id, true},
+		"zero ids pass":          {name, host, types.Int64Value(0), types.Int64Value(0), true},
+		"unknown ids pass":       {name, host, types.Int64Unknown(), types.Int64Unknown(), true},
+		"empty name":             {types.StringValue(""), host, id, id, false},
+		"null name":              {types.StringNull(), host, id, id, false},
+		"name over 128":          {types.StringValue(strings.Repeat("n", 129)), host, id, id, false},
+		"empty hostname":         {name, types.StringValue(""), id, id, false},
+		"negative jumpoint_id":   {name, host, types.Int64Value(-1), id, false},
+		"negative jump_group_id": {name, host, id, types.Int64Value(-1), false},
+	} {
+		diags := validateSQLTunnelPlan(tc.name, tc.hostname, tc.jumpoint, tc.jumpGroup)
+		assert.Equal(t, tc.ok, !diags.HasError(), "%s: %v", label, diags)
+	}
+}
+
+// tunnelHarnesses are the tunnel types whose listen address tunnelListenAddressPlan plans.
 var tunnelHarnesses = map[string]planHarness{
 	"mysql":      {newMySQLTunnelJumpResource},
 	"postgresql": {newPostgreSQLTunnelJumpResource},
@@ -141,8 +165,8 @@ func tunnelState(t *testing.T, h planHarness, config map[string]any) map[string]
 func TestTunnelListenAddressPlan(t *testing.T) {
 	for name, h := range tunnelHarnesses {
 		t.Run(name, func(t *testing.T) {
-			// Proves ModifyPlan is wired: without it, a Computed attribute with no
-			// default plans as unknown on create.
+			// Proves the plan modifier is wired: without it, a Computed attribute
+			// with no default plans as unknown on create.
 			t.Run("create with the address omitted plans 127.0.0.1", func(t *testing.T) {
 				r := h.plan(t, tunnelConfig(nil), nil)
 				require.Empty(t, r.diags)

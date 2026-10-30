@@ -163,16 +163,12 @@ func TestVaultAccountGroupUpdate_JIAUsesPatchNeverPost(t *testing.T) {
 	assert.False(t, postToJIA, "Update must never POST to /jump-item-association — the endpoint documents no such verb")
 }
 
-// After an import state holds only the id. Read used to skip writing the
-// association whenever state held none, so an import never planned clean.
-func TestVaultAccountGroupRead_NullJIAStateTakesTheAPIValue(t *testing.T) {
+// readAccountGroup runs Read for account group 5 against srv, from a state whose
+// jump_item_association is jia (nil for null, as an import leaves it).
+func readAccountGroup(t *testing.T, srv *apimock.Server, jia *api.AccountGroupJumpItemAssociation) *resource.ReadResponse {
+	t.Helper()
 	ctx := context.Background()
-	srv := apimock.New()
-	defer srv.Close()
 	srv.Rows("vault/account-group", apimock.Row{"id": 5, "name": "grp", "description": ""})
-	srv.Handle(http.MethodGet, "vault/account-group/5/jump-item-association", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"filter_type":"criteria","criteria":{"shared_jump_groups":[3],"host":[],"name":[],"tag":["db"],"comment":[]},"jump_items":[{"id":7,"type":"shell_jump"}]}`))
-	})
 
 	r := &vaultAccountGroupResource{}
 	r.ApiClient = apimockClient(srv)
@@ -191,60 +187,69 @@ func TestVaultAccountGroupRead_NullJIAStateTakesTheAPIValue(t *testing.T) {
 		JumpItemAssociation:    types.ObjectNull(jiaType.AttrTypes),
 		GroupPolicyMemberships: types.SetNull(gpmType.ElemType),
 	}).HasError())
+	if jia != nil {
+		require.False(t, state.SetAttribute(ctx, path.Root("jump_item_association"), jia).HasError())
+	}
 
 	resp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
+	return resp
+}
+
+// After an import state holds only the id. Read used to skip writing the
+// association whenever state held none, so an import never planned clean.
+func TestVaultAccountGroupRead_NullJIAStateTakesTheAPIValue(t *testing.T) {
+	srv := apimock.New()
+	defer srv.Close()
+	srv.Handle(http.MethodGet, "vault/account-group/5/jump-item-association", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"filter_type":"criteria","criteria":{"shared_jump_groups":[3],"host":[],"name":[],"tag":["db"],"comment":[]},"jump_items":[{"id":7,"type":"shell_jump"}]}`))
+	})
+
+	resp := readAccountGroup(t, srv, nil)
 	require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
 
-	var got struct {
-		FilterType string `tfsdk:"filter_type"`
-		Criteria   *struct {
-			SharedJumpGroups []int64  `tfsdk:"shared_jump_groups"`
-			Host             []string `tfsdk:"host"`
-			Name             []string `tfsdk:"name"`
-			Tag              []string `tfsdk:"tag"`
-			Comment          []string `tfsdk:"comment"`
-		} `tfsdk:"criteria"`
-		JumpItems []struct {
-			ID   int64  `tfsdk:"id"`
-			Type string `tfsdk:"type"`
-		} `tfsdk:"jump_items"`
-	}
-	require.False(t, resp.State.GetAttribute(ctx, path.Root("jump_item_association"), &got).HasError())
+	var got api.AccountGroupJumpItemAssociation
+	require.False(t, resp.State.GetAttribute(context.Background(), path.Root("jump_item_association"), &got).HasError())
 	assert.Equal(t, "criteria", got.FilterType)
 	require.NotNil(t, got.Criteria)
-	assert.Equal(t, []int64{3}, got.Criteria.SharedJumpGroups)
+	assert.Equal(t, []int{3}, got.Criteria.SharedJumpGroups)
 	assert.Equal(t, []string{"db"}, got.Criteria.Tag)
-	require.Len(t, got.JumpItems, 1)
-	assert.Equal(t, int64(7), got.JumpItems[0].ID)
+	assert.Equal(t, []api.InjectableJumpItem{{ID: 7, Type: "shell_jump"}}, got.JumpItems)
 }
 
 // An imported association narrower than any_jump_items is reset to it by a
 // configuration that omits the block, widening where the credentials can be
-// injected. The import says so; an any_jump_items association gets no warning.
-func TestVaultAccountGroupImport_WarnsWhenOmittingJIAWouldWidenIt(t *testing.T) {
+// injected. The Read after an import (state null) says so; an any_jump_items
+// association, or one already in state, gets no warning.
+func TestVaultAccountGroupRead_WarnsWhenOmittingAnImportedJIAWouldWidenIt(t *testing.T) {
 	t.Parallel()
 
-	for filterType, warned := range map[string]bool{"any_jump_items": false, "no_jump_items": true, "criteria": true} {
-		t.Run(filterType, func(t *testing.T) {
+	inState := &api.AccountGroupJumpItemAssociation{FilterType: "no_jump_items", JumpItems: []api.InjectableJumpItem{}}
+	for name, tc := range map[string]struct {
+		filterType string
+		state      *api.AccountGroupJumpItemAssociation
+		warned     bool
+	}{
+		"any_jump_items":   {"any_jump_items", nil, false},
+		"no_jump_items":    {"no_jump_items", nil, true},
+		"criteria":         {"criteria", nil, true},
+		"already in state": {"no_jump_items", inState, false},
+	} {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			srv := apimock.New()
 			defer srv.Close()
-			srv.Rows("group-policy")
 			srv.Handle(http.MethodGet, "vault/account-group/5/jump-item-association", func(w http.ResponseWriter, _ *http.Request) {
-				_, _ = w.Write([]byte(`{"filter_type":"` + filterType + `","criteria":null,"jump_items":[]}`))
+				_, _ = w.Write([]byte(`{"filter_type":"` + tc.filterType + `","criteria":null,"jump_items":[]}`))
 			})
 
-			r := &vaultAccountGroupResource{}
-			r.ApiClient = apimockClient(srv)
-			_, diags := importResource(t, r, "5")
-			require.False(t, diags.HasError(), "%v", diags)
-
-			if warned {
-				require.Len(t, diags.Warnings(), 1)
-				assert.Contains(t, diags.Warnings()[0].Detail(), "resets it to any_jump_items")
+			resp := readAccountGroup(t, srv, tc.state)
+			require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+			if tc.warned {
+				require.Len(t, resp.Diagnostics.Warnings(), 1)
+				assert.Contains(t, resp.Diagnostics.Warnings()[0].Detail(), "resets it to any_jump_items")
 			} else {
-				assert.Empty(t, diags.Warnings())
+				assert.Empty(t, resp.Diagnostics.Warnings())
 			}
 		})
 	}

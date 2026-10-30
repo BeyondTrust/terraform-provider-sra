@@ -16,7 +16,8 @@
 //
 //	srv := apimock.New()
 //	defer srv.Close()
-//	c := &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client()}
+//	c := &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client(),
+//		ListRetryBackoff: []time.Duration{0, 0}}
 package apimock
 
 import (
@@ -223,7 +224,7 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request, c *Collection
 	}
 	match := c.Match
 	if match == nil {
-		match = fieldsEqual
+		match = FieldsEqual
 	}
 	rows := []Row{}
 	for _, row := range c.Rows {
@@ -249,13 +250,35 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request, c *Collection
 	writeJSON(w, http.StatusOK, header, rows[start:end])
 }
 
-func fieldsEqual(row Row, filter url.Values) bool {
+// FieldsEqual is the default Collection.Match: each filter equals the row field
+// of the same name, and a filter naming a field the row does not have is
+// ignored.
+func FieldsEqual(row Row, filter url.Values) bool {
 	for k := range filter {
 		if v, ok := row[k]; ok && fmt.Sprint(v) != filter.Get(k) {
 			return false
 		}
 	}
 	return true
+}
+
+// WritePage answers a collection GET, from a Handle override, with rows as one
+// complete page.
+func WritePage(w http.ResponseWriter, rows []Row) {
+	WritePageClaiming(w, rows, len(rows), 1)
+}
+
+// WritePageClaiming answers a collection GET with rows and pagination headers
+// that claim total rows over lastPage pages, for a test whose list must not add
+// up.
+func WritePageClaiming(w http.ResponseWriter, rows []Row, total, lastPage int) {
+	if rows == nil {
+		rows = []Row{}
+	}
+	header := http.Header{}
+	header.Set("X-BT-Pagination-Last-Page", strconv.Itoa(lastPage))
+	header.Set("X-BT-Pagination-Total", strconv.Itoa(total))
+	writeJSON(w, http.StatusOK, header, rows)
 }
 
 // clampedInt parses s, using def when it is absent or not a number, and clamps

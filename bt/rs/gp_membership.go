@@ -11,15 +11,21 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// GPMembership is the constraint for GP types used with the membership helpers.
-type GPMembership interface {
+// GPMembership is a group policy membership row: one member (EntityID) of one
+// group policy. The With methods return a copy, so T stays a plain value type.
+type GPMembership[T any] interface {
 	comparable
 	api.APIResource
+	EntityID() int
+	WithEntityID(int) T
+	GroupPolicyIDValue() string
+	WithGroupPolicyID(string) T
 }
 
 // createdOrSent returns the created membership, or — when api.CreateItem
@@ -59,16 +65,13 @@ func provisionGroupPolicies(
 // CreateGPMemberships reads group policy memberships from the plan, creates
 // each one via the API, provisions the affected group policies, and writes
 // the results to state.
-func CreateGPMemberships[T GPMembership](
+func CreateGPMemberships[T GPMembership[T]](
 	ctx context.Context,
 	client *api.APIClient,
 	plan tfsdk.Plan,
 	state *tfsdk.State,
 	diags *diag.Diagnostics,
 	entityID int,
-	setEntityID func(*T, int),
-	getGroupPolicyID func(*T) *string,
-	setGroupPolicyID func(*T, *string),
 	mu *sync.Mutex,
 ) {
 	var tfGPList types.Set
@@ -103,7 +106,7 @@ func CreateGPMemberships[T GPMembership](
 	results := []T{}
 	needsProvision := mapset.NewSet[string]()
 	for _, m := range toAdd.ToSlice() {
-		setEntityID(&m, entityID)
+		m = m.WithEntityID(entityID)
 		item, err := api.CreateItem(client, m)
 
 		if err != nil {
@@ -114,10 +117,8 @@ func CreateGPMemberships[T GPMembership](
 			return
 		}
 
-		result := createdOrSent(item, m)
-		setGroupPolicyID(&result, getGroupPolicyID(&m))
-		results = append(results, result)
-		needsProvision.Add(*getGroupPolicyID(&m))
+		results = append(results, createdOrSent(item, m).WithGroupPolicyID(m.GroupPolicyIDValue()))
+		needsProvision.Add(m.GroupPolicyIDValue())
 	}
 
 	provisionGroupPolicies(client, diags, needsProvision)
@@ -136,15 +137,13 @@ func CreateGPMemberships[T GPMembership](
 // it from the API, and writes the updated list back to state. A membership
 // the API no longer reports (or 404s) is dropped from state as drift; any
 // other API error aborts with a diagnostic.
-func ReadGPMemberships[T GPMembership](
+func ReadGPMemberships[T GPMembership[T]](
 	ctx context.Context,
 	client *api.APIClient,
 	state tfsdk.State,
 	respState *tfsdk.State,
 	diags *diag.Diagnostics,
 	entityID int,
-	getGroupPolicyID func(*T) *string,
-	setGroupPolicyID func(*T, *string),
 ) {
 	var tfGPList types.Set
 	d := state.GetAttribute(ctx, path.Root("group_policy_memberships"), &tfGPList)
@@ -173,7 +172,7 @@ func ReadGPMemberships[T GPMembership](
 	// surfaces as drift instead of stale state.
 	refreshed := make([]T, 0, len(gpList))
 	for _, m := range gpList {
-		item, found, err := fetchGPMembership(client, m, entityID, getGroupPolicyID, setGroupPolicyID)
+		item, found, err := fetchGPMembership(client, m, entityID)
 		if err != nil {
 			diags.AddError("Error reading group policy membership", "Unexpected error "+err.Error())
 			return
@@ -196,15 +195,7 @@ func ReadGPMemberships[T GPMembership](
 
 // fetchGPMembership reads entityID's membership of m's group policy. found is
 // false when the entity is no longer a member.
-func fetchGPMembership[T GPMembership](
-	client *api.APIClient,
-	m T,
-	entityID int,
-	getGroupPolicyID func(*T) *string,
-	setGroupPolicyID func(*T, *string),
-) (item T, found bool, err error) {
-	gpId := *getGroupPolicyID(&m)
-
+func fetchGPMembership[T GPMembership[T]](client *api.APIClient, m T, entityID int) (item T, found bool, err error) {
 	endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
 	items, err := api.ListItemsEndpoint[T](client, endpoint)
 	if err != nil {
@@ -223,122 +214,77 @@ func fetchGPMembership[T GPMembership](
 		return item, false, nil
 	}
 
-	item = items[0]
-	setGroupPolicyID(&item, &gpId)
-	return item, true, nil
+	return items[0].WithGroupPolicyID(m.GroupPolicyIDValue()), true, nil
 }
 
-// gpRelation describes one kind of group policy membership: how to address a
-// group policy's member index for it, and which member a row names.
-type gpRelation[T GPMembership] struct {
-	name     string
-	entityID func(*T) int
-	setGP    func(*T, *string)
+// perClient memoises one value per API client, error included. A provider
+// process has one client; the tests build many.
+type perClient[V any] struct {
+	mu sync.Mutex
+	m  map[*api.APIClient]func() (V, error)
 }
 
-// endpoint is the group policy's member index for this relation, built by the
-// model's own Endpoint() so the path (and its escaping) is stated once.
-func (r gpRelation[T]) endpoint(gpID string) string {
-	var m T
-	r.setGP(&m, &gpID)
-	return m.Endpoint()
-}
-
-func derefID(id *int) int {
-	if id == nil {
-		return 0
+func (p *perClient[V]) get(client *api.APIClient, build func() (V, error)) (V, error) {
+	p.mu.Lock()
+	f, ok := p.m[client]
+	if !ok {
+		f = sync.OnceValues(build)
+		if p.m == nil {
+			p.m = map[*api.APIClient]func() (V, error){}
+		}
+		p.m[client] = f
 	}
-	return *id
+	p.mu.Unlock()
+	return f()
 }
 
-// relationFor is the table of membership kinds, keyed by type, so a caller
-// names the relation by the type it already uses and cannot pass a mismatched
-// endpoint.
-func relationFor[T GPMembership]() (gpRelation[T], bool) {
-	var rel any
-	switch any(*new(T)).(type) {
-	case api.GroupPolicyJumpGroup:
-		rel = gpRelation[api.GroupPolicyJumpGroup]{"jump-group",
-			func(m *api.GroupPolicyJumpGroup) int { return derefID(m.JumpGroupID) },
-			func(m *api.GroupPolicyJumpGroup, gp *string) { m.GroupPolicyID = gp }}
-	case api.GroupPolicyJumpoint:
-		rel = gpRelation[api.GroupPolicyJumpoint]{"jumpoint",
-			func(m *api.GroupPolicyJumpoint) int { return derefID(m.JumpointID) },
-			func(m *api.GroupPolicyJumpoint, gp *string) { m.GroupPolicyID = gp }}
-	case api.GroupPolicyVaultAccountGroup:
-		rel = gpRelation[api.GroupPolicyVaultAccountGroup]{"vault-account-group",
-			func(m *api.GroupPolicyVaultAccountGroup) int { return derefID(m.AccountGroupID) },
-			func(m *api.GroupPolicyVaultAccountGroup, gp *string) { m.GroupPolicyID = gp }}
-	case api.GroupPolicyVaultAccount:
-		rel = gpRelation[api.GroupPolicyVaultAccount]{"vault-account",
-			func(m *api.GroupPolicyVaultAccount) int { return derefID(m.AccountID) },
-			func(m *api.GroupPolicyVaultAccount, gp *string) { m.GroupPolicyID = gp }}
-	}
-	r, ok := rel.(gpRelation[T])
-	return r, ok
-}
-
-// gpMembershipIndex maps each member to its memberships, for one relation,
-// across every group policy. The API has no "memberships of object X" endpoint,
-// so import discovery lists them all instead of probing every group policy per
-// imported object: ⌈G/100⌉ + Σ max(1, ⌈mᵢ/100⌉) calls per relation, once per
-// provider process, rather than R×G.
+// gpMembershipIndex maps each member to its memberships, for one membership
+// type, across every group policy. The API has no "memberships of object X"
+// endpoint, so import discovery lists them all instead of probing every group
+// policy per imported object: ⌈G/100⌉ + Σ max(1, ⌈mᵢ/100⌉) calls per type, once
+// per provider process, rather than R×G. The group policy list itself is read
+// once and shared by all four types.
 //
-// Only ImportState reads it. Refresh never does, so a stale index cannot affect
-// drift detection.
-type gpMembershipIndex struct {
-	once     sync.Once
-	byEntity any // map[int][]T for the relation's T
-	err      error
-}
-
-type gpIndexKey struct {
-	client   *api.APIClient
-	relation string
+// The result, error included, is kept for the life of the provider process: one
+// terraform plan with many import blocks shares it, and a failed build is not
+// repeated for every import in the run. Only ImportState reads it. Refresh never
+// does, so a stale index cannot affect drift detection.
+type gpMembershipIndex[T GPMembership[T]] struct {
+	perClient[map[int][]T]
 }
 
 var (
-	gpIndexesMu sync.Mutex
-	gpIndexes   = map[gpIndexKey]*gpMembershipIndex{}
+	groupPolicyLists perClient[[]api.GroupPolicy]
+
+	jumpGroupMemberIndex    gpMembershipIndex[api.GroupPolicyJumpGroup]
+	jumpointMemberIndex     gpMembershipIndex[api.GroupPolicyJumpoint]
+	accountGroupMemberIndex gpMembershipIndex[api.GroupPolicyVaultAccountGroup]
+	accountMemberIndex      gpMembershipIndex[api.GroupPolicyVaultAccount]
 )
 
-// gpMembershipsOf returns entityID's memberships of every group policy. The
-// index is built on first use and its result, error included, is kept for the
-// life of the provider process: one terraform plan with many import blocks
-// shares it, and a failed build is not repeated for every import in the run.
-func gpMembershipsOf[T GPMembership](client *api.APIClient, rel gpRelation[T], entityID int) ([]T, error) {
-	gpIndexesMu.Lock()
-	key := gpIndexKey{client, rel.name}
-	idx, ok := gpIndexes[key]
-	if !ok {
-		idx = &gpMembershipIndex{}
-		gpIndexes[key] = idx
-	}
-	gpIndexesMu.Unlock()
-
-	idx.once.Do(func() {
-		idx.byEntity, idx.err = buildGPMembershipIndex(client, rel)
-	})
-	if idx.err != nil {
-		return nil, idx.err
-	}
-	return idx.byEntity.(map[int][]T)[entityID], nil
+// membershipsOf returns entityID's memberships of every group policy.
+func (idx *gpMembershipIndex[T]) membershipsOf(client *api.APIClient, entityID int) ([]T, error) {
+	byEntity, err := idx.get(client, func() (map[int][]T, error) { return buildGPMembershipIndex[T](client) })
+	return byEntity[entityID], err
 }
 
-func buildGPMembershipIndex[T GPMembership](client *api.APIClient, rel gpRelation[T]) (map[int][]T, error) {
-	gps, err := api.ListAllItems[api.GroupPolicy](client, nil)
+func buildGPMembershipIndex[T GPMembership[T]](client *api.APIClient) (map[int][]T, error) {
+	gps, err := groupPolicyLists.get(client, func() ([]api.GroupPolicy, error) {
+		return api.ListAllItems[api.GroupPolicy](client, nil)
+	})
 	if err != nil {
 		return nil, err
 	}
 
+	var zero T
 	byEntity := map[int][]T{}
-	key := func(m *T) string { return strconv.Itoa(rel.entityID(m)) }
+	key := func(m *T) string { return strconv.Itoa((*m).EntityID()) }
 	for _, gp := range gps {
 		if gp.ID == nil {
 			continue
 		}
 		gpID := strconv.Itoa(*gp.ID)
-		rows, err := api.ListAllItemsEndpoint(client, rel.endpoint(gpID), nil, key)
+		rows, err := api.ListAllItemsEndpoint(client, zero.WithGroupPolicyID(gpID).Endpoint(), nil, key)
 		if api.IsNotFound(err) {
 			// Deleted between the list and this fetch: it has no members.
 			continue
@@ -347,64 +293,61 @@ func buildGPMembershipIndex[T GPMembership](client *api.APIClient, rel gpRelatio
 			return nil, err
 		}
 		for _, row := range rows {
-			rel.setGP(&row, &gpID)
-			byEntity[rel.entityID(&row)] = append(byEntity[rel.entityID(&row)], row)
+			byEntity[row.EntityID()] = append(byEntity[row.EntityID()], row.WithGroupPolicyID(gpID))
 		}
 	}
 	return byEntity, nil
 }
 
-// ImportGPMemberships writes the imported object's group policy memberships
-// into state. Read refreshes only the memberships already in state, so without
-// this an import leaves the attribute null and the next apply fails creating
-// memberships that already exist.
+// importWithGPMemberships imports by ID, then writes the imported object's group
+// policy memberships into state. Read refreshes only the memberships already in
+// state, so without this an import leaves the attribute null and the next apply
+// fails creating memberships that already exist.
 //
 // Nothing found leaves the attribute null, which is what a configuration that
 // declares no memberships plans. An API account that cannot list group policies
 // gets a warning and a null attribute. Any other failure, including a list that
 // kept changing while it was read, fails the import rather than recording a
 // partial set that the next apply would act on.
-func ImportGPMemberships[T GPMembership](
+func importWithGPMemberships[TApi api.APIResource, TTf any, T GPMembership[T]](
 	ctx context.Context,
-	client *api.APIClient,
-	importID string,
-	state *tfsdk.State,
-	diags *diag.Diagnostics,
+	r *apiResource[TApi, TTf],
+	index *gpMembershipIndex[T],
+	req resource.ImportStateRequest,
+	resp *resource.ImportStateResponse,
 ) {
-	rel, ok := relationFor[T]()
-	if !ok {
-		diags.AddError("Unsupported group policy membership type", fmt.Sprintf("No group policy relation is defined for %T", *new(T)))
+	r.ImportState(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	entityID, err := strconv.Atoi(importID)
+	entityID, err := strconv.Atoi(req.ID)
 	if err != nil {
-		diags.AddError("Invalid import ID", fmt.Sprintf("Could not parse import ID [%s] as an integer: %s", importID, err.Error()))
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Could not parse import ID [%s] as an integer: %s", req.ID, err.Error()))
 		return
 	}
 
-	members, err := gpMembershipsOf(client, rel, entityID)
+	members, err := index.membershipsOf(r.ApiClient, entityID)
 	if api.HasStatus(err, http.StatusForbidden) {
-		diags.AddWarning(
+		resp.Diagnostics.AddWarning(
 			"group_policy_memberships were not read",
 			"This API account can't list group policies, so the import leaves group_policy_memberships unset.",
 		)
 		return
 	}
 	if err != nil {
-		diags.AddError("Error reading group policy memberships", "Could not discover the imported object's group policy memberships: "+err.Error())
+		resp.Diagnostics.AddError("Error reading group policy memberships", "Could not discover the imported object's group policy memberships: "+err.Error())
 		return
 	}
 	if len(members) == 0 {
 		return
 	}
 
-	d := state.SetAttribute(ctx, path.Root("group_policy_memberships"), members)
-	diags.Append(d...)
-	if diags.HasError() {
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_policy_memberships"), members)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	diags.AddWarning(
+	resp.Diagnostics.AddWarning(
 		fmt.Sprintf("Imported %d group policy memberships", len(members)),
 		"A configuration that omits group_policy_memberships will remove them, revoking that access. "+
 			"Declare them, generate the configuration with -generate-config-out, "+
@@ -415,7 +358,7 @@ func ImportGPMemberships[T GPMembership](
 // UpdateGPMemberships diffs the plan and state group policy memberships,
 // removes stale ones, creates new ones, provisions affected group policies,
 // and writes the combined results to state.
-func UpdateGPMemberships[T GPMembership](
+func UpdateGPMemberships[T GPMembership[T]](
 	ctx context.Context,
 	client *api.APIClient,
 	plan tfsdk.Plan,
@@ -423,9 +366,6 @@ func UpdateGPMemberships[T GPMembership](
 	respState *tfsdk.State,
 	diags *diag.Diagnostics,
 	entityID int,
-	setEntityID func(*T, int),
-	getGroupPolicyID func(*T) *string,
-	setGroupPolicyID func(*T, *string),
 	diffFunc func([]T, []T) (mapset.Set[T], mapset.Set[T], mapset.Set[T]),
 	mu *sync.Mutex,
 ) {
@@ -481,12 +421,12 @@ func UpdateGPMemberships[T GPMembership](
 
 	needsProvision := mapset.NewSet[string]()
 	for _, m := range toRemove.ToSlice() {
-		setEntityID(&m, entityID)
+		m = m.WithEntityID(entityID)
 		tflog.Trace(ctx, "🌈 Deleting item", map[string]interface{}{
 			"item": m,
 		})
 		endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
-		err := api.DeleteItemEndpoint[T](client, endpoint)
+		err := api.DeleteItemEndpoint(client, endpoint)
 
 		if err != nil {
 			diags.AddError(
@@ -495,12 +435,12 @@ func UpdateGPMemberships[T GPMembership](
 			)
 			return
 		}
-		needsProvision.Add(*getGroupPolicyID(&m))
+		needsProvision.Add(m.GroupPolicyIDValue())
 	}
 
 	results := noChange.ToSlice()
 	for _, m := range toAdd.ToSlice() {
-		setEntityID(&m, entityID)
+		m = m.WithEntityID(entityID)
 		item, err := api.CreateItem(client, m)
 
 		if err != nil {
@@ -511,10 +451,8 @@ func UpdateGPMemberships[T GPMembership](
 			return
 		}
 
-		result := createdOrSent(item, m)
-		setGroupPolicyID(&result, getGroupPolicyID(&m))
-		results = append(results, result)
-		needsProvision.Add(*getGroupPolicyID(&m))
+		results = append(results, createdOrSent(item, m).WithGroupPolicyID(m.GroupPolicyIDValue()))
+		needsProvision.Add(m.GroupPolicyIDValue())
 	}
 
 	provisionGroupPolicies(client, diags, needsProvision)

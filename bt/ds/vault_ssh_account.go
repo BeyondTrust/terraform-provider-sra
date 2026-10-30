@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -119,39 +118,35 @@ func (d *vaultSSHAccountDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	var tfId basetypes.StringValue
+	var id int
 	if state.ID.IsNull() || state.ID.IsUnknown() {
 		filter := api.MakeFilterMap(state)
-		// vault/account lists every account type; without this, items[0] can be
-		// a username/password or token account.
+		// vault/account lists every account type; without this, the first row
+		// can be a username/password or token account.
 		filter["type"] = "ssh"
+		// Only the first match is used.
+		filter["per_page"] = "1"
 		tflog.Debug(ctx, "🙀 list with filter", map[string]interface{}{
 			"data": filter,
 		})
 
-		// One page: only the first match is used.
-		items := d.doFilteredRead(ctx, req, resp, filter, false)
-		if items == nil {
+		rows, err := api.ListItems[api.VaultSSHAccount](d.apiClient, filter)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to list SSH accounts", err.Error())
 			return
 		}
-		if len(items) == 0 {
+		if len(rows) == 0 || rows[0].ID == nil {
 			resp.Diagnostics.AddError(
 				"No SSH account matched",
 				"No vault SSH account matches the given filters (name, account_group_id, include_personal).",
 			)
 			return
 		}
-
-		tfId = items[0].ID
+		id = *rows[0].ID
 	} else {
-		tfId, diags = state.ID.ToStringValue(ctx)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+		id, _ = strconv.Atoi(state.ID.ValueString())
 	}
 
-	id, _ := strconv.Atoi(tfId.ValueString())
 	item, err := api.GetItem[api.VaultSSHAccount](d.apiClient, &id)
 	if err != nil {
 		resp.Diagnostics.AddError(

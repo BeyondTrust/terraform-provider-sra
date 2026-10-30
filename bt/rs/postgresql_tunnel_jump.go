@@ -6,7 +6,6 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -44,10 +43,11 @@ func (r *postgresqlTunnelJumpResource) Schema(_ context.Context, _ resource.Sche
 			"jump_policy_id":    schema.Int64Attribute{Optional: true},
 			"session_policy_id": schema.Int64Attribute{Optional: true},
 			"tunnel_listen_address": schema.StringAttribute{
-				Description: tunnelListenAddressDescription,
-				Optional:    true,
-				Computed:    true,
-				Validators:  []validator.String{tunnelListenAddressValidator{allowEmpty: true}},
+				Description:   tunnelListenAddressDescription,
+				Optional:      true,
+				Computed:      true,
+				Validators:    []validator.String{tunnelListenAddressValidator{allowEmpty: true}},
+				PlanModifiers: []planmodifier.String{tunnelListenAddressPlan{}},
 			},
 			"username": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
 			"database": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
@@ -55,77 +55,20 @@ func (r *postgresqlTunnelJumpResource) Schema(_ context.Context, _ resource.Sche
 	}
 }
 
+// ModifyPlan validates the planned name, hostname and ids.
 func (r *postgresqlTunnelJumpResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	tflog.Debug(ctx, "Starting plan modification (postgresql)")
 	if req.Plan.Raw.IsNull() {
-		tflog.Debug(ctx, "No plan to modify")
 		return
 	}
-	var plan, config, state models.PostgreSQLTunnelJump
+	var plan models.PostgreSQLTunnelJump
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-	if !req.State.Raw.IsNull() {
-		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	}
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	plan.TunnelListenAddress = planTunnelListenAddress(config.TunnelListenAddress, state.TunnelListenAddress)
-
-	// apply validation/defaulting logic
-	diags := applyPostgresDefaultsAndValidate(&plan)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	diags = resp.Plan.Set(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	tflog.Debug(ctx, "Finished modification (postgresql)")
+	resp.Diagnostics.Append(validateSQLTunnelPlan(plan.Name, plan.Hostname, plan.JumpointID, plan.JumpGroupID)...)
 }
 
 func (d *postgresqlTunnelJumpResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = fmt.Sprintf("%s_postgresql_tunnel_jump", req.ProviderTypeName)
 	tflog.Debug(ctx, fmt.Sprintf("🥃 Registered datasource name [%s]", resp.TypeName))
-}
-
-// applyPostgresDefaultsAndValidate applies defaults and returns diagnostics similar to
-// the logic used during ModifyPlan. This is separated to make unit testing easier.
-func applyPostgresDefaultsAndValidate(plan *models.PostgreSQLTunnelJump) diag.Diagnostics {
-	var diags diag.Diagnostics
-	// name: required, length 1..128
-	if plan.Name.IsNull() || plan.Name.ValueString() == "" {
-		diags.Append(diag.NewErrorDiagnostic("name is required", "The name field is required and must be 1..128 characters"))
-		return diags
-	}
-	if l := len(plan.Name.ValueString()); l < 1 || l > 128 {
-		diags.Append(diag.NewErrorDiagnostic("name length", "The name must be between 1 and 128 characters"))
-	}
-
-	// hostname length
-	if !plan.Hostname.IsNull() {
-		if l := len(plan.Hostname.ValueString()); l < 1 || l > 128 {
-			diags.Append(diag.NewErrorDiagnostic("hostname length", "The hostname must be between 1 and 128 characters"))
-		}
-	}
-
-	// jumpoint_id and jump_group_id must be >= 1
-	// jumpoint_id and jump_group_id must be >= 1 when known and negative values are invalid.
-	// Accept 0 during planning because module outputs or unknown values can appear as 0 in the
-	// plan; the real server-side validation will run on apply.
-	if !plan.JumpointID.IsNull() && !plan.JumpointID.IsUnknown() {
-		if plan.JumpointID.ValueInt64() < 0 {
-			diags.Append(diag.NewErrorDiagnostic("jumpoint_id invalid", "jumpoint_id must be >= 0"))
-		}
-	}
-	if !plan.JumpGroupID.IsNull() && !plan.JumpGroupID.IsUnknown() {
-		if plan.JumpGroupID.ValueInt64() < 0 {
-			diags.Append(diag.NewErrorDiagnostic("jump_group_id invalid", "jump_group_id must be >= 0"))
-		}
-	}
-	return diags
 }

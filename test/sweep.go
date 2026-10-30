@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"regexp"
 	"sort"
@@ -190,7 +191,7 @@ func parseLegacyIDs(r io.Reader, now time.Time) (map[sweepKey]bool, error) {
 
 	known := map[string]bool{}
 	for _, st := range sweepTypes {
-		known[st.name] = sweepPhase(st.kind) >= 0
+		known[st.name] = st.phase != neverSwept
 	}
 	ids := map[sweepKey]bool{}
 	for line := 2; sc.Scan(); line++ {
@@ -204,11 +205,8 @@ func parseLegacyIDs(r io.Reader, now time.Time) (map[sweepKey]bool, error) {
 	return ids, sc.Err()
 }
 
-// sweepRow is one object as the list endpoints return it. The Endpoint method
-// exists only so api.GetItemEndpoint will decode into it.
+// sweepRow is one object as the list endpoints return it.
 type sweepRow map[string]any
-
-func (sweepRow) Endpoint() string { return "" }
 
 func (r sweepRow) str(k string) string {
 	if v, ok := r[k].(string); ok {
@@ -255,57 +253,116 @@ type sweepType struct {
 	endpoint string
 	query    map[string]string
 	kind     sweepKind
+	// phase is the type's place in the deletion order: contents before their
+	// containers, and account groups before the policies they might use.
+	// neverSwept types are listed only for their references.
+	phase int
 	// groupField and jumpointField name the item's jump group and jumpoint
 	// references, which oracle calls asset_group_id and gateway_id.
 	groupField, groupTypeField, jumpointField string
 }
 
-func jumpItemType(name, path string) sweepType {
-	return sweepType{name: name, endpoint: "jump-item/" + path, kind: kindJumpItem,
+const neverSwept = -1
+
+func jumpItemType(name string, item api.APIResource) sweepType {
+	return sweepType{name: name, endpoint: item.Endpoint(), kind: kindJumpItem, phase: 3,
 		groupField: "jump_group_id", groupTypeField: "jump_group_type", jumpointField: "jumpoint_id"}
 }
 
-// sweepTypes in deletion order: contents before their containers, and
-// account groups before the policies they might use.
+// sweepTypes in phase order, which classify and deleteEligible walk them in;
+// TestSweepOrder holds them there.
 var sweepTypes = []sweepType{
 	// Personal accounts are hidden unless asked for, and an account policy's
 	// delete re-points them too.
-	{name: "vault_account", endpoint: "vault/account", query: map[string]string{"include_personal": "true"}, kind: kindAccount},
-	{name: "vault_account_group", endpoint: "vault/account-group", kind: kindAccountGroup},
-	{name: "vault_account_policy", endpoint: "vault/account-policy", kind: kindPolicy},
-	jumpItemType("shell_jump", "shell-jump"),
-	jumpItemType("remote_rdp", "remote-rdp"),
-	jumpItemType("remote_vnc", "remote-vnc"),
-	jumpItemType("protocol_tunnel_jump", "protocol-tunnel-jump"),
-	jumpItemType("postgresql_tunnel_jump", "psql-tunnel-jump"),
-	jumpItemType("mysql_tunnel_jump", "mysql-tunnel-jump"),
-	jumpItemType("mongodb_tunnel_jump", "mongodb-tunnel-jump"),
-	{name: "oracle_tunnel_jump", endpoint: "jump-item/oracle-tunnel-jump", kind: kindJumpItem,
+	{name: "vault_account", endpoint: api.VaultAccount{}.Endpoint(), query: map[string]string{"include_personal": "true"}, kind: kindAccount, phase: 0},
+	{name: "vault_account_group", endpoint: api.VaultAccountGroup{}.Endpoint(), kind: kindAccountGroup, phase: 1},
+	{name: "vault_account_policy", endpoint: api.VaultAccountPolicy{}.Endpoint(), kind: kindPolicy, phase: 2},
+	jumpItemType("shell_jump", api.ShellJump{}),
+	jumpItemType("remote_rdp", api.RemoteRDP{}),
+	jumpItemType("remote_vnc", api.RemoteVNC{}),
+	jumpItemType("protocol_tunnel_jump", api.ProtocolTunnelJump{}),
+	jumpItemType("postgresql_tunnel_jump", api.PostgreSQLTunnelJump{}),
+	jumpItemType("mysql_tunnel_jump", api.MySQLTunnelJump{}),
+	jumpItemType("mongodb_tunnel_jump", api.MongodbTunnelJump{}),
+	{name: "oracle_tunnel_jump", endpoint: api.OracleTunnelJump{}.Endpoint(), kind: kindJumpItem, phase: 3,
 		groupField: "asset_group_id", groupTypeField: "asset_group_type", jumpointField: "gateway_id"},
-	jumpItemType("network_tunnel_jump", "network-tunnel-jump"),
-	jumpItemType("web_jump", "web-jump"),
-	{name: "jump_client_installer", endpoint: "jump-client/installer", kind: kindInstaller,
+	jumpItemType("network_tunnel_jump", api.NetworkTunnelJump{}),
+	jumpItemType("web_jump", api.WebJump{}),
+	{name: "jump_client_installer", endpoint: api.JumpClientInstaller{}.Endpoint(), kind: kindInstaller, phase: 3,
 		groupField: "jump_group_id", groupTypeField: "jump_group_type"},
-	{name: "jump_group", endpoint: "jump-group", kind: kindJumpGroup},
-	{name: "jumpoint", endpoint: "jumpoint", kind: kindJumpoint},
-	{name: "jump_client", endpoint: "jump-client", kind: kindJumpClient, groupField: "jump_group_id", groupTypeField: "jump_group_type"},
+	{name: "jump_group", endpoint: api.JumpGroup{}.Endpoint(), kind: kindJumpGroup, phase: 4},
+	{name: "jumpoint", endpoint: api.Jumpoint{}.Endpoint(), kind: kindJumpoint, phase: 4},
+	// The provider has no jump client model.
+	{name: "jump_client", endpoint: "jump-client", kind: kindJumpClient, phase: neverSwept, groupField: "jump_group_id", groupTypeField: "jump_group_type"},
 }
 
-// sweepPhase is a type's place in the deletion order.
-func sweepPhase(k sweepKind) int {
-	switch k {
-	case kindAccount:
-		return 0
+// sweepRef is one way objects of another type can point at a container. The
+// classify pass checks it against the collected lists; each delete checks it
+// again against the appliance as it is then.
+type sweepRef struct {
+	from string // the referencing type
+	// field is from's field that names the container: its id, or its code_name
+	// when byCode is set.
+	field  string
+	byCode bool
+	// filter: from's list endpoint filters on field, so the live check asks for
+	// just the referencing rows. Any row it returns is a reference.
+	filter bool
+	verb   string // the reason's wording: "contains", "used by", "criteria of"
+
+	// sharedJumpGroups, when set, replaces field: it reads the jump groups an
+	// object's jump item association names in criteria.shared_jump_groups.
+	// standalone limits it to accounts in the Default group, since the others
+	// inherit their group's association.
+	sharedJumpGroups func(c *api.APIClient, id int) ([]int, error)
+	standalone       bool
+}
+
+// references lists what may point at a container of type st.
+func references(st *sweepType) []sweepRef {
+	switch st.kind {
 	case kindAccountGroup:
-		return 1
+		return []sweepRef{{from: "vault_account", field: "account_group_id", filter: true, verb: "contains"}}
 	case kindPolicy:
-		return 2
-	case kindJumpItem, kindInstaller:
-		return 3
+		return []sweepRef{
+			{from: "vault_account", field: "account_policy", byCode: true, verb: "used by"},
+			{from: "vault_account_group", field: "account_policy", byCode: true, verb: "used by"},
+		}
 	case kindJumpGroup, kindJumpoint:
-		return 4
+		var refs []sweepRef
+		for _, from := range typesOfKind(kindJumpItem, kindInstaller, kindJumpClient) {
+			field := from.groupField
+			if st.kind == kindJumpoint {
+				field = from.jumpointField
+			}
+			if field != "" {
+				refs = append(refs, sweepRef{from: from.name, field: field, filter: true, verb: "used by"})
+			}
+		}
+		if st.kind == kindJumpGroup {
+			refs = append(refs,
+				sweepRef{from: "vault_account_group", verb: "criteria of", sharedJumpGroups: accountGroupSharedJumpGroups},
+				sweepRef{from: "vault_account", verb: "criteria of", sharedJumpGroups: accountSharedJumpGroups, standalone: true})
+		}
+		return refs
 	}
-	return -1 // never deleted
+	return nil
+}
+
+func accountGroupSharedJumpGroups(c *api.APIClient, id int) ([]int, error) {
+	jia, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](c, api.AccountGroupJumpItemAssociation{ID: &id}.Endpoint())
+	if err != nil || jia.Criteria == nil {
+		return nil, err
+	}
+	return jia.Criteria.SharedJumpGroups, nil
+}
+
+func accountSharedJumpGroups(c *api.APIClient, id int) ([]int, error) {
+	jia, err := api.GetItemEndpoint[api.AccountJumpItemAssociation](c, api.AccountJumpItemAssociation{ID: &id}.Endpoint())
+	if err != nil || jia.Criteria == nil {
+		return nil, err
+	}
+	return jia.Criteria.SharedJumpGroups, nil
 }
 
 // --- matchers ---------------------------------------------------------------
@@ -328,8 +385,6 @@ var fixtureNames = []string{
 	"fun_jump",
 }
 
-const markerToken = `(e2e[0-9a-z]{12}2?|[0-9a-z]{6}2?)`
-
 var (
 	fixtureNameAlt = func() string {
 		q := make([]string, len(fixtureNames))
@@ -344,10 +399,9 @@ var (
 	policyNameRE       = regexp.MustCompile(`^` + fixtureNameAlt + ` ` + markerToken + `(?: False| Mixed)?$`)
 	accountNameRE      = regexp.MustCompile(`^(?:Group UP|Standalone UP(?: GP| JIA| Both)?|Group Key|Standalone Key(?: GP| JIA| Both| Any| None)?|Standalone CA Key|Standalone CA|Group TOKEN|Standalone TOKEN(?: GP| JIA| Both)?) ` +
 		fixtureNameAlt + ` ` + markerToken + `$`)
-	jumpGroupNameRE = regexp.MustCompile(`^Test JG( GP)? ` + markerToken + `$`)
-	jumpointNameRE  = regexp.MustCompile(`^Test JP( GP)? ` + markerToken + `$`)
-	itemNameRE      = regexp.MustCompile(`^` + fixtureNameAlt + `(?:-secondary)?$`)
-	itemTagRE       = regexp.MustCompile(`^` + markerToken + `(?:-updated)?$`)
+	jumpGroupOrPointNameRE = regexp.MustCompile(`^Test (JG|JP)( GP)? ` + markerToken + `$`)
+	itemNameRE             = regexp.MustCompile(`^` + fixtureNameAlt + `(?:-secondary)?$`)
+	itemTagRE              = regexp.MustCompile(`^` + markerToken + `(?:-updated)?$`)
 )
 
 // sweepAccountTypesWithUsername are the account types whose username the list
@@ -399,23 +453,23 @@ func matchFixture(st *sweepType, row sweepRow, groups map[int]string) (marker st
 		return m[1], true
 
 	case kindJumpGroup, kindJumpoint:
-		re := jumpGroupNameRE
+		abbrev := "JG"
 		if st.kind == kindJumpoint {
-			re = jumpointNameRE
+			abbrev = "JP"
 		}
-		m := re.FindStringSubmatch(name)
+		m := jumpGroupOrPointNameRE.FindStringSubmatch(name)
 		code := row.str("code_name")
-		if m == nil || code == sentinelCodeName {
+		if m == nil || m[1] != abbrev || code == sentinelCodeName {
 			return "", false
 		}
-		want := "example_" + m[2]
-		if m[1] != "" {
+		want := "example_" + m[3]
+		if m[2] != "" {
 			want = "gp_" + want
 		}
 		if code != want {
 			return "", false
 		}
-		return m[2], true
+		return m[3], true
 
 	case kindJumpItem, kindInstaller:
 		if !itemNameRE.MatchString(name) {
@@ -443,7 +497,6 @@ type candidate struct {
 	row    sweepRow
 	id     int
 	marker string
-	kind   markerKind
 	// decision is "eligible", "legacy-candidate" or "skip".
 	decision string
 	reason   string
@@ -462,7 +515,17 @@ type sweeper struct {
 	groups     map[int]string
 	candidates map[string][]*candidate
 	eligible   map[sweepKey]bool
-	deleted    map[sweepKey]bool
+
+	// inventoryJIA memoises, per referencing type, the jump item associations
+	// the classify pass read: one read serves every jump group.
+	inventoryJIA map[string]jiaRefs
+}
+
+// jiaRefs maps each jump group named in criteria.shared_jump_groups to one
+// object naming it.
+type jiaRefs struct {
+	by  map[int]int
+	err error
 }
 
 func typeByName(name string) *sweepType {
@@ -492,7 +555,7 @@ func runSweep(c *api.APIClient, set sweepSettings, logf func(string, ...any)) er
 	s := &sweeper{c: c, set: set, logf: logf,
 		rows: map[string][]sweepRow{}, absent: map[string]bool{}, failed: map[string]error{},
 		groups: map[int]string{}, candidates: map[string][]*candidate{},
-		eligible: map[sweepKey]bool{}, deleted: map[sweepKey]bool{}}
+		eligible: map[sweepKey]bool{}, inventoryJIA: map[string]jiaRefs{}}
 
 	if set.mode == sweepDelete {
 		if err := s.checkSentinel(); err != nil {
@@ -500,10 +563,11 @@ func runSweep(c *api.APIClient, set sweepSettings, logf func(string, ...any)) er
 		}
 	}
 
-	s.collect()
 	if set.mode == sweepGPSnapshot {
+		s.collect(gpRelationTypes()...)
 		return s.gpSnapshot()
 	}
+	s.collect(sweepTypes...)
 	s.classify()
 	over := s.report()
 
@@ -523,7 +587,7 @@ func runSweep(c *api.APIClient, set sweepSettings, logf func(string, ...any)) er
 // will never delete, whose comments name this host. A restored backup or a
 // cloned appliance on another host carries the group but not a matching host.
 func (s *sweeper) checkSentinel() error {
-	groups, err := api.ListAllItemsEndpoint(s.c, "jump-group", map[string]string{"code_name": sentinelCodeName}, rowKey)
+	groups, err := api.ListAllItemsEndpoint(s.c, api.JumpGroup{}.Endpoint(), map[string]string{"code_name": sentinelCodeName}, rowKey)
 	if err != nil {
 		return fmt.Errorf("could not look up the %s jump group: %w", sentinelCodeName, err)
 	}
@@ -543,13 +607,12 @@ func (s *sweeper) checkSentinel() error {
 	return nil
 }
 
-// collect lists every type in full before anything is decided. A 404 on an
+// collect lists each type in full before anything is decided. A 404 on an
 // inventory list means this appliance has no such type (RS has no PRA-only
 // items). Any other failure, an incomplete list included, means no deletions
 // for that type or for any type whose checks rely on it.
-func (s *sweeper) collect() {
-	for i := range sweepTypes {
-		st := &sweepTypes[i]
+func (s *sweeper) collect(types ...sweepType) {
+	for _, st := range types {
 		rows, err := api.ListAllItemsEndpoint(s.c, st.endpoint, st.query, rowKey)
 		switch {
 		case api.IsNotFound(err):
@@ -567,93 +630,69 @@ func (s *sweeper) collect() {
 	}
 }
 
-// dependsOn lists the types whose lists a type's safety checks read.
+// dependsOn lists the types whose lists st's reference checks read.
 func dependsOn(st *sweepType) []*sweepType {
-	switch st.kind {
-	case kindAccountGroup:
-		return typesOfKind(kindAccount)
-	case kindPolicy:
-		return typesOfKind(kindAccount, kindAccountGroup)
-	case kindJumpItem, kindInstaller:
-		return typesOfKind(kindJumpGroup)
-	case kindJumpGroup:
-		return typesOfKind(kindJumpItem, kindInstaller, kindJumpClient, kindAccount, kindAccountGroup)
-	case kindJumpoint:
-		return typesOfKind(kindJumpItem)
+	var deps []*sweepType
+	seen := map[string]bool{}
+	for _, ref := range references(st) {
+		if !seen[ref.from] {
+			seen[ref.from] = true
+			deps = append(deps, typeByName(ref.from))
+		}
 	}
-	return nil
+	return deps
 }
 
+// classify decides each fixture candidate, type by type in phase order, so the
+// reference checks of a container see the final decisions on its contents.
 func (s *sweeper) classify() {
-	var byPhase [5][]*sweepType
 	for i := range sweepTypes {
-		if p := sweepPhase(sweepTypes[i].kind); p >= 0 {
-			byPhase[p] = append(byPhase[p], &sweepTypes[i])
+		st := &sweepTypes[i]
+		if st.phase == neverSwept {
+			continue
 		}
-	}
-
-	for _, phase := range byPhase {
-		var containers []*candidate
-		for _, st := range phase {
-			for _, row := range s.rows[st.name] {
-				marker, ok := matchFixture(st, row, s.groups)
-				if !ok {
-					continue
-				}
-				cand := &candidate{st: st, row: row, id: row.id(), marker: marker}
-				cand.kind, cand.decision, cand.reason = s.ageDecision(st, cand.id, marker)
-				if cand.decision == "eligible" {
-					if dep := s.failedDependency(st); dep != "" {
-						cand.decision, cand.reason = "skip", "list-failed:"+dep
-					}
-				}
-				if cand.decision == "eligible" {
-					containers = append(containers, cand)
-				}
-				s.candidates[st.name] = append(s.candidates[st.name], cand)
-			}
-		}
-
-		var jia map[int]string
-		var jiaErr error
-		for _, cand := range containers {
-			reason := s.blockedByInventory(cand)
-			if reason == "" && cand.st.kind == kindJumpGroup {
-				if jia == nil && jiaErr == nil {
-					jia, jiaErr = s.sharedJumpGroupReferences()
-				}
-				reason = jiaReason(jia, jiaErr, cand.id)
-			}
-			if reason != "" {
-				cand.decision, cand.reason = "skip", reason
+		for _, row := range s.rows[st.name] {
+			marker, ok := matchFixture(st, row, s.groups)
+			if !ok {
 				continue
 			}
-			s.eligible[sweepKey{cand.st.name, cand.id}] = true
+			cand := &candidate{st: st, row: row, id: row.id(), marker: marker}
+			cand.decision, cand.reason = s.ageDecision(st, cand.id, marker)
+			if cand.decision == "eligible" {
+				if dep := s.failedDependency(st); dep != "" {
+					cand.decision, cand.reason = "skip", "list-failed:"+dep
+				} else if reason := s.blocked(cand, false); reason != "" {
+					cand.decision, cand.reason = "skip", reason
+				} else {
+					s.eligible[sweepKey{st.name, cand.id}] = true
+				}
+			}
+			s.candidates[st.name] = append(s.candidates[st.name], cand)
 		}
 	}
 }
 
 // ageDecision applies the age rule for timestamped markers and the review rule
 // for legacy ones.
-func (s *sweeper) ageDecision(st *sweepType, id int, marker string) (markerKind, string, string) {
-	kind, _, _, at := parseMarker(marker)
+func (s *sweeper) ageDecision(st *sweepType, id int, marker string) (decision, reason string) {
+	kind, at := parseMarker(marker)
 	switch kind {
 	case markerTimestamped:
 		age := s.set.now.Sub(at)
 		switch {
 		case age < -futureSkew:
-			return kind, "skip", "marker-in-future"
+			return "skip", "marker-in-future"
 		case age < s.set.minAge:
-			return kind, "skip", "too-young"
+			return "skip", "too-young"
 		}
-		return kind, "eligible", ""
+		return "eligible", ""
 	case markerLegacy:
 		if s.set.legacy[sweepKey{st.name, id}] {
-			return kind, "eligible", "listed"
+			return "eligible", "listed"
 		}
-		return kind, "legacy-candidate", "no-creation-time"
+		return "legacy-candidate", "no-creation-time"
 	}
-	return kind, "skip", "marker-unusable"
+	return "skip", "marker-unusable"
 }
 
 func (s *sweeper) failedDependency(st *sweepType) string {
@@ -668,99 +707,125 @@ func (s *sweeper) failedDependency(st *sweepType) string {
 	return ""
 }
 
-func (s *sweeper) willDelete(typ string, id int) bool {
-	return s.eligible[sweepKey{typ, id}] || s.deleted[sweepKey{typ, id}]
-}
-
-// blockedByInventory is a container's reference check against the collected
-// lists: anything still pointing at it that this run will not also delete.
-func (s *sweeper) blockedByInventory(cand *candidate) string {
-	switch cand.st.kind {
-	case kindAccountGroup:
-		for _, a := range s.rows["vault_account"] {
-			if g, _ := a.num("account_group_id"); g == cand.id && !s.willDelete("vault_account", a.id()) {
-				return fmt.Sprintf("contains vault_account %d", a.id())
+// blocked returns why something still points at the container cand, or "". The
+// classify pass (live false) reads the collected lists and ignores what this
+// run will delete; a delete (live true) asks the appliance as it is now. In a
+// live check a 404 keeps the container: it may be a wrong path, and a wrong
+// path must not remove a safety check. Types the inventory found absent are not
+// queried.
+func (s *sweeper) blocked(cand *candidate, live bool) string {
+	for _, ref := range references(cand.st) {
+		from := typeByName(ref.from)
+		if live && s.absent[from.name] {
+			continue
+		}
+		var by int
+		var err error
+		if ref.sharedJumpGroups != nil {
+			by, err = s.namedInCriteria(ref, from, cand.id, live)
+			if err != nil {
+				return "jump-item-association-check-failed"
+			}
+		} else {
+			by, err = s.referencing(ref, from, cand, live)
+			if err != nil {
+				return "reference-check-failed " + from.name
 			}
 		}
-	case kindPolicy:
-		code := cand.row.str("code_name")
-		for _, typ := range []string{"vault_account", "vault_account_group"} {
-			for _, r := range s.rows[typ] {
-				if r.str("account_policy") == code && !s.willDelete(typ, r.id()) {
-					return fmt.Sprintf("used by %s %d", typ, r.id())
-				}
-			}
-		}
-	case kindJumpGroup, kindJumpoint:
-		for _, st := range typesOfKind(kindJumpItem, kindInstaller, kindJumpClient) {
-			field := st.groupField
-			if cand.st.kind == kindJumpoint {
-				field = st.jumpointField
-			}
-			if field == "" {
-				continue
-			}
-			for _, r := range s.rows[st.name] {
-				if v, ok := r.num(field); ok && v == cand.id && !s.willDelete(st.name, r.id()) {
-					return fmt.Sprintf("used by %s %d", st.name, r.id())
-				}
-			}
+		if by != 0 {
+			return fmt.Sprintf("%s %s %d", ref.verb, from.name, by)
 		}
 	}
 	return ""
 }
 
-// sharedJumpGroupReferences maps each jump group named in a jump item
-// association's criteria.shared_jump_groups to one object naming it, across
-// every account group and standalone account the run will keep. Accounts in a
-// group other than Default inherit the group's association, so their own is not
-// read.
-func (s *sweeper) sharedJumpGroupReferences() (map[int]string, error) {
-	refs := map[int]string{}
-	read := func(typ, endpoint string, id int) error {
-		item, err := api.GetItemEndpoint[sweepRow](s.c, fmt.Sprintf("%s/%d/jump-item-association", endpoint, id))
+// rowsOf is from's rows: as collected, less those this run deletes, or listed
+// now with filter added to from's own query.
+func (s *sweeper) rowsOf(from *sweepType, live bool, filter map[string]string) ([]sweepRow, error) {
+	if !live {
+		var kept []sweepRow
+		for _, r := range s.rows[from.name] {
+			if !s.eligible[sweepKey{from.name, r.id()}] {
+				kept = append(kept, r)
+			}
+		}
+		return kept, nil
+	}
+	query := maps.Clone(from.query)
+	if len(filter) > 0 {
+		if query == nil {
+			query = map[string]string{}
+		}
+		maps.Copy(query, filter)
+	}
+	return api.ListAllItemsEndpoint(s.c, from.endpoint, query, rowKey)
+}
+
+// referencing returns the id of a row of from whose ref.field names cand, or 0.
+func (s *sweeper) referencing(ref sweepRef, from *sweepType, cand *candidate, live bool) (int, error) {
+	var filter map[string]string
+	if live && ref.filter {
+		filter = map[string]string{ref.field: strconv.Itoa(cand.id)}
+	}
+	rows, err := s.rowsOf(from, live, filter)
+	if err != nil {
+		return 0, err
+	}
+	for _, r := range rows {
+		var match bool
+		switch {
+		case filter != nil:
+			match = true
+		case ref.byCode:
+			match = r.str(ref.field) == cand.row.str("code_name")
+		default:
+			v, ok := r.num(ref.field)
+			match = ok && v == cand.id
+		}
+		if match {
+			return r.id(), nil
+		}
+	}
+	return 0, nil
+}
+
+// namedInCriteria returns the id of a row of from whose jump item association
+// names jump group id, or 0. The classify pass reads each association once.
+func (s *sweeper) namedInCriteria(ref sweepRef, from *sweepType, id int, live bool) (int, error) {
+	refs, ok := s.inventoryJIA[from.name]
+	if live || !ok {
+		refs = s.readSharedJumpGroups(ref, from, live)
+		if !live {
+			s.inventoryJIA[from.name] = refs
+		}
+	}
+	return refs.by[id], refs.err
+}
+
+func (s *sweeper) readSharedJumpGroups(ref sweepRef, from *sweepType, live bool) jiaRefs {
+	rows, err := s.rowsOf(from, live, nil)
+	if err != nil {
+		return jiaRefs{err: err}
+	}
+	by := map[int]int{}
+	for _, r := range rows {
+		if g, _ := r.num("account_group_id"); ref.standalone && g > 1 {
+			continue
+		}
+		groups, err := ref.sharedJumpGroups(s.c, r.id())
 		if api.IsNotFound(err) {
-			return nil
+			continue
 		}
 		if err != nil {
-			return err
+			// A body that does not decode is an error too, so it keeps every
+			// jump group.
+			return jiaRefs{err: err}
 		}
-		if c, ok := (*item)["criteria"].(map[string]any); ok {
-			if groups, ok := c["shared_jump_groups"].([]any); ok {
-				for _, g := range groups {
-					if f, ok := g.(float64); ok {
-						refs[int(f)] = fmt.Sprintf("%s %d", typ, id)
-					}
-				}
-			}
-		}
-		return nil
-	}
-	for _, g := range s.rows["vault_account_group"] {
-		if !s.willDelete("vault_account_group", g.id()) {
-			if err := read("vault_account_group", "vault/account-group", g.id()); err != nil {
-				return nil, err
-			}
+		for _, g := range groups {
+			by[g] = r.id()
 		}
 	}
-	for _, a := range s.rows["vault_account"] {
-		if g, _ := a.num("account_group_id"); g <= 1 && !s.willDelete("vault_account", a.id()) {
-			if err := read("vault_account", "vault/account", a.id()); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return refs, nil
-}
-
-func jiaReason(refs map[int]string, err error, id int) string {
-	if err != nil {
-		return "jump-item-association-check-failed"
-	}
-	if by, ok := refs[id]; ok {
-		return "criteria of " + by
-	}
-	return ""
+	return jiaRefs{by: by}
 }
 
 // report prints the candidate lines and per-type counts, and returns the types
@@ -769,7 +834,7 @@ func (s *sweeper) report() []string {
 	var over []string
 	for i := range sweepTypes {
 		st := &sweepTypes[i]
-		if sweepPhase(st.kind) < 0 {
+		if st.phase == neverSwept {
 			continue
 		}
 		total := len(s.rows[st.name])
@@ -799,8 +864,8 @@ func (s *sweeper) report() []string {
 		case s.failed[st.name] != nil:
 			state = "list-failed"
 		}
-		s.logf("sweep-total %s %s total=%d pages=%d matched=%d eligible=%d legacy-candidate=%d excluded=[%s]",
-			st.name, state, total, (total+99)/100, len(s.candidates[st.name]), eligible, legacy, strings.Join(parts, " "))
+		s.logf("sweep-total %s %s total=%d matched=%d eligible=%d legacy-candidate=%d excluded=[%s]",
+			st.name, state, total, len(s.candidates[st.name]), eligible, legacy, strings.Join(parts, " "))
 		if eligible > s.set.max {
 			over = append(over, st.name)
 		}
@@ -832,137 +897,83 @@ func (s *sweeper) writeCandidates() error {
 }
 
 // deleteEligible deletes in phase order. Each delete re-reads the object,
-// re-matches it, and re-runs the container's reference queries against the
-// live appliance: anything that changed since collection keeps the object.
+// re-matches it, and re-runs the container's reference checks against the live
+// appliance: anything that changed since collection keeps the object.
 func (s *sweeper) deleteEligible() error {
 	var errs []error
-	for phase := 0; phase <= 4; phase++ {
-		var jia map[int]string
-		var jiaErr error
-		jiaRead := false
-		for i := range sweepTypes {
-			st := &sweepTypes[i]
-			if sweepPhase(st.kind) != phase {
+	for i := range sweepTypes {
+		st := &sweepTypes[i]
+		for _, cand := range s.candidates[st.name] {
+			if !s.eligible[sweepKey{st.name, cand.id}] {
 				continue
 			}
-			for _, cand := range s.candidates[st.name] {
-				if !s.eligible[sweepKey{st.name, cand.id}] {
-					continue
+			ok := func(item *sweepRow) error {
+				marker, matched := matchFixture(st, *item, s.groups)
+				if !matched || marker != cand.marker {
+					return errors.New("no-longer-matches")
 				}
-				if st.kind == kindJumpGroup && !jiaRead {
-					jia, jiaErr = s.sharedJumpGroupReferences()
-					jiaRead = true
+				if decision, _ := s.ageDecision(st, cand.id, marker); decision != "eligible" {
+					return errors.New("no-longer-eligible")
 				}
-				ok := func(item *sweepRow) error {
-					marker, matched := matchFixture(st, *item, s.groups)
-					if !matched || marker != cand.marker {
-						return errors.New("no-longer-matches")
-					}
-					if _, decision, _ := s.ageDecision(st, cand.id, marker); decision != "eligible" {
-						return errors.New("no-longer-eligible")
-					}
-					if reason := s.blockedLive(cand); reason != "" {
-						return errors.New(reason)
-					}
-					if st.kind == kindJumpGroup {
-						if reason := jiaReason(jia, jiaErr, cand.id); reason != "" {
-							return errors.New(reason)
-						}
-					}
-					return nil
+				if reason := s.blocked(cand, true); reason != "" {
+					return errors.New(reason)
 				}
-				outcome, err := deleteIfStill(s.c, st.endpoint, cand.id, ok)
-				switch {
-				case err != nil:
-					s.logf("sweep %s %d delete-failed", st.name, cand.id)
-					errs = append(errs, fmt.Errorf("%s %d: %w", st.name, cand.id, err))
-				case outcome.refused != nil:
-					s.logf("sweep %s %d kept-at-delete %s", st.name, cand.id, outcome.refused)
-				default:
-					s.deleted[sweepKey{st.name, cand.id}] = true
-					s.logf("sweep %s %d %s", st.name, cand.id, outcome.result)
-				}
+				return nil
+			}
+			outcome, err := deleteIfStill(s.c, st.endpoint, cand.id, ok)
+			switch {
+			case err != nil:
+				s.logf("sweep %s %d delete-failed", st.name, cand.id)
+				errs = append(errs, fmt.Errorf("%s %d: %w", st.name, cand.id, err))
+			case outcome.refused != nil:
+				s.logf("sweep %s %d kept-at-delete %s", st.name, cand.id, outcome.refused)
+			default:
+				s.logf("sweep %s %d %s", st.name, cand.id, outcome.result)
 			}
 		}
 	}
 	return errors.Join(errs...)
 }
 
-// blockedLive is blockedByInventory against the appliance as it is now. In a
-// reference check a 404 keeps the container: it may be a wrong path, and a
-// wrong path must not remove a safety check. (Types the inventory found absent
-// are not queried.)
-func (s *sweeper) blockedLive(cand *candidate) string {
-	type query struct {
-		st     *sweepType
-		filter map[string]string
+// gpRelation is one member type of a group policy.
+type gpRelation struct {
+	path, field, typ string
+	endpoint         func(gp string) string
+}
+
+var gpRelations = []gpRelation{
+	{"jump-group", "jump_group_id", "jump_group", func(gp string) string { return api.GroupPolicyJumpGroup{}.WithGroupPolicyID(gp).Endpoint() }},
+	{"jumpoint", "jumpoint_id", "jumpoint", func(gp string) string { return api.GroupPolicyJumpoint{}.WithGroupPolicyID(gp).Endpoint() }},
+	{"vault-account-group", "account_group_id", "vault_account_group", func(gp string) string {
+		return api.GroupPolicyVaultAccountGroup{}.WithGroupPolicyID(gp).Endpoint()
+	}},
+	{"vault-account", "account_id", "vault_account", func(gp string) string { return api.GroupPolicyVaultAccount{}.WithGroupPolicyID(gp).Endpoint() }},
+}
+
+// gpRelationTypes are the types gp-snapshot mode collects: the members'.
+func gpRelationTypes() []sweepType {
+	types := make([]sweepType, len(gpRelations))
+	for i, rel := range gpRelations {
+		types[i] = *typeByName(rel.typ)
 	}
-	var queries []query
-	switch cand.st.kind {
-	case kindAccountGroup:
-		queries = append(queries, query{typeByName("vault_account"),
-			map[string]string{"account_group_id": strconv.Itoa(cand.id), "include_personal": "true"}})
-	case kindPolicy:
-		code := cand.row.str("code_name")
-		for _, typ := range []string{"vault_account", "vault_account_group"} {
-			st := typeByName(typ)
-			rows, err := api.ListAllItemsEndpoint(s.c, st.endpoint, st.query, rowKey)
-			if err != nil {
-				return "reference-check-failed " + typ
-			}
-			for _, r := range rows {
-				if r.str("account_policy") == code {
-					return fmt.Sprintf("used by %s %d", typ, r.id())
-				}
-			}
-		}
-	case kindJumpGroup, kindJumpoint:
-		for _, st := range typesOfKind(kindJumpItem, kindInstaller, kindJumpClient) {
-			field := st.groupField
-			if cand.st.kind == kindJumpoint {
-				field = st.jumpointField
-			}
-			if field == "" || s.absent[st.name] {
-				continue
-			}
-			queries = append(queries, query{st, map[string]string{field: strconv.Itoa(cand.id)}})
-		}
-	}
-	for _, q := range queries {
-		rows, err := api.ListAllItemsEndpoint(s.c, q.st.endpoint, q.filter, rowKey)
-		if err != nil {
-			return "reference-check-failed " + q.st.name
-		}
-		if len(rows) > 0 {
-			if cand.st.kind == kindAccountGroup {
-				return fmt.Sprintf("contains %s %d", q.st.name, rows[0].id())
-			}
-			return fmt.Sprintf("used by %s %d", q.st.name, rows[0].id())
-		}
-	}
-	return ""
+	return types
 }
 
 // gpSnapshot records, read-only, every member of the group policy the fixtures
 // write memberships on (data.sra_group_policy_list.gp.items[0]): ids and
 // whether each is a fixture object, never a name.
 func (s *sweeper) gpSnapshot() error {
-	gps, err := api.ListAllItemsEndpoint(s.c, "group-policy", nil, rowKey)
+	gps, err := api.ListAllItemsEndpoint(s.c, api.GroupPolicy{}.Endpoint(), nil, rowKey)
 	if err != nil {
 		return fmt.Errorf("listing group policies: %w", err)
 	}
 	if len(gps) == 0 {
 		return errors.New("no group policies")
 	}
-	gp := gps[0].id()
-	for _, rel := range []struct{ path, field, typ string }{
-		{"jump-group", "jump_group_id", "jump_group"},
-		{"jumpoint", "jumpoint_id", "jumpoint"},
-		{"vault-account-group", "account_group_id", "vault_account_group"},
-		{"vault-account", "account_id", "vault_account"},
-	} {
+	gp := strconv.Itoa(gps[0].id())
+	for _, rel := range gpRelations {
 		key := func(r *sweepRow) string { return fmt.Sprint((*r)[rel.field]) }
-		members, err := api.ListAllItemsEndpoint(s.c, fmt.Sprintf("group-policy/%d/%s", gp, rel.path), nil, key)
+		members, err := api.ListAllItemsEndpoint(s.c, rel.endpoint(gp), nil, key)
 		if err != nil {
 			return fmt.Errorf("listing %s members: %w", rel.path, err)
 		}
@@ -1007,7 +1018,7 @@ type deleteOutcome struct {
 // deleted, and deletes it. A 404 on either call means it is already gone, which
 // is the state the caller wants. Both the import guard and the sweeper use it,
 // so neither deletes on what an object looked like earlier.
-func deleteIfStill[I api.APIResource](c *api.APIClient, endpoint string, id int, ok func(*I) error) (deleteOutcome, error) {
+func deleteIfStill[I any](c *api.APIClient, endpoint string, id int, ok func(*I) error) (deleteOutcome, error) {
 	path := fmt.Sprintf("%s/%d", endpoint, id)
 	item, err := api.GetItemEndpoint[I](c, path)
 	switch {
@@ -1019,7 +1030,7 @@ func deleteIfStill[I api.APIResource](c *api.APIClient, endpoint string, id int,
 	if refused := ok(item); refused != nil {
 		return deleteOutcome{refused: refused}, nil
 	}
-	switch err := api.DeleteItemEndpoint[I](c, path); {
+	switch err := api.DeleteItemEndpoint(c, path); {
 	case err == nil:
 		return deleteOutcome{result: "deleted"}, nil
 	case api.IsNotFound(err):

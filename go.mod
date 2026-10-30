@@ -5,9 +5,11 @@ go 1.26.0
 require (
 	github.com/Jeffail/gabs v1.4.0
 	github.com/deckarep/golang-set/v2 v2.9.0
+	github.com/hashicorp/hcl/v2 v2.22.0
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.11.1
+	github.com/zclconf/go-cty v1.18.1
 )
 
 require (
@@ -87,7 +89,6 @@ require (
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/hc-install v0.9.4 // indirect
-	github.com/hashicorp/hcl/v2 v2.22.0 // indirect
 	github.com/hashicorp/terraform-exec v0.25.0 // indirect
 	github.com/hashicorp/terraform-json v0.27.3-0.20260213134036-298b8f6b673a // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
@@ -126,7 +127,6 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yuin/goldmark v1.7.7 // indirect
 	github.com/yuin/goldmark-meta v1.1.0 // indirect
-	github.com/zclconf/go-cty v1.18.1 // indirect
 	go.abhg.dev/goldmark/frontmatter v0.2.0 // indirect
 	go.mongodb.org/mongo-driver v1.17.7 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect

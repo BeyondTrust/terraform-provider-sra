@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/netip"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -88,8 +90,8 @@ func (v tunnelListenAddressValidator) ValidateString(_ context.Context, req vali
 // to the default; on create it is the default. An unknown stays unknown, to be
 // planned once it is known.
 //
-// It is ModifyPlan, not a schema Default, because a Default replaces only a
-// null configuration value and cannot see state.
+// It is a plan modifier, not a schema Default, because a Default replaces only
+// a null configuration value and cannot see state.
 func planTunnelListenAddress(config, prior types.String) types.String {
 	switch {
 	case config.IsUnknown():
@@ -101,4 +103,46 @@ func planTunnelListenAddress(config, prior types.String) types.String {
 	default:
 		return types.StringValue(tunnelListenAddressDefault)
 	}
+}
+
+// tunnelListenAddressPlan applies planTunnelListenAddress as the attribute's
+// plan modifier.
+type tunnelListenAddressPlan struct{}
+
+func (tunnelListenAddressPlan) Description(context.Context) string {
+	return "an omitted address keeps the prior value, or 127.0.0.1 on create"
+}
+
+func (m tunnelListenAddressPlan) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (tunnelListenAddressPlan) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	resp.PlanValue = planTunnelListenAddress(req.ConfigValue, req.StateValue)
+}
+
+// validateSQLTunnelPlan checks the planned name, hostname and ids of a mysql or
+// postgresql tunnel. A negative id is invalid; 0 passes, since an id that is not
+// known yet can plan as 0, and the appliance validates it on apply.
+func validateSQLTunnelPlan(name, hostname types.String, jumpointID, jumpGroupID types.Int64) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if name.IsNull() || name.ValueString() == "" {
+		diags.AddError("name is required", "The name field is required and must be 1..128 characters")
+		return diags
+	}
+	if l := len(name.ValueString()); l < 1 || l > 128 {
+		diags.AddError("name length", "The name must be between 1 and 128 characters")
+	}
+	if !hostname.IsNull() {
+		if l := len(hostname.ValueString()); l < 1 || l > 128 {
+			diags.AddError("hostname length", "The hostname must be between 1 and 128 characters")
+		}
+	}
+	if !jumpointID.IsNull() && !jumpointID.IsUnknown() && jumpointID.ValueInt64() < 0 {
+		diags.AddError("jumpoint_id invalid", "jumpoint_id must be >= 0")
+	}
+	if !jumpGroupID.IsNull() && !jumpGroupID.IsUnknown() && jumpGroupID.ValueInt64() < 0 {
+		diags.AddError("jump_group_id invalid", "jump_group_id must be >= 0")
+	}
+	return diags
 }

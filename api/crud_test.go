@@ -607,12 +607,12 @@ func TestDeleteItemEndpoint(t *testing.T) {
 	assert.Nil(t, err)
 
 	{
-		err := DeleteItemEndpoint[testAPIResource](c, "delete")
+		err := DeleteItemEndpoint(c, "delete")
 		assert.Nil(t, err)
 	}
 
 	{
-		err := DeleteItemEndpoint[testAPIResource](c, "error")
+		err := DeleteItemEndpoint(c, "error")
 		assert.Equal(t, "status: 400, body: error", err.Error())
 	}
 }
@@ -693,8 +693,9 @@ func pagedRows(n int) []apimock.Row {
 	return rows
 }
 
+// mockClient is a client of srv that retries an unstable list without pausing.
 func mockClient(srv *apimock.Server) *APIClient {
-	return &APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client()}
+	return &APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client(), ListRetryBackoff: []time.Duration{0, 0}}
 }
 
 func ids(items []pagedResource) []int {
@@ -711,15 +712,6 @@ func seq(from, to int) []int {
 		out = append(out, i)
 	}
 	return out
-}
-
-// noBackoff removes the pause between listing attempts for the length of a
-// test. Tests that use it must not be parallel: listRetryBackoff is package
-// state.
-func noBackoff(t *testing.T) {
-	saved := listRetryBackoff
-	listRetryBackoff = []time.Duration{0, 0}
-	t.Cleanup(func() { listRetryBackoff = saved })
 }
 
 func TestListAllItemsReadsEveryPage(t *testing.T) {
@@ -833,7 +825,7 @@ func TestListAllItemsRequiresAnIDField(t *testing.T) {
 // back one place, so OFFSET 100 skips the row that moved onto page 1. Total and
 // Last-Page change, and the pass is thrown away rather than returned short.
 func TestListAllItemsRestartsWhenAPageReportsADifferentTotal(t *testing.T) {
-	noBackoff(t)
+	t.Parallel()
 
 	for _, tc := range []struct {
 		name   string
@@ -867,11 +859,11 @@ func TestListAllItemsRestartsWhenAPageReportsADifferentTotal(t *testing.T) {
 }
 
 func TestListAllItemsGivesUpAfterThreeUnstablePasses(t *testing.T) {
-	noBackoff(t)
+	t.Parallel()
 	srv := apimock.New()
 	defer srv.Close()
 	srv.Set("paged", &apimock.Collection{
-		Rows:   pagedRows(201),
+		Rows: pagedRows(201),
 		OnPage: func(c *apimock.Collection, page int) {
 			if page == 2 {
 				c.Rows = c.Rows[1:]
@@ -895,7 +887,7 @@ func TestListAllItemsGivesUpAfterThreeUnstablePasses(t *testing.T) {
 // per page: a row reappears on page 2 and another is never read. The headers
 // never change, so only the unique count against Total gives it away.
 func TestListAllItemsEndpointReportsOverlappingPages(t *testing.T) {
-	noBackoff(t)
+	t.Parallel()
 	srv := apimock.New()
 	defer srv.Close()
 	rows := make([]apimock.Row, 200)
@@ -934,9 +926,7 @@ func TestListAllItemsStopsAtThePageCap(t *testing.T) {
 		srv := apimock.New()
 		defer srv.Close()
 		srv.Handle(http.MethodGet, "paged", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-BT-Pagination-Last-Page", "1001")
-			w.Header().Set("X-BT-Pagination-Total", "100001")
-			_ = json.NewEncoder(w).Encode(pagedRows(100))
+			apimock.WritePageClaiming(w, pagedRows(100), 100001, 1001)
 		})
 
 		_, err := ListAllItems[pagedResource](mockClient(srv), nil)

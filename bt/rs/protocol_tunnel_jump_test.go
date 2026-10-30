@@ -118,26 +118,11 @@ func (h planHarness) plan(t *testing.T, config map[string]any, prior map[string]
 	return res
 }
 
-func ptType(t *testing.T) tftypes.Object {
-	t.Helper()
-	return protocolHarness.typ(t)
-}
-
-func ptValues(t *testing.T, attrs map[string]any) map[string]tftypes.Value {
-	t.Helper()
-	return protocolHarness.values(t, attrs)
-}
-
-func ptObject(t *testing.T, vals map[string]tftypes.Value) tftypes.Value {
-	t.Helper()
-	return tftypes.NewValue(ptType(t), vals)
-}
-
 // validate runs the resource's ValidateConfig against a configuration.
 func validate(t *testing.T, attrs map[string]any) diag.Diagnostics {
 	t.Helper()
 	resp := &resource.ValidateConfigResponse{}
-	cfg := tfsdk.Config{Schema: resourceSchema(t, &protocolTunnelJumpResource{}), Raw: ptObject(t, ptValues(t, attrs))}
+	cfg := tfsdk.Config{Schema: resourceSchema(t, &protocolTunnelJumpResource{}), Raw: tftypes.NewValue(protocolHarness.typ(t), protocolHarness.values(t, attrs))}
 	(&protocolTunnelJumpResource{}).ValidateConfig(context.Background(), resource.ValidateConfigRequest{Config: cfg}, resp)
 	return resp.Diagnostics
 }
@@ -164,12 +149,6 @@ type ptPlanResult struct {
 	plannedRaw      tftypes.Value
 	requiresReplace []*tftypes.AttributePath
 	diags           []*tfprotov6.Diagnostic
-}
-
-// plan is protocolHarness.plan.
-func plan(t *testing.T, config map[string]any, prior map[string]tftypes.Value) ptPlanResult {
-	t.Helper()
-	return protocolHarness.plan(t, config, prior)
 }
 
 func str(t *testing.T, v tftypes.Value) string {
@@ -230,7 +209,7 @@ func with(base map[string]any, overrides map[string]any) map[string]any {
 
 // v140TCPState is a tcp item as provider v1.4.0 writes it to state.
 func v140TCPState(t *testing.T) map[string]tftypes.Value {
-	return ptValues(t, map[string]any{
+	return protocolHarness.values(t, map[string]any{
 		"id": "11", "name": "This is a Name", "hostname": "this.host", "jumpoint_id": 1, "jump_group_id": 2,
 		"jump_group_type": "shared", "tag": "bits", "comments": "",
 		"tunnel_listen_address": "127.0.0.1", "tunnel_definitions": "22;24;80;8080", "tunnel_type": "tcp",
@@ -240,7 +219,7 @@ func v140TCPState(t *testing.T) map[string]tftypes.Value {
 
 // v140MSSQLState is an mssql item as provider v1.4.0 writes it to state.
 func v140MSSQLState(t *testing.T) map[string]tftypes.Value {
-	return ptValues(t, map[string]any{
+	return protocolHarness.values(t, map[string]any{
 		"id": "12", "name": "This is a Name", "hostname": "this.host", "jumpoint_id": 1, "jump_group_id": 2,
 		"jump_group_type": "shared", "tag": "bits", "comments": "",
 		"tunnel_listen_address": "", "tunnel_definitions": "", "tunnel_type": "mssql",
@@ -344,7 +323,7 @@ func TestProtocolTunnelValidateConfig(t *testing.T) {
 // terraform validate runs with every variable unknown. A required check that
 // treated unknown as missing would fail a valid module before it is ever used.
 func TestProtocolTunnelValidateConfigAllUnknown(t *testing.T) {
-	typ := ptType(t)
+	typ := protocolHarness.typ(t)
 	attrs := map[string]any{}
 	for name, attrType := range typ.AttributeTypes {
 		attrs[name] = tftypes.NewValue(attrType, tftypes.UnknownValue)
@@ -356,19 +335,19 @@ func TestProtocolTunnelValidateConfigAllUnknown(t *testing.T) {
 
 func TestProtocolTunnelPlanListenAddressDefaults(t *testing.T) {
 	t.Run("tcp create, omitted", func(t *testing.T) {
-		r := plan(t, tcpConfig(), nil)
+		r := protocolHarness.plan(t, tcpConfig(), nil)
 		require.Empty(t, r.diags)
 		assert.Equal(t, "127.0.0.1", str(t, r.planned["tunnel_listen_address"]))
 		assert.Equal(t, "tcp", str(t, r.planned["tunnel_type"]))
 	})
 	t.Run("mssql create, omitted", func(t *testing.T) {
-		r := plan(t, mssqlConfig(), nil)
+		r := protocolHarness.plan(t, mssqlConfig(), nil)
 		require.Empty(t, r.diags)
 		assert.Equal(t, "", str(t, r.planned["tunnel_listen_address"]))
 		assert.Equal(t, "", str(t, r.planned["tunnel_definitions"]))
 	})
 	t.Run("unknown in config stays unknown", func(t *testing.T) {
-		r := plan(t, with(tcpConfig(), map[string]any{"tunnel_listen_address": unknown}), nil)
+		r := protocolHarness.plan(t, with(tcpConfig(), map[string]any{"tunnel_listen_address": unknown}), nil)
 		require.Empty(t, r.diags)
 		assert.False(t, r.planned["tunnel_listen_address"].IsKnown())
 	})
@@ -378,13 +357,13 @@ func TestProtocolTunnelPlanListenAddressDefaults(t *testing.T) {
 	state := v140TCPState(t)
 	state["tunnel_listen_address"] = tftypes.NewValue(tftypes.String, "127.0.0.5")
 	t.Run("non-default state, no diff", func(t *testing.T) {
-		r := plan(t, tcpConfig(), state)
+		r := protocolHarness.plan(t, tcpConfig(), state)
 		require.Empty(t, r.diags)
 		assert.Equal(t, "127.0.0.5", str(t, r.planned["tunnel_listen_address"]))
-		assert.True(t, r.plannedRaw.Equal(tftypes.NewValue(ptType(t), state)), "plan must equal state")
+		assert.True(t, r.plannedRaw.Equal(tftypes.NewValue(protocolHarness.typ(t), state)), "plan must equal state")
 	})
 	t.Run("non-default state, tag changed", func(t *testing.T) {
-		r := plan(t, with(tcpConfig(), map[string]any{"tag": "changed"}), state)
+		r := protocolHarness.plan(t, with(tcpConfig(), map[string]any{"tag": "changed"}), state)
 		require.Empty(t, r.diags)
 		assert.Equal(t, "127.0.0.5", str(t, r.planned["tunnel_listen_address"]))
 		assert.Equal(t, "22;24;80;8080", str(t, r.planned["tunnel_definitions"]))
@@ -393,7 +372,7 @@ func TestProtocolTunnelPlanListenAddressDefaults(t *testing.T) {
 
 func TestProtocolTunnelPlanK8sHostname(t *testing.T) {
 	t.Run("derived from url", func(t *testing.T) {
-		r := plan(t, k8sConfig(), nil)
+		r := protocolHarness.plan(t, k8sConfig(), nil)
 		require.Empty(t, r.diags)
 		assert.Equal(t, "https://k8s.example.com:6443", str(t, r.planned["hostname"]))
 		assert.Equal(t, "", str(t, r.planned["tunnel_listen_address"]))
@@ -401,28 +380,28 @@ func TestProtocolTunnelPlanK8sHostname(t *testing.T) {
 	})
 	t.Run("truncated to 128 bytes", func(t *testing.T) {
 		long := "https://k8s.example.com/" + strings.Repeat("a", 200)
-		r := plan(t, with(k8sConfig(), map[string]any{"url": long}), nil)
+		r := protocolHarness.plan(t, with(k8sConfig(), map[string]any{"url": long}), nil)
 		require.Empty(t, r.diags)
 		assert.Equal(t, long[:128], str(t, r.planned["hostname"]))
 	})
 	t.Run("url unknown", func(t *testing.T) {
-		r := plan(t, with(k8sConfig(), map[string]any{"url": unknown}), nil)
+		r := protocolHarness.plan(t, with(k8sConfig(), map[string]any{"url": unknown}), nil)
 		require.Empty(t, r.diags)
 		assert.False(t, r.planned["hostname"].IsKnown())
 	})
 	t.Run("update with url unchanged plans no diff", func(t *testing.T) {
-		state := ptValues(t, map[string]any{
+		state := protocolHarness.values(t, map[string]any{
 			"id": "13", "name": "k8s", "hostname": "https://k8s.example.com:6443", "jumpoint_id": 1, "jump_group_id": 2,
 			"jump_group_type": "shared", "tag": "", "comments": "",
 			"tunnel_listen_address": "", "tunnel_definitions": "", "tunnel_type": "k8s",
 			"username": "", "database": "", "url": "https://k8s.example.com:6443",
 			"ca_certificates": "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
 		})
-		r := plan(t, k8sConfig(), state)
+		r := protocolHarness.plan(t, k8sConfig(), state)
 		require.Empty(t, r.diags)
-		assert.True(t, r.plannedRaw.Equal(tftypes.NewValue(ptType(t), state)), "plan must equal state")
+		assert.True(t, r.plannedRaw.Equal(tftypes.NewValue(protocolHarness.typ(t), state)), "plan must equal state")
 
-		r = plan(t, with(k8sConfig(), map[string]any{"tag": "changed"}), state)
+		r = protocolHarness.plan(t, with(k8sConfig(), map[string]any{"tag": "changed"}), state)
 		require.Empty(t, r.diags)
 		assert.Equal(t, "https://k8s.example.com:6443", str(t, r.planned["hostname"]))
 	})
@@ -431,16 +410,16 @@ func TestProtocolTunnelPlanK8sHostname(t *testing.T) {
 func TestProtocolTunnelTypeChangeReplaces(t *testing.T) {
 	state := v140TCPState(t)
 
-	r := plan(t, k8sConfig(), state)
+	r := protocolHarness.plan(t, k8sConfig(), state)
 	require.Empty(t, r.diags)
 	assert.True(t, replaces(r, "tunnel_type"), "tcp -> k8s must replace")
 	assert.Equal(t, "", str(t, r.planned["tunnel_listen_address"]), "the new item is planned as k8s, not with the tcp state")
 
-	r = plan(t, with(tcpConfig(), map[string]any{"tunnel_type": "tcp"}), state)
+	r = protocolHarness.plan(t, with(tcpConfig(), map[string]any{"tunnel_type": "tcp"}), state)
 	require.Empty(t, r.diags)
 	assert.False(t, replaces(r, "tunnel_type"), "tcp -> tcp")
 
-	r = plan(t, with(tcpConfig(), map[string]any{"tunnel_type": unknown}), state)
+	r = protocolHarness.plan(t, with(tcpConfig(), map[string]any{"tunnel_type": unknown}), state)
 	require.Empty(t, r.diags)
 	assert.False(t, replaces(r, "tunnel_type"), "tcp -> unknown must not plan a destroy")
 }
@@ -459,10 +438,10 @@ func TestProtocolTunnelV140StateReplansClean(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.False(t, validate(t, tc.config).HasError())
 
-			r := plan(t, tc.config, tc.state)
+			r := protocolHarness.plan(t, tc.config, tc.state)
 			require.Empty(t, r.diags)
 			assert.Empty(t, r.requiresReplace)
-			assert.True(t, r.plannedRaw.Equal(tftypes.NewValue(ptType(t), tc.state)), "plan must equal state:\n%v", r.plannedRaw)
+			assert.True(t, r.plannedRaw.Equal(tftypes.NewValue(protocolHarness.typ(t), tc.state)), "plan must equal state:\n%v", r.plannedRaw)
 		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -89,33 +90,16 @@ func Post[I APIResource](c *APIClient, path string, item I, ignoreReturn bool) (
 	return &item, nil
 }
 
+// ListItems GETs I's endpoint once, with query, and returns the rows of that
+// one response. ListAllItems reads every page.
 func ListItems[I APIResource](c *APIClient, query ...map[string]string) ([]I, error) {
 	var tmp I
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, tmp.Endpoint()), nil)
-	if err != nil {
-		return nil, err
-	}
-
+	var q map[string]string
 	if len(query) > 0 {
-		q := req.URL.Query()
-		for k, v := range query[0] {
-			q.Add(k, v)
-		}
-		req.URL.RawQuery = q.Encode()
+		q = query[0]
 	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	items := []I{}
-	err = json.Unmarshal(resp, &items)
-	if err != nil {
-		return nil, err
-	}
-
-	return items, nil
+	rows, _, err := getRows[I](c, tmp.Endpoint(), q)
+	return rows, err
 }
 
 const (
@@ -124,18 +108,15 @@ const (
 	listPageSize = 100
 	// listMaxPages bounds one listing pass at 100,000 rows.
 	listMaxPages = 1000
-	// listAttempts is how many full passes ListAllItemsEndpoint makes before
-	// giving up on a list that keeps changing under it.
-	listAttempts = 3
 
 	paginationLastPageHeader = "X-BT-Pagination-Last-Page"
 	paginationTotalHeader    = "X-BT-Pagination-Total"
 )
 
-// listRetryBackoff is the pause before each retry, so the retries do not all
-// land in the same burst of writes that broke the previous pass. A variable so
-// the package's own tests can shorten it.
-var listRetryBackoff = []time.Duration{time.Second, 2 * time.Second}
+// defaultListRetryBackoff is the pause before each retry of an unstable list,
+// so the retries do not all land in the same burst of writes that broke the
+// previous pass. See APIClient.ListRetryBackoff.
+var defaultListRetryBackoff = []time.Duration{time.Second, 2 * time.Second}
 
 // UnstableListCause says why ListAllItemsEndpoint could not return a complete list.
 type UnstableListCause int
@@ -190,20 +171,20 @@ func (e *ErrUnstableList) Describe(what string) string {
 // Rows are deduplicated on their ID field. Membership types have no ID and a
 // zero value whose Endpoint() cannot be called; use ListAllItemsEndpoint.
 func ListAllItems[I APIResource](c *APIClient, query map[string]string) ([]I, error) {
-	if f, ok := reflect.TypeFor[I]().FieldByName("ID"); !ok || f.Type != reflect.TypeFor[*int]() {
+	f, ok := reflect.TypeFor[I]().FieldByName("ID")
+	if !ok || f.Type != reflect.TypeFor[*int]() {
 		return nil, fmt.Errorf("ListAllItems: %s has no ID *int field to deduplicate on; use ListAllItemsEndpoint", reflect.TypeFor[I]())
 	}
-	var tmp I
-	return ListAllItemsEndpoint(c, tmp.Endpoint(), query, idKey[I])
-}
-
-// idKey is ListAllItems' dedup key: the item's ID, or "" when the API omitted it.
-func idKey[I any](item *I) string {
-	id := reflect.ValueOf(item).Elem().FieldByName("ID")
-	if id.IsNil() {
-		return ""
+	// The dedup key is the item's ID, or "" when the API omitted it.
+	key := func(item *I) string {
+		id := reflect.ValueOf(item).Elem().FieldByIndex(f.Index)
+		if id.IsNil() {
+			return ""
+		}
+		return strconv.Itoa(*id.Interface().(*int))
 	}
-	return strconv.Itoa(*id.Interface().(*int))
+	var tmp I
+	return ListAllItemsEndpoint(c, tmp.Endpoint(), query, key)
 }
 
 // ListAllItemsEndpoint pages through endpoint and returns every row, in the
@@ -218,19 +199,26 @@ func idKey[I any](item *I) string {
 //   - a pass is unstable if a later page reports a different Total or Last-Page
 //     than page 1 did, or if the unique rows read do not add up to Total. Either
 //     means rows moved under the read and some may have been skipped. An
-//     unstable pass is restarted from page 1, up to listAttempts passes in all,
-//     and then *ErrUnstableList is returned rather than a partial list.
+//     unstable pass is restarted from page 1, once per entry in the client's
+//     retry backoff (three passes in all by default), and then *ErrUnstableList
+//     is returned rather than a partial list.
 //
 // Without the headers (an endpoint that does not paginate), a pass stops at the
 // first page that is short or adds no new rows, and no stability check is
 // possible.
 func ListAllItemsEndpoint[I any](c *APIClient, endpoint string, query map[string]string, key func(*I) string) ([]I, error) {
+	backoff := c.ListRetryBackoff
+	if backoff == nil {
+		backoff = defaultListRetryBackoff
+	}
+	attempts := len(backoff) + 1
+
 	var unstable *ErrUnstableList
-	for attempt := 1; attempt <= listAttempts; attempt++ {
+	for attempt := 1; attempt <= attempts; attempt++ {
 		if attempt > 1 {
 			c.LogString("🔁 ListAllItems [%s]: attempt %d of %d was unstable (%d unique of %d reported), retrying",
-				endpoint, attempt-1, listAttempts, unstable.Got, unstable.Total)
-			time.Sleep(listRetryBackoff[attempt-2])
+				endpoint, attempt-1, attempts, unstable.Got, unstable.Total)
+			time.Sleep(backoff[attempt-2])
 		}
 
 		items, err := listPass(c, endpoint, query, key)
@@ -307,6 +295,16 @@ func listPass[I any](c *APIClient, endpoint string, query map[string]string, key
 
 // listPage fetches one page of endpoint.
 func listPage[I any](c *APIClient, endpoint string, query map[string]string, page int) ([]I, http.Header, error) {
+	q := make(map[string]string, len(query)+2)
+	maps.Copy(q, query)
+	q["per_page"] = strconv.Itoa(listPageSize)
+	q["current_page"] = strconv.Itoa(page)
+	return getRows[I](c, endpoint, q)
+}
+
+// getRows GETs endpoint with query and decodes the JSON array it returns. A 204
+// is no rows.
+func getRows[I any](c *APIClient, endpoint string, query map[string]string) ([]I, http.Header, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return nil, nil, err
@@ -316,8 +314,6 @@ func listPage[I any](c *APIClient, endpoint string, query map[string]string, pag
 	for k, v := range query {
 		q.Set(k, v)
 	}
-	q.Set("per_page", strconv.Itoa(listPageSize))
-	q.Set("current_page", strconv.Itoa(page))
 	req.URL.RawQuery = q.Encode()
 
 	body, header, err := c.doRequestWithHeaders(req)
@@ -349,7 +345,8 @@ func GetItem[I APIResource](c *APIClient, id *int) (*I, error) {
 	return GetItemEndpoint[I](c, endpoint)
 }
 
-func GetItemEndpoint[I APIResource](c *APIClient, endpoint string) (*I, error) {
+// GetItemEndpoint GETs endpoint and decodes the object it returns.
+func GetItemEndpoint[I any](c *APIClient, endpoint string) (*I, error) {
 	var item I
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
@@ -501,9 +498,11 @@ func DeleteItem[I APIResource](c *APIClient, id *int) error {
 		endpoint = fmt.Sprintf("%s/%d", endpoint, *id)
 	}
 
-	return DeleteItemEndpoint[I](c, endpoint)
+	return DeleteItemEndpoint(c, endpoint)
 }
-func DeleteItemEndpoint[I APIResource](c *APIClient, endpoint string) error {
+
+// DeleteItemEndpoint DELETEs endpoint.
+func DeleteItemEndpoint(c *APIClient, endpoint string) error {
 	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/%s", c.BaseURL, endpoint), nil)
 	if err != nil {
 		return err

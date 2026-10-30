@@ -124,12 +124,7 @@ func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req r
 		return
 	}
 
-	CreateGPMemberships[api.GroupPolicyVaultAccount](ctx, r.ApiClient, req.Plan, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyVaultAccount, entityID int) { m.AccountID = &entityID },
-		func(m *api.GroupPolicyVaultAccount) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyVaultAccount, id *string) { m.GroupPolicyID = id },
-		&accountMembershipMutex,
-	)
+	CreateGPMemberships[api.GroupPolicyVaultAccount](ctx, r.ApiClient, req.Plan, &resp.State, &resp.Diagnostics, id, &accountMembershipMutex)
 }
 
 func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -153,20 +148,13 @@ func (r *vaultUsernamePasswordAccountResource) Read(ctx context.Context, req res
 		return
 	}
 
-	ReadGPMemberships[api.GroupPolicyVaultAccount](ctx, r.ApiClient, req.State, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyVaultAccount) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyVaultAccount, id *string) { m.GroupPolicyID = id },
-	)
+	ReadGPMemberships[api.GroupPolicyVaultAccount](ctx, r.ApiClient, req.State, &resp.State, &resp.Diagnostics, id)
 }
 
 // ImportState also reads the object's group policy memberships, which Read
 // refreshes only once they are in state.
 func (r *vaultUsernamePasswordAccountResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	r.apiResource.ImportState(ctx, req, resp)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	ImportGPMemberships[api.GroupPolicyVaultAccount](ctx, r.ApiClient, req.ID, &resp.State, &resp.Diagnostics)
+	importWithGPMemberships(ctx, &r.apiResource, &accountMemberIndex, req, resp)
 }
 
 func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -189,9 +177,6 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 	}
 
 	UpdateGPMemberships[api.GroupPolicyVaultAccount](ctx, r.ApiClient, req.Plan, req.State, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyVaultAccount, entityID int) { m.AccountID = &entityID },
-		func(m *api.GroupPolicyVaultAccount) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyVaultAccount, id *string) { m.GroupPolicyID = id },
 		api.DiffGPAccountLists,
 		&accountMembershipMutex,
 	)

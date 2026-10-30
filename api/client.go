@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/oauth2"
@@ -26,6 +27,11 @@ type APIClient struct {
 	testLogger Logger
 	logCtx     *context.Context
 	mu         sync.Mutex
+
+	// ListRetryBackoff is the pause before each retry of a list that changed
+	// while ListAllItemsEndpoint read it; its length is the number of retries.
+	// nil means 1s then 2s. Tests set zero pauses so no test sleeps.
+	ListRetryBackoff []time.Duration
 
 	// oauth is retained so that a 401 can be answered by minting a fresh token
 	// rather than surfacing as a hard error mid-apply. See doRequest.

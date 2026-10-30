@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/api/apimock"
@@ -17,7 +18,7 @@ import (
 )
 
 func mockClient(srv *apimock.Server) *api.APIClient {
-	return &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client()}
+	return &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client(), ListRetryBackoff: []time.Duration{0, 0}}
 }
 
 // readDataSource runs d.Read against client with the given config attributes

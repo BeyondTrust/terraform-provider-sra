@@ -326,7 +326,9 @@ func planProtocolTunnelDefaults(plan *models.ProtocolTunnelJump, config, state m
 	// An omitted value keeps what the appliance holds for an item of the same
 	// type, so an imported or console-set listen address such as 127.0.0.5 does
 	// not plan a change. Otherwise it is what the appliance returns for this
-	// type: 127.0.0.1 for a tcp listen address, "" for the rest.
+	// type: 127.0.0.1 for a tcp listen address, "" for the rest. This differs
+	// from planTunnelListenAddress: a configured "" is kept (non-tcp types need
+	// it), and prior state counts only while the tunnel type is unchanged.
 	omitted := func(configured, prior types.String, fallback string) types.String {
 		if !configured.IsNull() {
 			return configured
@@ -338,7 +340,7 @@ func planProtocolTunnelDefaults(plan *models.ProtocolTunnelJump, config, state m
 	}
 	listenDefault := ""
 	if ttype == "tcp" {
-		listenDefault = "127.0.0.1"
+		listenDefault = tunnelListenAddressDefault
 	}
 	plan.TunnelListenAddress = omitted(config.TunnelListenAddress, state.TunnelListenAddress, listenDefault)
 	plan.TunnelDefinitions = omitted(config.TunnelDefinitions, state.TunnelDefinitions, "")

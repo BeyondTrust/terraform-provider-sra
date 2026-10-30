@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,9 +20,13 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/api/apimock"
 
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // TestE2EOrphanSweep finds, and in delete mode removes, objects that interrupted
@@ -41,8 +44,7 @@ func TestE2EOrphanSweep(t *testing.T) {
 	}
 
 	// No test logger: request tracing would print every URL.
-	id, secret := os.Getenv("BT_CLIENT_ID"), os.Getenv("BT_CLIENT_SECRET")
-	c, err := api.NewClient(host, &id, &secret)
+	c, err := newEnvClient()
 	if err != nil {
 		t.Fatalf("could not create an API client: %v", err)
 	}
@@ -62,17 +64,13 @@ func TestMarkerRoundTrip(t *testing.T) {
 		m := newMarker(at)
 		require.Len(t, m, 15)
 
-		kind, base, suffix, got := parseMarker(m)
+		kind, got := parseMarker(m)
 		assert.Equal(t, markerTimestamped, kind)
-		assert.Equal(t, m, base)
-		assert.Empty(t, suffix)
 		assert.True(t, at.Truncate(time.Minute).Equal(got), "%s round-trips to %s", at, got)
 
 		// The vault/secret fixture passes "${var.random_bits}2" to a module.
-		kind, base, suffix, got = parseMarker(m + "2")
+		kind, got = parseMarker(m + "2")
 		assert.Equal(t, markerTimestamped, kind)
-		assert.Equal(t, m, base)
-		assert.Equal(t, "2", suffix)
 		assert.True(t, at.Truncate(time.Minute).Equal(got))
 	}
 
@@ -102,12 +100,9 @@ func TestMarkerClassify(t *testing.T) {
 		"e2e00abcd0xyz1":    markerUnusable,
 		"e2e-0abcd0xyz12":   markerUnusable,
 	} {
-		kind, _, _, _ := parseMarker(s)
+		kind, _ := parseMarker(s)
 		assert.Equal(t, want, kind, "%q", s)
 	}
-	_, base, suffix, _ := parseMarker("abc1232")
-	assert.Equal(t, "abc123", base)
-	assert.Equal(t, "2", suffix)
 }
 
 // --- matchers ---------------------------------------------------------------
@@ -176,7 +171,7 @@ var (
 )
 
 func sweepClient(srv *apimock.Server) *api.APIClient {
-	return &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client()}
+	return &api.APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client(), ListRetryBackoff: []time.Duration{0, 0}}
 }
 
 func settings(mode sweepMode) sweepSettings {
@@ -201,12 +196,7 @@ func accountMatch(row apimock.Row, filter url.Values) bool {
 	if p, _ := row["personal"].(bool); p && filter.Get("include_personal") != "true" {
 		return false
 	}
-	for k := range filter {
-		if v, ok := row[k]; ok && fmt.Sprint(v) != filter.Get(k) {
-			return false
-		}
-	}
-	return true
+	return apimock.FieldsEqual(row, filter)
 }
 
 func group(id int, T string) apimock.Row {
@@ -234,11 +224,15 @@ func sentinel() apimock.Row {
 	return apimock.Row{"id": 500, "name": "Sweep allowed", "code_name": sentinelCodeName, "comments": "https://" + testHost + "/"}
 }
 
-// fixtureWorld is one run's leftovers beside some real configuration:
-// account group 7 holding account 8, policy 9, jump group 20, jumpoint 21, and
-// shell jump 30 in both. The real side is account group 100 holding account
-// 101, jump group 200 and shell jump 300.
-func fixtureWorld(srv *apimock.Server, T string) {
+// newFixtureWorld serves one run's leftovers, marked oldT, beside some real
+// configuration: account group 7 holding account 8, policy 9, jump group 20,
+// jumpoint 21, and shell jump 30 in both. The real side is account group 100
+// holding account 101, jump group 200 and shell jump 300. The server closes
+// when the test ends.
+func newFixtureWorld(t *testing.T) *apimock.Server {
+	t.Helper()
+	srv := newServer(t)
+	T := oldT
 	srv.Rows("vault/account-group", group(7, T), apimock.Row{"id": 100, "name": "Payroll", "description": "real"})
 	srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{
 		account(8, T, 7),
@@ -249,6 +243,14 @@ func fixtureWorld(srv *apimock.Server, T string) {
 	srv.Rows("jumpoint", jumpoint(21, T), apimock.Row{"id": 201, "name": "Prod JP", "code_name": "prod"})
 	srv.Rows("jump-item/shell-jump", shellJump(30, T, 20, 21), shellJump(300, "abcdef", 200, 201))
 	srv.Rows("jump-client")
+	return srv
+}
+
+// newServer is an empty mock appliance that closes when the test ends.
+func newServer(t *testing.T) *apimock.Server {
+	srv := apimock.New()
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func deletes(srv *apimock.Server) []string {
@@ -259,13 +261,6 @@ func deletes(srv *apimock.Server) []string {
 		}
 	}
 	return out
-}
-
-// writePage answers a collection GET with one complete page.
-func writePage(w http.ResponseWriter, rows []apimock.Row) {
-	w.Header().Set("X-BT-Pagination-Total", strconv.Itoa(len(rows)))
-	w.Header().Set("X-BT-Pagination-Last-Page", "1")
-	_ = json.NewEncoder(w).Encode(rows)
 }
 
 // afterInventory serves first to the inventory list (the first GET of a path)
@@ -279,7 +274,7 @@ func afterInventory(first []apimock.Row, later http.HandlerFunc) http.HandlerFun
 		n := calls
 		mu.Unlock()
 		if n == 1 {
-			writePage(w, first)
+			apimock.WritePage(w, first)
 			return
 		}
 		later(w, r)
@@ -289,25 +284,40 @@ func afterInventory(first []apimock.Row, later http.HandlerFunc) http.HandlerFun
 // --- the sweep --------------------------------------------------------------
 
 func TestSweepOrder(t *testing.T) {
-	last := -1
+	last := 0
 	for _, st := range sweepTypes {
-		p := sweepPhase(st.kind)
-		if p < 0 {
+		if st.phase == neverSwept {
 			continue
 		}
-		assert.GreaterOrEqual(t, p, last, "%s is out of order", st.name)
-		last = p
+		assert.GreaterOrEqual(t, st.phase, last, "%s is out of order", st.name)
+		last = st.phase
 	}
-	assert.Less(t, sweepPhase(kindAccount), sweepPhase(kindAccountGroup), "accounts before the groups that hold them")
-	assert.Less(t, sweepPhase(kindAccountGroup), sweepPhase(kindPolicy), "groups before the policies they use")
-	assert.Less(t, sweepPhase(kindJumpItem), sweepPhase(kindJumpGroup), "items before their jump groups")
-	assert.Less(t, sweepPhase(kindInstaller), sweepPhase(kindJumpGroup), "installers before their jump groups")
-	assert.Less(t, sweepPhase(kindJumpItem), sweepPhase(kindJumpoint), "items before their jumpoints")
-	assert.Negative(t, sweepPhase(kindJumpClient), "deployed jump clients are never deleted")
+	phase := func(k sweepKind) int { return typesOfKind(k)[0].phase }
+	assert.Less(t, phase(kindAccount), phase(kindAccountGroup), "accounts before the groups that hold them")
+	assert.Less(t, phase(kindAccountGroup), phase(kindPolicy), "groups before the policies they use")
+	assert.Less(t, phase(kindJumpItem), phase(kindJumpGroup), "items before their jump groups")
+	assert.Less(t, phase(kindInstaller), phase(kindJumpGroup), "installers before their jump groups")
+	assert.Less(t, phase(kindJumpItem), phase(kindJumpoint), "items before their jumpoints")
+	assert.Equal(t, neverSwept, phase(kindJumpClient), "deployed jump clients are never deleted")
+	for _, st := range sweepTypes {
+		if st.kind == kindJumpItem {
+			assert.Equal(t, phase(kindJumpItem), st.phase, st.name)
+		}
+	}
 
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	// Every reference names a type that is listed, and points at the container
+	// from a phase that is deleted first.
+	for i := range sweepTypes {
+		st := &sweepTypes[i]
+		for _, ref := range references(st) {
+			from := typeByName(ref.from)
+			if assert.NotNil(t, from, "%s: reference from %s", st.name, ref.from) && from.phase != neverSwept {
+				assert.Less(t, from.phase, st.phase, "%s is referenced by %s", st.name, ref.from)
+			}
+		}
+	}
+
+	srv := newFixtureWorld(t)
 
 	out, err := runOn(t, srv, settings(sweepDelete))
 	require.NoError(t, err, out)
@@ -322,9 +332,7 @@ func TestSweepOrder(t *testing.T) {
 }
 
 func TestSweepDryRunSendsNoDelete(t *testing.T) {
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	srv := newFixtureWorld(t)
 
 	out, err := runOn(t, srv, settings(sweepDryRun))
 	require.NoError(t, err)
@@ -340,9 +348,7 @@ func TestSweepDryRunSendsNoDelete(t *testing.T) {
 }
 
 func TestSweepGPSnapshotSendsNoDelete(t *testing.T) {
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	srv := newFixtureWorld(t)
 	srv.Rows("group-policy", apimock.Row{"id": 3, "name": "first"}, apimock.Row{"id": 4, "name": "second"})
 	srv.Rows("group-policy/3/jump-group", apimock.Row{"jump_group_id": 20}, apimock.Row{"jump_group_id": 200})
 	srv.Rows("group-policy/3/jumpoint", apimock.Row{"jumpoint_id": 21})
@@ -365,9 +371,7 @@ func TestSweepGPSnapshotSendsNoDelete(t *testing.T) {
 // the container's reference queries.
 func TestSweepRevalidatesBeforeDelete(t *testing.T) {
 	t.Run("renamed after collection", func(t *testing.T) {
-		srv := apimock.New()
-		defer srv.Close()
-		fixtureWorld(srv, oldT)
+		srv := newFixtureWorld(t)
 		srv.Handle(http.MethodGet, "vault/account-group/7", func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(apimock.Row{"id": 7, "name": "Payroll 2", "description": oldT})
 		})
@@ -380,17 +384,15 @@ func TestSweepRevalidatesBeforeDelete(t *testing.T) {
 
 	// Oracle names its jump group asset_group_id; the re-check must use that.
 	t.Run("an oracle item appears in the jump group", func(t *testing.T) {
-		srv := apimock.New()
-		defer srv.Close()
-		fixtureWorld(srv, oldT)
+		srv := newFixtureWorld(t)
 		var gotFilter url.Values
 		srv.Handle(http.MethodGet, "jump-item/oracle-tunnel-jump", afterInventory(nil, func(w http.ResponseWriter, r *http.Request) {
 			gotFilter = r.URL.Query()
 			if r.URL.Query().Get("asset_group_id") == "20" {
-				writePage(w, []apimock.Row{{"id": 99, "name": "Real DB", "asset_group_id": 20, "asset_group_type": "shared", "gateway_id": 201}})
+				apimock.WritePage(w, []apimock.Row{{"id": 99, "name": "Real DB", "asset_group_id": 20, "asset_group_type": "shared", "gateway_id": 201}})
 				return
 			}
-			writePage(w, nil)
+			apimock.WritePage(w, nil)
 		}))
 
 		out, err := runOn(t, srv, settings(sweepDelete))
@@ -408,15 +410,11 @@ func TestSweepReferenceCheckFailsClosed(t *testing.T) {
 		"400": func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusBadRequest) },
 		// More pages than the listing will read: an incomplete list.
 		"incomplete list": func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("X-BT-Pagination-Total", "100001")
-			w.Header().Set("X-BT-Pagination-Last-Page", "1001")
-			_ = json.NewEncoder(w).Encode([]apimock.Row{})
+			apimock.WritePageClaiming(w, nil, 100001, 1001)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			srv := apimock.New()
-			defer srv.Close()
-			fixtureWorld(srv, oldT)
+			srv := newFixtureWorld(t)
 			srv.Handle(http.MethodGet, "jump-item/shell-jump", afterInventory(
 				[]apimock.Row{shellJump(30, oldT, 20, 21)}, later))
 
@@ -429,9 +427,7 @@ func TestSweepReferenceCheckFailsClosed(t *testing.T) {
 	}
 
 	t.Run("a dependency list failed", func(t *testing.T) {
-		srv := apimock.New()
-		defer srv.Close()
-		fixtureWorld(srv, oldT)
+		srv := newFixtureWorld(t)
 		srv.Set("jump-client", &apimock.Collection{Status: http.StatusInternalServerError})
 
 		out, err := runOn(t, srv, settings(sweepDryRun))
@@ -444,9 +440,7 @@ func TestSweepReferenceCheckFailsClosed(t *testing.T) {
 // Deleting a policy re-points everything that uses it, personal accounts
 // included, so any user outside this run's objects keeps it.
 func TestSweepPolicyReferencedIsSkipped(t *testing.T) {
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	srv := newFixtureWorld(t)
 	srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{
 		account(8, oldT, 7),
 		{"id": 50, "name": "Mine", "type": "username_password", "username": "me", "personal": true, "account_group_id": 1, "account_policy": oldT},
@@ -460,16 +454,14 @@ func TestSweepPolicyReferencedIsSkipped(t *testing.T) {
 
 // A reference that appears after collection still keeps the container.
 func TestSweepReferenceRecheckedAtDelete(t *testing.T) {
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	srv := newFixtureWorld(t)
 	srv.Handle(http.MethodGet, "vault/account", afterInventory([]apimock.Row{account(8, oldT, 7)},
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Query().Get("account_group_id") == "7" {
-				writePage(w, []apimock.Row{{"id": 61, "name": "Added since", "type": "username_password", "username": "x", "account_group_id": 7}})
+				apimock.WritePage(w, []apimock.Row{{"id": 61, "name": "Added since", "type": "username_password", "username": "x", "account_group_id": 7}})
 				return
 			}
-			writePage(w, nil)
+			apimock.WritePage(w, nil)
 		}))
 	srv.Handle(http.MethodGet, "vault/account/8", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(account(8, oldT, 7))
@@ -484,9 +476,7 @@ func TestSweepReferenceRecheckedAtDelete(t *testing.T) {
 // In a reference check a 404 keeps the container. Only an inventory 404 means
 // "no such type here".
 func TestSweepReference404Skips(t *testing.T) {
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	srv := newFixtureWorld(t)
 	srv.Handle(http.MethodGet, "jump-item/shell-jump", afterInventory([]apimock.Row{shellJump(30, oldT, 20, 21)},
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }))
 
@@ -572,9 +562,7 @@ func TestSweepHostBinding(t *testing.T) {
 		"two sentinels": {[]apimock.Row{sentinel(), {"id": 501, "name": "x", "code_name": sentinelCodeName, "comments": testHost}}, "found 2"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			srv := apimock.New()
-			defer srv.Close()
-			fixtureWorld(srv, oldT)
+			srv := newFixtureWorld(t)
 			srv.Rows("jump-group", append([]apimock.Row{jumpGroup(20, oldT)}, tc.sentinels...)...)
 
 			_, err := runOn(t, srv, settings(sweepDelete))
@@ -614,8 +602,7 @@ func TestSweepLegacyFileFormatAgeAndScope(t *testing.T) {
 	}
 
 	t.Run("dry-run lists legacy groups; delete removes only the reviewed ones", func(t *testing.T) {
-		srv := apimock.New()
-		defer srv.Close()
+		srv := newServer(t)
 		srv.Rows("vault/account-group",
 			apimock.Row{"id": 40, "name": "This is a Name abc123 Nothing", "description": "abc123"},
 			apimock.Row{"id": 41, "name": "This is a Name zyx987 GP", "description": "zyx987"})
@@ -697,9 +684,7 @@ func TestSweepOutputNeverNamesNonFixture(t *testing.T) {
 	secrets := []string{"Secret Payroll Group", "secret-db.corp.example", "svc_secret_user", "Sweep allowed secretly", testHost}
 	for _, mode := range []sweepMode{sweepDryRun, sweepDelete, sweepGPSnapshot} {
 		t.Run(string(mode), func(t *testing.T) {
-			srv := apimock.New()
-			defer srv.Close()
-			fixtureWorld(srv, oldT)
+			srv := newFixtureWorld(t)
 			srv.Rows("vault/account-group", group(7, oldT), apimock.Row{"id": 100, "name": secrets[0], "description": secrets[0]})
 			srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{
 				account(8, oldT, 7),
@@ -729,9 +714,7 @@ func TestSweepOutputNeverNamesNonFixture(t *testing.T) {
 // Deleting an account group moves its accounts into Default, so a group holding
 // anything this run won't delete is kept.
 func TestSweepAccountGroupHoldingOtherAccountsIsSkipped(t *testing.T) {
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	srv := newFixtureWorld(t)
 	srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{
 		account(8, oldT, 7),
 		{"id": 102, "name": "Moved in by hand", "type": "username_password", "username": "ops", "account_group_id": 7},
@@ -747,9 +730,7 @@ func TestSweepAccountGroupHoldingOtherAccountsIsSkipped(t *testing.T) {
 // type of the user: here a real item placed in the fixture jump group and on
 // the fixture jumpoint.
 func TestSweepJumpGroupInUseIsSkipped(t *testing.T) {
-	srv := apimock.New()
-	defer srv.Close()
-	fixtureWorld(srv, oldT)
+	srv := newFixtureWorld(t)
 	srv.Rows("jump-item/shell-jump", shellJump(30, oldT, 20, 21),
 		apimock.Row{"id": 301, "name": "db01", "tag": "", "jump_group_id": 20, "jump_group_type": "shared", "jumpoint_id": 21})
 
@@ -778,11 +759,13 @@ func TestSweepJumpGroupInAssociationCriteriaIsSkipped(t *testing.T) {
 		"read error": {"vault/account-group/100/jump-item-association", func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}, "skip jump-item-association-check-failed"},
+		// A body that doesn't decode can't be shown not to name the group.
+		"undecodable criteria": {"vault/account-group/100/jump-item-association", func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"filter_type":"criteria","criteria":{"shared_jump_groups":["20"]},"jump_items":[]}`))
+		}, "skip jump-item-association-check-failed"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			srv := apimock.New()
-			defer srv.Close()
-			fixtureWorld(srv, oldT)
+			srv := newFixtureWorld(t)
 			// Account 101 is standalone (Default group) for this test.
 			srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{
 				account(8, oldT, 7),
@@ -797,6 +780,31 @@ func TestSweepJumpGroupInAssociationCriteriaIsSkipped(t *testing.T) {
 	}
 }
 
+// An association that names the fixture jump group after collection keeps it:
+// the check is run again before the delete, like every other reference.
+func TestSweepAssociationRecheckedAtDelete(t *testing.T) {
+	srv := newFixtureWorld(t)
+	var mu sync.Mutex
+	reads := 0
+	srv.Handle(http.MethodGet, "vault/account-group/100/jump-item-association", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		reads++
+		n := reads
+		mu.Unlock()
+		if n == 1 {
+			_, _ = w.Write([]byte(`{"filter_type":"any_jump_items","jump_items":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"filter_type":"criteria","criteria":{"shared_jump_groups":[20]},"jump_items":[]}`))
+	})
+
+	out, err := runOn(t, srv, settings(sweepDelete))
+	require.NoError(t, err)
+	assert.Contains(t, out, "sweep jump_group 20 kept-at-delete criteria of vault_account_group 100")
+	assert.NotContains(t, deletes(srv), "jump-group/20")
+	assert.Contains(t, deletes(srv), "jumpoint/21", "jumpoints have no association reference")
+}
+
 // --- fixture coverage -------------------------------------------------------
 
 // TestSweepCoversFixtures renders every fixture object's name, tag, code_name,
@@ -805,8 +813,10 @@ func TestSweepJumpGroupInAssociationCriteriaIsSkipped(t *testing.T) {
 // requires the sweeper to recognise each one. A new fixture, name or naming
 // pattern fails here instead of leaking silently.
 //
-// Values it can't render are skipped: function calls such as concat(...), and
-// anything nested in a block (jump_item_association criteria among them).
+// The fixtures are parsed as HCL, and each value is evaluated with var and local
+// bound. Values it can't render are skipped: function calls such as
+// concat(...), and anything nested in a block (jump_item_association criteria
+// among them).
 func TestSweepCoversFixtures(t *testing.T) {
 	bindings := testFixtureBindings(t)
 	require.NotEmpty(t, bindings)
@@ -966,85 +976,51 @@ type renderedObject struct {
 	groupMarker        string
 }
 
-// tfBlock is a top-level block: its labels and its scalar, top-level attributes
-// as raw expressions.
-type tfBlock struct {
-	kind   string
-	labels []string
-	attrs  map[string]string
-}
-
-var (
-	tfStringRE = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
-	tfOpenRE   = regexp.MustCompile(`^(resource|data|module|variable|locals|output|terraform)((?:\s+"[^"]*")*)\s*\{$`)
-	tfLabelRE  = regexp.MustCompile(`"([^"]*)"`)
-	tfAttrRE   = regexp.MustCompile(`^([a-z_]+)\s*=\s*(.+)$`)
-	tfInterpRE = regexp.MustCompile(`\$\{(var|local)\.([a-z_]+)\}`)
-	tfRefRE    = regexp.MustCompile(`^(var|local)\.([a-z_]+)$`)
-)
-
-func parseTFDir(t *testing.T, dir string) []tfBlock {
+// parseTFDir parses every .tf file in dir and returns their top-level blocks.
+func parseTFDir(t *testing.T, dir string) []*hclsyntax.Block {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(dir, "*.tf"))
 	require.NoError(t, err)
 	require.NotEmpty(t, files, "no .tf files in %s", dir)
 
-	var blocks []tfBlock
+	parser := hclparse.NewParser()
+	var blocks []*hclsyntax.Block
 	for _, file := range files {
-		data, err := os.ReadFile(file)
-		require.NoError(t, err)
-		depth := 0
-		var cur *tfBlock
-		for _, line := range strings.Split(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			bare := tfStringRE.ReplaceAllString(line, `""`)
-			if depth == 0 {
-				if m := tfOpenRE.FindStringSubmatch(line); m != nil {
-					b := tfBlock{kind: m[1], attrs: map[string]string{}}
-					for _, l := range tfLabelRE.FindAllStringSubmatch(m[2], -1) {
-						b.labels = append(b.labels, l[1])
-					}
-					blocks = append(blocks, b)
-					cur = &blocks[len(blocks)-1]
-				}
-			} else if depth == 1 && cur != nil {
-				if m := tfAttrRE.FindStringSubmatch(line); m != nil {
-					cur.attrs[m[1]] = m[2]
-				}
-			}
-			depth += strings.Count(bare, "{") + strings.Count(bare, "[") - strings.Count(bare, "}") - strings.Count(bare, "]")
-		}
+		f, diags := parser.ParseHCLFile(file)
+		require.False(t, diags.HasErrors(), "%s: %s", file, diags)
+		blocks = append(blocks, f.Body.(*hclsyntax.Body).Blocks...)
 	}
 	return blocks
 }
 
-// renderTF renders a string template, var.x or local.x, or reports false.
-func renderTF(expr string, vars, locals map[string]string) (string, bool) {
-	lookup := func(kind, name string) (string, bool) {
-		if kind == "var" {
-			v, ok := vars[name]
-			return v, ok
+// renderTF evaluates expr with var and local bound to vars and locals, and
+// reports false unless it is a known string. A function call, a reference to
+// anything else, or a value of another type does not render.
+func renderTF(expr hclsyntax.Expression, vars, locals map[string]string) (string, bool) {
+	scope := func(m map[string]string) cty.Value {
+		vals := map[string]cty.Value{}
+		for k, v := range m {
+			vals[k] = cty.StringVal(v)
 		}
-		v, ok := locals[name]
-		return v, ok
+		return cty.ObjectVal(vals)
 	}
-	if m := tfRefRE.FindStringSubmatch(expr); m != nil {
-		return lookup(m[1], m[2])
-	}
-	if !strings.HasPrefix(expr, `"`) || !strings.HasSuffix(expr, `"`) || len(expr) < 2 {
+	ctx := &hcl.EvalContext{Variables: map[string]cty.Value{"var": scope(vars), "local": scope(locals)}}
+	v, diags := expr.Value(ctx)
+	if diags.HasErrors() || v.IsNull() || !v.IsWhollyKnown() || v.Type() != cty.String {
 		return "", false
 	}
-	ok := true
-	out := tfInterpRE.ReplaceAllStringFunc(expr[1:len(expr)-1], func(s string) string {
-		m := tfInterpRE.FindStringSubmatch(s)
-		v, found := lookup(m[1], m[2])
-		ok = ok && found
-		return v
-	})
-	return out, ok && !strings.Contains(out, "${")
+	return v.AsString(), true
+}
+
+// renderAttr renders the top-level attribute name of b. Nested blocks, such as
+// jump_item_association criteria, are never read.
+func renderAttr(b *hclsyntax.Block, name string, vars, locals map[string]string) (value string, present, ok bool) {
+	attr, present := b.Body.Attributes[name]
+	if !present {
+		return "", false, false
+	}
+	value, ok = renderTF(attr.Expr, vars, locals)
+	return value, true, ok
 }
 
 var fixtureResourceTypes = map[string]string{
@@ -1076,23 +1052,30 @@ func renderFixture(t *testing.T, dir string, bound map[string]string) []rendered
 
 	vars := map[string]string{}
 	for _, b := range blocks {
-		if b.kind == "variable" && len(b.labels) == 1 {
-			if v, ok := renderTF(b.attrs["default"], nil, nil); ok {
-				vars[b.labels[0]] = v
+		if b.Type == "variable" && len(b.Labels) == 1 {
+			if v, _, ok := renderAttr(b, "default", nil, nil); ok {
+				vars[b.Labels[0]] = v
 			}
 		}
 	}
 	for k, v := range bound {
 		vars[k] = v
 	}
+	// Locals may refer to each other in any order: evaluate until none is added.
 	locals := map[string]string{}
-	for pass := 0; pass < 2; pass++ {
+	for added := true; added; {
+		added = false
 		for _, b := range blocks {
-			if b.kind == "locals" {
-				for k, expr := range b.attrs {
-					if v, ok := renderTF(expr, vars, locals); ok {
-						locals[k] = v
-					}
+			if b.Type != "locals" {
+				continue
+			}
+			for k, attr := range b.Body.Attributes {
+				if _, done := locals[k]; done {
+					continue
+				}
+				if v, ok := renderTF(attr.Expr, vars, locals); ok {
+					locals[k] = v
+					added = true
 				}
 			}
 		}
@@ -1101,34 +1084,33 @@ func renderFixture(t *testing.T, dir string, bound map[string]string) []rendered
 	var out []renderedObject
 	for _, b := range blocks {
 		switch {
-		case b.kind == "module":
-			source, ok := renderTF(b.attrs["source"], nil, nil)
-			require.True(t, ok, "module %v in %s", b.labels, dir)
+		case b.Type == "module":
+			source, _, ok := renderAttr(b, "source", nil, nil)
+			require.True(t, ok, "module %v in %s", b.Labels, dir)
 			args := map[string]string{}
-			for k, expr := range b.attrs {
-				if v, ok := renderTF(expr, vars, locals); ok && k != "source" {
+			for k, attr := range b.Body.Attributes {
+				if v, ok := renderTF(attr.Expr, vars, locals); ok && k != "source" {
 					args[k] = v
 				}
 			}
 			out = append(out, renderFixture(t, filepath.Join(dir, source), args)...)
 
-		case b.kind == "resource" && len(b.labels) == 2:
-			st, ok := fixtureResourceTypes[b.labels[0]]
+		case b.Type == "resource" && len(b.Labels) == 2:
+			st, ok := fixtureResourceTypes[b.Labels[0]]
 			if !ok {
 				continue
 			}
 			row := sweepRow{"id": 7.0}
 			for _, attr := range []string{"name", "tag", "code_name", "username", "description", "type"} {
-				if expr, present := b.attrs[attr]; present {
-					v, ok := renderTF(expr, vars, locals)
-					if !ok {
-						t.Logf("%s: %s.%s.%s = %s is not rendered", dir, b.labels[0], b.labels[1], attr, expr)
-						continue
-					}
+				v, present, ok := renderAttr(b, attr, vars, locals)
+				switch {
+				case ok:
 					row[attr] = v
+				case present:
+					t.Logf("%s: %s.%s.%s is not rendered", dir, b.Labels[0], b.Labels[1], attr)
 				}
 			}
-			switch b.labels[0] {
+			switch b.Labels[0] {
 			case "sra_vault_username_password_account":
 				row["type"] = "username_password"
 			case "sra_vault_token_account":
@@ -1143,7 +1125,7 @@ func renderFixture(t *testing.T, dir string, bound map[string]string) []rendered
 				row[typ.groupTypeField] = "shared"
 			}
 			out = append(out, renderedObject{
-				resourceType: b.labels[0], name: b.labels[1], sweepType: st, row: row,
+				resourceType: b.Labels[0], name: b.Labels[1], sweepType: st, row: row,
 				wantMarker: vars["random_bits"], groupMarker: vars["random_bits"],
 			})
 		}

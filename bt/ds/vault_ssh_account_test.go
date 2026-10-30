@@ -20,7 +20,7 @@ func sshAccountRows(n int) []apimock.Row {
 }
 
 // The single SSH account data source uses only the first match, so it reads one
-// page, asks for SSH accounts only, and sends include_personal (a bool filter,
+// row, asks for SSH accounts only, and sends include_personal (a bool filter,
 // which used to be dropped).
 func TestSingleSSHAccountReadsOnePageOfSSHAccounts(t *testing.T) {
 	t.Parallel()
@@ -35,7 +35,7 @@ func TestSingleSSHAccountReadsOnePageOfSSHAccounts(t *testing.T) {
 	assert.False(t, state.Raw.IsNull())
 
 	assert.Equal(t, []string{
-		"GET vault/account?include_personal=true&type=ssh",
+		"GET vault/account?include_personal=true&per_page=1&type=ssh",
 		"GET vault/account/1",
 	}, srv.Requests(), "one list call, with no current_page=2")
 	assert.Equal(t, 1, srv.Calls(http.MethodGet, "vault/account"))

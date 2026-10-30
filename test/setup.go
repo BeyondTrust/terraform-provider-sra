@@ -31,8 +31,7 @@ import (
 // fetched it is not kept (see freshClient).
 var loadMechs = sync.OnceValues(func() (*api.MechList, error) {
 	host := os.Getenv("BT_API_HOST")
-	id, secret := os.Getenv("BT_CLIENT_ID"), os.Getenv("BT_CLIENT_SECRET")
-	client, err := api.NewClient(host, &id, &secret)
+	client, err := newEnvClient()
 	if err != nil {
 		return nil, fmt.Errorf("could not create API client for BT_API_HOST [%s]: %w — check BT_API_HOST/BT_CLIENT_ID/BT_CLIENT_SECRET", host, err)
 	}
@@ -119,6 +118,15 @@ const (
 	markerRandomChars = 6
 	markerAlphabet    = "0123456789abcdefghijklmnopqrstuvwxyz"
 	markerLen         = len(markerPrefix) + markerTimeDigits + markerRandomChars
+
+	// markerCharClass is markerAlphabet as a regular expression class.
+	markerCharClass = "[0-9a-z]"
+	// legacyMarkerLen is the length of the UniqueId marker used before
+	// timestamps.
+	legacyMarkerLen = 6
+	// markerSuffix is what the vault/secret fixture appends when it passes
+	// "${var.random_bits}2" down to the ssh_account module.
+	markerSuffix = "2"
 )
 
 func newMarker(now time.Time) string {
@@ -150,33 +158,38 @@ const (
 )
 
 var (
-	legacyMarkerRE      = regexp.MustCompile(`^[0-9a-z]{6}$`)
-	timestampedMarkerRE = regexp.MustCompile(`^e2e[0-9a-z]{12}$`)
+	timestampedMarkerPattern = regexp.QuoteMeta(markerPrefix) + fmt.Sprintf("%s{%d}", markerCharClass, markerTimeDigits+markerRandomChars)
+	legacyMarkerPattern      = fmt.Sprintf("%s{%d}", markerCharClass, legacyMarkerLen)
+
+	timestampedMarkerRE = regexp.MustCompile("^" + timestampedMarkerPattern + "$")
+	legacyMarkerRE      = regexp.MustCompile("^" + legacyMarkerPattern + "$")
+
+	// markerToken matches either kind of marker, with an optional suffix, as
+	// capture group 1. The sweeper's name matchers embed it.
+	markerToken = "((?:" + timestampedMarkerPattern + "|" + legacyMarkerPattern + ")(?:" + regexp.QuoteMeta(markerSuffix) + ")?)"
 )
 
-// parseMarker classifies s, splitting off the single trailing "2" that the
-// vault/secret fixture appends when it passes "${var.random_bits}2" down to the
-// ssh_account module. base is the marker without it. For a timestamped marker,
-// at is its creation time, to the minute.
-func parseMarker(s string) (kind markerKind, base, suffix string, at time.Time) {
+// parseMarker classifies s, ignoring a single trailing markerSuffix. For a
+// timestamped marker, at is its creation time, to the minute.
+func parseMarker(s string) (kind markerKind, at time.Time) {
 	if !markerUsable(s) {
-		return markerUnusable, "", "", time.Time{}
+		return markerUnusable, time.Time{}
 	}
-	base = s
-	if (len(s) == markerLen+1 || len(s) == 7) && strings.HasSuffix(s, "2") {
-		base, suffix = s[:len(s)-1], "2"
+	base := s
+	if len(s) == markerLen+len(markerSuffix) || len(s) == legacyMarkerLen+len(markerSuffix) {
+		base = strings.TrimSuffix(s, markerSuffix)
 	}
 	switch {
 	case timestampedMarkerRE.MatchString(base):
 		minutes, err := strconv.ParseInt(base[len(markerPrefix):len(markerPrefix)+markerTimeDigits], 36, 64)
 		if err != nil {
-			return markerUnusable, "", "", time.Time{}
+			return markerUnusable, time.Time{}
 		}
-		return markerTimestamped, base, suffix, time.Unix(minutes*60, 0)
+		return markerTimestamped, time.Unix(minutes*60, 0)
 	case legacyMarkerRE.MatchString(base):
-		return markerLegacy, base, suffix, time.Time{}
+		return markerLegacy, time.Time{}
 	}
-	return markerUnusable, "", "", time.Time{}
+	return markerUnusable, time.Time{}
 }
 
 // Load .env file (if present) when the test package is initialized. This helps when running
@@ -322,9 +335,7 @@ func freshClient(t *testing.T) *api.APIClient {
 func freshClientE(t *testing.T) (*api.APIClient, error) {
 	t.Helper()
 
-	id := os.Getenv("BT_CLIENT_ID")
-	secret := os.Getenv("BT_CLIENT_SECRET")
-	c, err := api.NewClient(os.Getenv("BT_API_HOST"), &id, &secret)
+	c, err := newEnvClient()
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +346,13 @@ func freshClientE(t *testing.T) (*api.APIClient, error) {
 	// a human needs them.
 	c.SetTestLogger(t)
 	return c, nil
+}
+
+// newEnvClient builds a client from BT_API_HOST, BT_CLIENT_ID and
+// BT_CLIENT_SECRET. It mints a token, so it can fail.
+func newEnvClient() (*api.APIClient, error) {
+	id, secret := os.Getenv("BT_CLIENT_ID"), os.Getenv("BT_CLIENT_SECRET")
+	return api.NewClient(os.Getenv("BT_API_HOST"), &id, &secret)
 }
 
 // skipWithoutEndpoint skips a PRA test when the appliance has no endpoint for
@@ -358,6 +376,19 @@ func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
 	require.NoError(t, err, "probing %s", tmp.Endpoint())
 }
 
+// planStruct plans options into a temporary plan file and returns it parsed. It
+// works on a copy: setting PlanFilePath on options would add -out to every later
+// plan made with them. The plan's output is logged through options.Logger; the
+// JSON from show never is, as the plan output already shows any diff.
+func planStruct(t *testing.T, options *terraform.Options) *terraform.PlanStruct {
+	t.Helper()
+	planOptions := *options
+	planOptions.PlanFilePath = filepath.Join(t.TempDir(), "plan.tfplan")
+	terraform.PlanContext(t, t.Context(), &planOptions)
+	planOptions.Logger = logger.Discard
+	return terraform.ShowWithStructContext(t, t.Context(), &planOptions)
+}
+
 // requireNoResourceChanges plans options and requires every resource change to
 // be a no-op. Call it straight after the apply under test, with nothing applied
 // in between, so a diff that one more apply would absorb still fails.
@@ -367,12 +398,7 @@ func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
 // the plan after any apply that changed them shows "Changes to Outputs".
 func requireNoResourceChanges(t *testing.T, options *terraform.Options, msg string) {
 	t.Helper()
-	planOptions := *options
-	planOptions.PlanFilePath = filepath.Join(t.TempDir(), "plan.tfplan")
-	terraform.PlanContext(t, t.Context(), &planOptions)
-	// The plan output above already shows any diff; the JSON adds only noise.
-	planOptions.Logger = logger.Discard
-	plan := terraform.ShowWithStructContext(t, t.Context(), &planOptions)
+	plan := planStruct(t, options)
 
 	var changed []string
 	for address, rc := range plan.ResourceChangesMap {
