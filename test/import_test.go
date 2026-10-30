@@ -291,8 +291,10 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		require.Equal(t, id, group.Path("id").Data(),
 			"the post-import apply replaced the account group instead of updating it")
 
+		// The output is state, so this shows the apply wrote the tag; the clean
+		// plan below, which refreshes from the appliance, shows it persisted.
 		tags, _ := group.Path("jump_item_association.criteria.tag").Data().([]any)
-		require.ElementsMatch(t, []any{randomBits, extraTag}, tags, "the association update did not persist")
+		require.ElementsMatch(t, []any{randomBits, extraTag}, tags, "the apply did not write the new tag to state")
 
 		memberships, _ := group.Path("group_policy_memberships").Data().([]any)
 		require.Len(t, memberships, 1, "the membership was dropped or duplicated by the post-import apply")

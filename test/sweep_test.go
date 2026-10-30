@@ -191,13 +191,24 @@ func runOn(t *testing.T, srv *apimock.Server, set sweepSettings) (string, error)
 }
 
 // accountMatch is how vault/account filters: personal accounts only with
-// include_personal=true, then field equality.
+// include_personal=true, no x509_ca accounts with account_group_id, then field
+// equality.
 func accountMatch(row apimock.Row, filter url.Values) bool {
 	if p, _ := row["personal"].(bool); p && filter.Get("include_personal") != "true" {
 		return false
 	}
+	if filter.Has("account_group_id") && row["type"] == "x509_ca" {
+		return false
+	}
 	return apimock.FieldsEqual(row, filter)
 }
+
+// association answers a jump item association read with body.
+func association(body string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }
+}
+
+const anyJumpItems = `{"filter_type":"any_jump_items","jump_items":[]}`
 
 func group(id int, T string) apimock.Row {
 	return apimock.Row{"id": id, "name": "This is a Name " + T, "description": T}
@@ -227,8 +238,8 @@ func sentinel() apimock.Row {
 // newFixtureWorld serves one run's leftovers, marked oldT, beside some real
 // configuration: account group 7 holding account 8, policy 9, jump group 20,
 // jumpoint 21, and shell jump 30 in both. The real side is account group 100
-// holding account 101, jump group 200 and shell jump 300. The server closes
-// when the test ends.
+// (association any_jump_items) holding account 101, jump group 200 and shell
+// jump 300. The server closes when the test ends.
 func newFixtureWorld(t *testing.T) *apimock.Server {
 	t.Helper()
 	srv := newServer(t)
@@ -243,6 +254,7 @@ func newFixtureWorld(t *testing.T) *apimock.Server {
 	srv.Rows("jumpoint", jumpoint(21, T), apimock.Row{"id": 201, "name": "Prod JP", "code_name": "prod"})
 	srv.Rows("jump-item/shell-jump", shellJump(30, T, 20, 21), shellJump(300, "abcdef", 200, 201))
 	srv.Rows("jump-client")
+	srv.Handle(http.MethodGet, "vault/account-group/100/jump-item-association", association(anyJumpItems))
 	return srv
 }
 
@@ -433,7 +445,17 @@ func TestSweepReferenceCheckFailsClosed(t *testing.T) {
 		out, err := runOn(t, srv, settings(sweepDryRun))
 		require.NoError(t, err)
 		assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" skip list-failed:jump_client")
-		assert.Contains(t, out, "sweep jumpoint 21 \"Test JP "+oldT+"\" eligible", "jumpoints do not depend on jump clients")
+		assert.Contains(t, out, "sweep jumpoint 21 \"Test JP "+oldT+"\" skip list-failed:jump_client", "jump clients can proxy through a jumpoint")
+	})
+
+	t.Run("only the types a check reads", func(t *testing.T) {
+		srv := newFixtureWorld(t)
+		srv.Set("vault/account-group", &apimock.Collection{Status: http.StatusInternalServerError})
+
+		out, err := runOn(t, srv, settings(sweepDryRun))
+		require.NoError(t, err)
+		assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" skip list-failed:vault_account_group")
+		assert.Contains(t, out, "sweep jumpoint 21 \"Test JP "+oldT+"\" eligible", "jumpoints do not depend on account groups")
 	})
 }
 
@@ -452,25 +474,32 @@ func TestSweepPolicyReferencedIsSkipped(t *testing.T) {
 	assert.NotContains(t, deletes(srv), "vault/account-policy/9")
 }
 
-// A reference that appears after collection still keeps the container.
+// An account that appears in the group after collection still keeps it. The
+// re-check must see x509_ca accounts too, which vault/account leaves out when
+// asked for one account_group_id.
 func TestSweepReferenceRecheckedAtDelete(t *testing.T) {
-	srv := newFixtureWorld(t)
-	srv.Handle(http.MethodGet, "vault/account", afterInventory([]apimock.Row{account(8, oldT, 7)},
-		func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Query().Get("account_group_id") == "7" {
-				apimock.WritePage(w, []apimock.Row{{"id": 61, "name": "Added since", "type": "username_password", "username": "x", "account_group_id": 7}})
-				return
-			}
-			apimock.WritePage(w, nil)
-		}))
-	srv.Handle(http.MethodGet, "vault/account/8", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(account(8, oldT, 7))
-	})
+	for _, typ := range []string{"username_password", "x509_ca"} {
+		t.Run(typ, func(t *testing.T) {
+			srv := newFixtureWorld(t)
+			added := apimock.Row{"id": 61, "name": "Added since", "type": typ, "username": "x", "account_group_id": 7}
+			srv.Handle(http.MethodGet, "vault/account", afterInventory([]apimock.Row{account(8, oldT, 7)},
+				func(w http.ResponseWriter, r *http.Request) {
+					var rows []apimock.Row
+					if accountMatch(added, r.URL.Query()) {
+						rows = append(rows, added)
+					}
+					apimock.WritePage(w, rows)
+				}))
+			srv.Handle(http.MethodGet, "vault/account/8", func(w http.ResponseWriter, _ *http.Request) {
+				_ = json.NewEncoder(w).Encode(account(8, oldT, 7))
+			})
 
-	out, err := runOn(t, srv, settings(sweepDelete))
-	require.NoError(t, err)
-	assert.Contains(t, out, "sweep vault_account_group 7 kept-at-delete contains vault_account 61")
-	assert.NotContains(t, deletes(srv), "vault/account-group/7")
+			out, err := runOn(t, srv, settings(sweepDelete))
+			require.NoError(t, err)
+			assert.Contains(t, out, "sweep vault_account_group 7 kept-at-delete contains vault_account 61")
+			assert.NotContains(t, deletes(srv), "vault/account-group/7")
+		})
+	}
 }
 
 // In a reference check a 404 keeps the container. Only an inventory 404 means
@@ -679,9 +708,11 @@ func TestSweepCapCountsOnlyDeletable(t *testing.T) {
 	assert.Equal(t, []string{"vault/account-group/70", "vault/account-group/71", "vault/account-group/72"}, got)
 }
 
-// CI logs are public: nothing that isn't a fixture object is ever named.
+// CI logs are public: nothing that isn't a fixture object is ever named, and
+// neither a failed list's response body nor its URL (the appliance's host) is
+// printed. Nor is any type's total, which counts objects that aren't fixtures.
 func TestSweepOutputNeverNamesNonFixture(t *testing.T) {
-	secrets := []string{"Secret Payroll Group", "secret-db.corp.example", "svc_secret_user", "Sweep allowed secretly", testHost}
+	secrets := []string{"Secret Payroll Group", "secret-db.corp.example", "svc_secret_user", "Sweep allowed secretly", testHost, "secret error body"}
 	for _, mode := range []sweepMode{sweepDryRun, sweepDelete, sweepGPSnapshot} {
 		t.Run(string(mode), func(t *testing.T) {
 			srv := newFixtureWorld(t)
@@ -700,13 +731,33 @@ func TestSweepOutputNeverNamesNonFixture(t *testing.T) {
 			srv.Rows("group-policy/3/jump-group")
 			srv.Rows("group-policy/3/jumpoint")
 			srv.Rows("group-policy/3/vault-account")
+			srv.Handle(http.MethodGet, "jump-item/remote-rdp", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(secrets[5]))
+			})
+			srv.Handle(http.MethodGet, "jump-item/protocol-tunnel-jump", func(w http.ResponseWriter, _ *http.Request) {
+				apimock.WritePageClaiming(w, nil, 100001, 1001)
+			})
+			// A dropped connection: the client's *url.Error names the URL.
+			srv.Handle(http.MethodGet, "jump-item/web-jump", func(w http.ResponseWriter, _ *http.Request) {
+				conn, _, err := w.(http.Hijacker).Hijack()
+				if err == nil {
+					_ = conn.Close()
+				}
+			})
 
 			out, err := runOn(t, srv, settings(mode))
 			require.NoError(t, err)
-			for _, secret := range secrets {
+			for _, secret := range append(secrets, strings.TrimPrefix(srv.URL, "http://"), "/api/config/v1") {
 				assert.NotContains(t, out, secret)
 			}
 			assert.NotContains(t, out, "Production")
+			assert.NotContains(t, out, "total=")
+			if mode != sweepGPSnapshot {
+				assert.Contains(t, out, "sweep-list-failed remote_rdp: status 500\n")
+				assert.Contains(t, out, "sweep-list-failed web_jump: transport error\n")
+				assert.Contains(t, out, "sweep-list-failed protocol_tunnel_jump: unstable list: ")
+			}
 		})
 	}
 }
@@ -803,6 +854,120 @@ func TestSweepAssociationRecheckedAtDelete(t *testing.T) {
 	assert.Contains(t, out, "sweep jump_group 20 kept-at-delete criteria of vault_account_group 100")
 	assert.NotContains(t, deletes(srv), "jump-group/20")
 	assert.Contains(t, deletes(srv), "jumpoint/21", "jumpoints have no association reference")
+}
+
+// Some objects of a type having no association (404) is normal. Every one of
+// them 404ing is more likely a wrong path, so it keeps every jump group.
+func TestSweepAssociation404s(t *testing.T) {
+	notFound := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }
+	for name, tc := range map[string]struct {
+		handlers map[string]http.HandlerFunc
+		want     string
+	}{
+		"every read is a 404": {map[string]http.HandlerFunc{
+			"vault/account-group/100/jump-item-association": notFound,
+			"vault/account-group/102/jump-item-association": notFound,
+		}, "skip jump-item-association-check-failed"},
+		"some reads are a 404": {map[string]http.HandlerFunc{
+			"vault/account-group/100/jump-item-association": notFound,
+			"vault/account-group/102/jump-item-association": association(anyJumpItems),
+		}, "eligible"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := newFixtureWorld(t)
+			srv.Rows("vault/account-group", group(7, oldT),
+				apimock.Row{"id": 100, "name": "Payroll", "description": "real"},
+				apimock.Row{"id": 102, "name": "Finance", "description": "real"})
+			for path, h := range tc.handlers {
+				srv.Handle(http.MethodGet, path, h)
+			}
+
+			out, err := runOn(t, srv, settings(sweepDryRun))
+			require.NoError(t, err)
+			assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" "+tc.want)
+		})
+	}
+
+	t.Run("standalone accounts", func(t *testing.T) {
+		srv := newFixtureWorld(t)
+		srv.Set("vault/account", &apimock.Collection{Match: accountMatch, Rows: []apimock.Row{
+			account(8, oldT, 7),
+			{"id": 101, "name": "Payroll admin", "type": "username_password", "username": "payroll", "account_group_id": 1},
+		}})
+
+		out, err := runOn(t, srv, settings(sweepDryRun))
+		require.NoError(t, err)
+		assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" skip jump-item-association-check-failed",
+			"account 101's association read is the only one, and it 404s")
+	})
+}
+
+// A candidate kept at delete time is a live object again: what it references
+// still protects the container. Here account group 7 is renamed before its
+// delete, and its association names jump group 20.
+func TestSweepKeptCandidateStillProtects(t *testing.T) {
+	srv := newFixtureWorld(t)
+	srv.Handle(http.MethodGet, "vault/account-group/7", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(apimock.Row{"id": 7, "name": "Payroll 2", "description": oldT})
+	})
+	srv.Handle(http.MethodGet, "vault/account-group/7/jump-item-association",
+		association(`{"filter_type":"criteria","criteria":{"shared_jump_groups":[20]},"jump_items":[]}`))
+
+	out, err := runOn(t, srv, settings(sweepDelete))
+	require.NoError(t, err)
+	assert.Contains(t, out, "sweep jump_group 20 \"Test JG "+oldT+"\" eligible", "classify skips what this run deletes")
+	assert.Contains(t, out, "sweep vault_account_group 7 kept-at-delete no-longer-matches")
+	assert.Contains(t, out, "sweep jump_group 20 kept-at-delete criteria of vault_account_group 7")
+	assert.NotContains(t, deletes(srv), "jump-group/20")
+}
+
+// A jump client or installer that proxies through a jumpoint (jumpoint_proxy,
+// the jumpoint's name) keeps it, at classify and again at delete. A list that
+// doesn't return the field keeps every jumpoint.
+func TestSweepJumpointProxyReference(t *testing.T) {
+	proxied := func(id int, name string) apimock.Row {
+		return apimock.Row{"id": id, "name": name, "tag": "", "jump_group_id": 200, "jump_group_type": "shared", "jumpoint_proxy": "Test JP " + oldT}
+	}
+	for name, tc := range map[string]struct {
+		path string
+		rows []apimock.Row
+		want string
+	}{
+		"jump client": {"jump-client", []apimock.Row{proxied(40, "Real client")}, "skip used by jump_client 40"},
+		"installer":   {"jump-client/installer", []apimock.Row{proxied(41, "Real installer")}, "skip used by jump_client_installer 41"},
+		"no proxy":    {"jump-client", []apimock.Row{{"id": 40, "name": "Real client", "jump_group_id": 200, "jump_group_type": "shared", "jumpoint_proxy": nil}}, "eligible"},
+		"another jumpoint": {"jump-client", []apimock.Row{{"id": 40, "name": "Real client", "jump_group_id": 200, "jump_group_type": "shared", "jumpoint_proxy": "Prod JP"}},
+			"eligible"},
+		"field not returned": {"jump-client", []apimock.Row{{"id": 40, "name": "Real client", "jump_group_id": 200, "jump_group_type": "shared"}},
+			"skip proxy-push refs unchecked"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := newFixtureWorld(t)
+			srv.Rows(tc.path, tc.rows...)
+
+			out, err := runOn(t, srv, settings(sweepDryRun))
+			require.NoError(t, err)
+			assert.Contains(t, out, "sweep jumpoint 21 \"Test JP "+oldT+"\" "+tc.want)
+			assert.NotContains(t, out, "Real ")
+		})
+	}
+
+	t.Run("appears before the delete", func(t *testing.T) {
+		srv := newFixtureWorld(t)
+		srv.Handle(http.MethodGet, "jump-client", afterInventory(nil, func(w http.ResponseWriter, r *http.Request) {
+			var rows []apimock.Row
+			if row := proxied(40, "Real client"); apimock.FieldsEqual(row, r.URL.Query()) {
+				rows = append(rows, row)
+			}
+			apimock.WritePage(w, rows)
+		}))
+
+		out, err := runOn(t, srv, settings(sweepDelete))
+		require.NoError(t, err)
+		assert.Contains(t, out, "sweep jumpoint 21 kept-at-delete used by jump_client 40")
+		assert.NotContains(t, deletes(srv), "jumpoint/21")
+		assert.Contains(t, deletes(srv), "jump-group/20", "the client is in jump group 200")
+	})
 }
 
 // --- fixture coverage -------------------------------------------------------

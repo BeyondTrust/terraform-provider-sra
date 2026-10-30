@@ -58,8 +58,9 @@ func tunnelListenAddressError(addr string) string {
 // and an unknown is checked once it is known. It sees only configuration, never
 // state, so an imported item outside the range does not fail every plan.
 //
-// allowEmpty accepts "": the mysql and postgresql APIs take an empty address
-// (their rule is ipv4 without filled), and existing configurations set it.
+// allowEmpty accepts "" for mysql and postgresql, whose existing configurations
+// set it. It is valid only on an existing item, where it keeps the current
+// address; tunnelListenAddressPlan rejects it on create.
 type tunnelListenAddressValidator struct {
 	allowEmpty bool
 }
@@ -118,22 +119,34 @@ func (m tunnelListenAddressPlan) MarkdownDescription(ctx context.Context) string
 }
 
 func (tunnelListenAddressPlan) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if isKnown(req.ConfigValue) && req.ConfigValue.ValueString() == "" && !isSet(req.StateValue) {
+		// No address to keep. Planning the default would not match the
+		// configured "", which Terraform rejects as an invalid plan.
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid tunnel_listen_address",
+			"tunnel_listen_address can't be empty here; omit it to get 127.0.0.1 or set an address.")
+		return
+	}
 	resp.PlanValue = planTunnelListenAddress(req.ConfigValue, req.StateValue)
 }
 
 // validateSQLTunnelPlan checks the planned name, hostname and ids of a mysql or
 // postgresql tunnel. A negative id is invalid; 0 passes, since an id that is not
-// known yet can plan as 0, and the appliance validates it on apply.
+// known yet can plan as 0, and the appliance validates it on apply. Unknown
+// values pass.
 func validateSQLTunnelPlan(name, hostname types.String, jumpointID, jumpGroupID types.Int64) diag.Diagnostics {
 	var diags diag.Diagnostics
-	if name.IsNull() || name.ValueString() == "" {
-		diags.AddError("name is required", "The name field is required and must be 1..128 characters")
-		return diags
+	// An unknown name or hostname (another resource's output) is checked once
+	// it is known; its ValueString() is "".
+	if !name.IsUnknown() {
+		if name.IsNull() || name.ValueString() == "" {
+			diags.AddError("name is required", "The name field is required and must be 1..128 characters")
+			return diags
+		}
+		if l := len(name.ValueString()); l > 128 {
+			diags.AddError("name length", "The name must be between 1 and 128 characters")
+		}
 	}
-	if l := len(name.ValueString()); l < 1 || l > 128 {
-		diags.AddError("name length", "The name must be between 1 and 128 characters")
-	}
-	if !hostname.IsNull() {
+	if isKnown(hostname) {
 		if l := len(hostname.ValueString()); l < 1 || l > 128 {
 			diags.AddError("hostname length", "The hostname must be between 1 and 128 characters")
 		}

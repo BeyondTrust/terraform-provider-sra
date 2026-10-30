@@ -117,18 +117,31 @@ func TestValidateSQLTunnelPlan(t *testing.T) {
 		jumpoint, jumpGroup types.Int64
 		ok                  bool
 	}{
-		"valid":                  {name, host, id, id, true},
-		"zero ids pass":          {name, host, types.Int64Value(0), types.Int64Value(0), true},
-		"unknown ids pass":       {name, host, types.Int64Unknown(), types.Int64Unknown(), true},
-		"empty name":             {types.StringValue(""), host, id, id, false},
-		"null name":              {types.StringNull(), host, id, id, false},
-		"name over 128":          {types.StringValue(strings.Repeat("n", 129)), host, id, id, false},
-		"empty hostname":         {name, types.StringValue(""), id, id, false},
-		"negative jumpoint_id":   {name, host, types.Int64Value(-1), id, false},
-		"negative jump_group_id": {name, host, id, types.Int64Value(-1), false},
+		"valid":                   {name, host, id, id, true},
+		"zero ids pass":           {name, host, types.Int64Value(0), types.Int64Value(0), true},
+		"unknown ids pass":        {name, host, types.Int64Unknown(), types.Int64Unknown(), true},
+		"unknown name passes":     {types.StringUnknown(), host, id, id, true},
+		"unknown hostname passes": {name, types.StringUnknown(), id, id, true},
+		"empty name":              {types.StringValue(""), host, id, id, false},
+		"null name":               {types.StringNull(), host, id, id, false},
+		"name over 128":           {types.StringValue(strings.Repeat("n", 129)), host, id, id, false},
+		"empty hostname":          {name, types.StringValue(""), id, id, false},
+		"negative jumpoint_id":    {name, host, types.Int64Value(-1), id, false},
+		"negative jump_group_id":  {name, host, id, types.Int64Value(-1), false},
 	} {
 		diags := validateSQLTunnelPlan(tc.name, tc.hostname, tc.jumpoint, tc.jumpGroup)
 		assert.Equal(t, tc.ok, !diags.HasError(), "%s: %v", label, diags)
+	}
+}
+
+// A name or hostname taken from another resource's output plans.
+func TestSQLTunnelUnknownNameAndHostnamePlan(t *testing.T) {
+	for _, name := range []string{"mysql", "postgresql"} {
+		t.Run(name, func(t *testing.T) {
+			r := tunnelHarnesses[name].plan(t, tunnelConfig(map[string]any{"name": unknown, "hostname": unknown}), nil)
+			require.Empty(t, r.diags)
+			assert.False(t, r.planned["name"].IsKnown())
+		})
 	}
 }
 
@@ -200,8 +213,19 @@ func TestTunnelListenAddressPlan(t *testing.T) {
 	}
 }
 
-// State written by v1.4.0 replans clean: those versions planned an omitted or
-// empty address as 127.0.0.1, and that is what state holds.
+// v140SQLState is a mysql or postgresql item as provider v1.4.0 writes it to
+// state for tunnelConfig(nil). v1.4.0 planned an omitted or empty listen address
+// as 127.0.0.1, and left the two policy ids null when unset.
+func v140SQLState(t *testing.T, h planHarness) map[string]tftypes.Value {
+	return h.values(t, map[string]any{
+		"id": "13", "name": "db", "jumpoint_id": 1, "hostname": "db.example", "jump_group_id": 2,
+		"jump_group_type": "shared", "tag": "", "comments": "",
+		"tunnel_listen_address": "127.0.0.1", "username": "", "database": "",
+	})
+}
+
+// State written by v1.4.0 replans clean, whether the configuration omits the
+// address, sets it to "" or sets 127.0.0.1.
 func TestTunnelListenAddressV140StateReplansClean(t *testing.T) {
 	for _, name := range []string{"mysql", "postgresql"} {
 		h := tunnelHarnesses[name]
@@ -211,12 +235,32 @@ func TestTunnelListenAddressV140StateReplansClean(t *testing.T) {
 				if configured != nil {
 					config["tunnel_listen_address"] = configured
 				}
-				state := tunnelState(t, h, tunnelConfig(nil))
-				require.Equal(t, "127.0.0.1", str(t, state["tunnel_listen_address"]))
+				state := v140SQLState(t, h)
 
 				r := h.plan(t, config, state)
 				require.Empty(t, r.diags)
 				assert.True(t, r.plannedRaw.Equal(tftypes.NewValue(h.typ(t), state)), "plan differs from state")
+			})
+		}
+	}
+}
+
+// An empty address has nothing to keep on create, or when state holds "" too.
+// Planning 127.0.0.1 there would not match the configuration, which Terraform
+// reports as "Provider produced invalid plan"; it is an attribute error instead.
+func TestTunnelListenAddressEmptyWithNothingToKeep(t *testing.T) {
+	for _, name := range []string{"mysql", "postgresql"} {
+		h := tunnelHarnesses[name]
+		config := tunnelConfig(map[string]any{"tunnel_listen_address": ""})
+		priorEmpty := v140SQLState(t, h)
+		priorEmpty["tunnel_listen_address"] = tftypes.NewValue(tftypes.String, "")
+		for label, prior := range map[string]map[string]tftypes.Value{"create": nil, "prior empty": priorEmpty} {
+			t.Run(name+"/"+label, func(t *testing.T) {
+				r := h.plan(t, config, prior)
+				require.Len(t, r.diags, 1)
+				assert.Equal(t, "Invalid tunnel_listen_address", r.diags[0].Summary)
+				assert.Contains(t, r.diags[0].Detail, "omit it to get 127.0.0.1")
+				assert.True(t, r.diags[0].Attribute.Equal(tftypes.NewAttributePath().WithAttributeName("tunnel_listen_address")))
 			})
 		}
 	}

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -301,10 +302,14 @@ var sweepTypes = []sweepType{
 // again against the appliance as it is then.
 type sweepRef struct {
 	from string // the referencing type
-	// field is from's field that names the container: its id, or its code_name
-	// when byCode is set.
-	field  string
-	byCode bool
+	// field is from's field that names the container: its id, or the
+	// container's own key field (code_name, name) when key is set.
+	field string
+	key   string
+	// unchecked, when set, is the reason to keep the container if a row of from
+	// lacks field: an appliance that doesn't return it can't show the
+	// reference is absent.
+	unchecked string
 	// filter: from's list endpoint filters on field, so the live check asks for
 	// just the referencing rows. Any row it returns is a reference.
 	filter bool
@@ -322,11 +327,13 @@ type sweepRef struct {
 func references(st *sweepType) []sweepRef {
 	switch st.kind {
 	case kindAccountGroup:
-		return []sweepRef{{from: "vault_account", field: "account_group_id", filter: true, verb: "contains"}}
+		// Not filtered: with account_group_id the appliance also drops x509_ca
+		// accounts (VaultAccountApiController::index), which the group holds too.
+		return []sweepRef{{from: "vault_account", field: "account_group_id", verb: "contains"}}
 	case kindPolicy:
 		return []sweepRef{
-			{from: "vault_account", field: "account_policy", byCode: true, verb: "used by"},
-			{from: "vault_account_group", field: "account_policy", byCode: true, verb: "used by"},
+			{from: "vault_account", field: "account_policy", key: "code_name", verb: "used by"},
+			{from: "vault_account_group", field: "account_policy", key: "code_name", verb: "used by"},
 		}
 	case kindJumpGroup, kindJumpoint:
 		var refs []sweepRef
@@ -337,6 +344,15 @@ func references(st *sweepType) []sweepRef {
 			}
 			if field != "" {
 				refs = append(refs, sweepRef{from: from.name, field: field, filter: true, verb: "used by"})
+			}
+		}
+		if st.kind == kindJumpoint {
+			// A jump client or installer names its Jump Zone Proxy jumpoint by
+			// name. The API calls the field jumpoint_proxy (proxy_push_agent_name
+			// internally) and can't filter on it.
+			for _, from := range []string{"jump_client_installer", "jump_client"} {
+				refs = append(refs, sweepRef{from: from, field: "jumpoint_proxy", key: "name",
+					unchecked: "proxy-push refs unchecked", verb: "used by"})
 			}
 		}
 		if st.kind == kindJumpGroup {
@@ -728,6 +744,9 @@ func (s *sweeper) blocked(cand *candidate, live bool) string {
 			}
 		} else {
 			by, err = s.referencing(ref, from, cand, live)
+			if errors.Is(err, errRefUnchecked) {
+				return ref.unchecked
+			}
 			if err != nil {
 				return "reference-check-failed " + from.name
 			}
@@ -761,6 +780,10 @@ func (s *sweeper) rowsOf(from *sweepType, live bool, filter map[string]string) (
 	return api.ListAllItemsEndpoint(s.c, from.endpoint, query, rowKey)
 }
 
+// errRefUnchecked: a row of from lacks the field a reference with unchecked set
+// reads.
+var errRefUnchecked = errors.New("reference field not returned")
+
 // referencing returns the id of a row of from whose ref.field names cand, or 0.
 func (s *sweeper) referencing(ref sweepRef, from *sweepType, cand *candidate, live bool) (int, error) {
 	var filter map[string]string
@@ -772,12 +795,15 @@ func (s *sweeper) referencing(ref sweepRef, from *sweepType, cand *candidate, li
 		return 0, err
 	}
 	for _, r := range rows {
+		if _, present := r[ref.field]; ref.unchecked != "" && !present {
+			return 0, errRefUnchecked
+		}
 		var match bool
 		switch {
 		case filter != nil:
 			match = true
-		case ref.byCode:
-			match = r.str(ref.field) == cand.row.str("code_name")
+		case ref.key != "":
+			match = r.str(ref.field) == cand.row.str(ref.key)
 		default:
 			v, ok := r.num(ref.field)
 			match = ok && v == cand.id
@@ -808,12 +834,16 @@ func (s *sweeper) readSharedJumpGroups(ref sweepRef, from *sweepType, live bool)
 		return jiaRefs{err: err}
 	}
 	by := map[int]int{}
+	read, notFound := 0, 0
 	for _, r := range rows {
 		if g, _ := r.num("account_group_id"); ref.standalone && g > 1 {
 			continue
 		}
+		read++
 		groups, err := ref.sharedJumpGroups(s.c, r.id())
 		if api.IsNotFound(err) {
+			// This object has no association.
+			notFound++
 			continue
 		}
 		if err != nil {
@@ -824,6 +854,11 @@ func (s *sweeper) readSharedJumpGroups(ref sweepRef, from *sweepType, live bool)
 		for _, g := range groups {
 			by[g] = r.id()
 		}
+	}
+	if read > 0 && notFound == read {
+		// No object of the type has an association: more likely a wrong path,
+		// which must not remove the check.
+		return jiaRefs{err: fmt.Errorf("every %s association read was a 404", from.name)}
 	}
 	return jiaRefs{by: by}
 }
@@ -837,7 +872,6 @@ func (s *sweeper) report() []string {
 		if st.phase == neverSwept {
 			continue
 		}
-		total := len(s.rows[st.name])
 		excluded := map[string]int{}
 		eligible, legacy := 0, 0
 		for _, c := range s.candidates[st.name] {
@@ -864,18 +898,43 @@ func (s *sweeper) report() []string {
 		case s.failed[st.name] != nil:
 			state = "list-failed"
 		}
-		s.logf("sweep-total %s %s total=%d matched=%d eligible=%d legacy-candidate=%d excluded=[%s]",
-			st.name, state, total, len(s.candidates[st.name]), eligible, legacy, strings.Join(parts, " "))
+		// No total: how many objects a type has, personal accounts included,
+		// says something about the appliance that CI logs, which are public,
+		// should not.
+		s.logf("sweep-total %s %s matched=%d eligible=%d legacy-candidate=%d excluded=[%s]",
+			st.name, state, len(s.candidates[st.name]), eligible, legacy, strings.Join(parts, " "))
 		if eligible > s.set.max {
 			over = append(over, st.name)
 		}
 	}
 	for name, err := range s.failed {
-		// The error text is the API's status and body for a list call, or the
-		// unstable-list counts; neither carries an object's fields.
-		s.logf("sweep-list-failed %s: %v", name, err)
+		s.logf("sweep-list-failed %s: %s", name, listFailureClass(err))
 	}
 	return over
+}
+
+// listFailureClass names what kind of failure a list call had, and nothing
+// else. The error itself can carry the response body or, for a transport error,
+// the request URL with the appliance's host.
+func listFailureClass(err error) string {
+	var status *api.StatusError
+	var unstable *api.ErrUnstableList
+	var transport *url.Error
+	switch {
+	case errors.As(err, &status):
+		return "status " + strconv.Itoa(status.Status)
+	case errors.As(err, &unstable):
+		switch unstable.Cause {
+		case api.ListOverlapped:
+			return "unstable list: pages overlapped"
+		case api.ListPageCap:
+			return "unstable list: page limit"
+		}
+		return "unstable list: changed while read"
+	case errors.As(err, &transport):
+		return "transport error"
+	}
+	return "other error"
 }
 
 // writeCandidates writes the legacy candidates for human review, in the format

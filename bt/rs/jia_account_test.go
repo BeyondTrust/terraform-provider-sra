@@ -743,13 +743,6 @@ func TestJumpItemAssociationCriteriaOnTheWire(t *testing.T) {
 	})
 }
 
-// jiaConfigUnknownCriteria builds the one shape jiaConfig cannot: a criteria
-// block whose value is unknown at plan time, as it is when populated from another
-// resource's computed output.
-//
-// jump_items is deliberately empty. With it populated the validator would return
-// at the jump_items arm before criteria is examined, and the row would pass
-// without ever reaching the guard it exists to cover.
 // The account group association used to send five explicit nulls for a nil
 // criteria (it had no encoder of its own, and Create/Update papered over the nil
 // with a zero-value struct). It now sends exactly what the vault account
@@ -820,6 +813,13 @@ func TestAccountGroupJumpItemAssociationOnTheWire(t *testing.T) {
 	})
 }
 
+// jiaConfigUnknownCriteria builds the one shape jiaConfig cannot: a criteria
+// block whose value is unknown at plan time, as it is when populated from another
+// resource's computed output.
+//
+// jump_items is deliberately empty. With it populated the validator would return
+// at the jump_items arm before criteria is examined, and the row would pass
+// without ever reaching the guard it exists to cover.
 func jiaConfigUnknownCriteria() types.Object {
 	outer := accountJumpItemAssociationSchema().GetType().(types.ObjectType).AttrTypes
 	jumpItemType := outer["jump_items"].(types.SetType).ElementType().(types.ObjectType)

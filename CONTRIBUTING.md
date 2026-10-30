@@ -110,7 +110,7 @@ E2E_SWEEP=gp-snapshot make sweepe2e # read-only membership snapshot
 
 `gp-snapshot` lists the members of the first group policy, the one the fixtures add memberships to, as ids classed `fixture` or `non-fixture`. Compare a snapshot from before a run with one from after it: the non-fixture members should be identical, and no fixture members should remain.
 
-**Fixture markers.** Every fixture object carries its run's marker in a name, tag or code name: `e2e`, then the creation time as 6 base36 digits of Unix minutes, then 6 random characters, for example `e2e0wq3k1a8x2pm`. Some objects carry it with a `2` appended. The sweeper matches only full fixture names (`This is a Name <marker> GP`, `Test JG <marker>`, and so on); for Jump Items, the name, the tag and a fixture Jump Group must all match. Group policies, users, jump policies, session policies, jump item roles, deployed Jump Clients and the Default account group are never deleted. Its output names fixture candidates only; everything else appears as a count, or as a type and id in a reason.
+**Fixture markers.** Every fixture object carries its run's marker in a name, tag or code name: `e2e`, then the creation time as 6 base36 digits of Unix minutes, then 6 random characters, for example `e2e0wq3k1a8x2pm`. Some objects carry it with a `2` appended. The sweeper matches only full fixture names (`This is a Name <marker> GP`, `Test JG <marker>`, and so on); for Jump Items, the name, the tag and a fixture Jump Group must all match. Group policies, users, jump policies, session policies, jump item roles, deployed Jump Clients and the Default account group are never deleted. Its output names fixture candidates only; everything else appears as a count, or as a type and id in a reason. The per-type counts cover fixture candidates (matched, eligible, legacy, excluded by reason), never every object of a type. A list that fails is reported as its status code or failure class, never its response body or URL.
 
 **Delete mode needs an opt-in on the appliance.** Create a Jump Group by hand, once per test appliance, with code name `e2e_sweep_allowed` and comments set to the appliance's host in normalised form (no scheme, no trailing slash, lower case, for example `pra.example.com`). Without it, or if its comments name another host (a restored backup or a cloned appliance), delete mode refuses to run. Never create it on a production appliance.
 
@@ -119,7 +119,9 @@ read -r host </dev/tty   # type the host yourself
 E2E_SWEEP=delete E2E_SWEEP_CONFIRM_HOST="$host" make sweepe2e
 ```
 
-Before deleting, each object is read again and re-matched, and anything that contains or uses it is checked again on the appliance. An account group that holds other accounts, an account policy that something else uses (personal accounts included), and a Jump Group or Jumpoint that another item, installer, Jump Client or jump item association criteria uses are all kept. Any error in one of those checks keeps the object.
+Before deleting, each object is read again and re-matched, and anything that contains or uses it is checked again on the appliance. An account group that holds other accounts, an account policy that something else uses (personal accounts included), and a Jump Group or Jumpoint that another item, installer, Jump Client or jump item association criteria uses are all kept. A Jumpoint is also kept when an installer or Jump Client uses it as its Jump Zone Proxy (`jumpoint_proxy`, the Jumpoint's name); if the list doesn't return that field, every Jumpoint is kept (`proxy-push refs unchecked`). Any error in one of those checks keeps the object.
+
+For jump item association criteria, the sweeper reads the association of every account group and of every account in the Default group. It doesn't read the associations of accounts in other groups, because those accounts use their group's association. Some objects having no association (a 404) is normal; when every read for a type is a 404, the sweeper takes it for a wrong path and keeps every Jump Group (`jump-item-association-check-failed`). On an appliance where no Default-group account has an association, that keeps every Jump Group; giving one of those accounts an association clears it.
 
 **Age.** A marker is eligible once it is older than `E2E_SWEEP_MIN_AGE`. The argument that it can't belong to a live run rests on CI's `go test -timeout 30m`. A local run with `-timeout 0`, or one paused in a debugger, can outlive the floor, and clock skew between machines shifts ages. Markers more than 5 minutes in the future are skipped.
 
@@ -128,8 +130,6 @@ Before deleting, each object is read again and re-matched, and anything that con
 1. Run a dry-run with `E2E_SWEEP_CANDIDATES_OUT=<file>`. The file starts with `# listed-at <time>` and has one `type<TAB>id<TAB># name` line per legacy candidate.
 2. Review it, and delete the lines for anything you want to keep.
 3. At least 35 minutes after the dry-run, run delete mode with `E2E_SWEEP_LEGACY_IDS=<file>`. Only the listed objects are deleted, each re-matched first. Any other line format is rejected.
-
-Known gap: an installer or Jump Client can also reference a Jumpoint through `proxy_push_agent_name`, which the Jumpoint check does not read.
 
 #### Running Unit Tests
 

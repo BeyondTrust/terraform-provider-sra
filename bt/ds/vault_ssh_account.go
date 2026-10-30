@@ -121,19 +121,28 @@ func (d *vaultSSHAccountDataSource) Read(ctx context.Context, req datasource.Rea
 	var id int
 	if state.ID.IsNull() || state.ID.IsUnknown() {
 		filter := api.MakeFilterMap(state)
-		// vault/account lists every account type; without this, the first row
-		// can be a username/password or token account.
-		filter["type"] = "ssh"
 		// Only the first match is used.
 		filter["per_page"] = "1"
-		tflog.Debug(ctx, "🙀 list with filter", map[string]interface{}{
-			"data": filter,
-		})
 
-		rows, err := api.ListItems[api.VaultSSHAccount](d.apiClient, filter)
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to list SSH accounts", err.Error())
-			return
+		// vault/account lists every account type, and its type filter is an
+		// exact match, so an untyped list can return a username/password or
+		// token account first. Ask for SSH accounts, then SSH CA accounts.
+		var rows []api.VaultSSHAccount
+		for _, accountType := range []string{"ssh", "ssh_ca"} {
+			filter["type"] = accountType
+			tflog.Debug(ctx, "🙀 list with filter", map[string]interface{}{
+				"data": filter,
+			})
+
+			var err error
+			rows, err = api.ListItems[api.VaultSSHAccount](d.apiClient, filter)
+			if err != nil {
+				resp.Diagnostics.AddError("Unable to list SSH accounts", err.Error())
+				return
+			}
+			if len(rows) > 0 {
+				break
+			}
 		}
 		if len(rows) == 0 || rows[0].ID == nil {
 			resp.Diagnostics.AddError(

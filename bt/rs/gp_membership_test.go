@@ -687,52 +687,58 @@ func TestReadGPMemberships_NullStateNeverListsGroupPolicies(t *testing.T) {
 }
 
 // Every resource with group_policy_memberships discovers them on import through
-// its own ImportState, not the generic passthrough.
+// its own ImportState, not the generic passthrough, and keeps only the imported
+// object's row: the policy also lists object 6.
 func TestImportStateDiscoversMembershipsOnEveryResource(t *testing.T) {
 	t.Parallel()
 
+	vaultMember := func(field string) func(int, string) apimock.Row {
+		return func(id int, role string) apimock.Row { return apimock.Row{field: id, "role": role} }
+	}
 	for name, tc := range map[string]struct {
 		newResource func(*api.APIClient) resource.ResourceWithImportState
 		relation    string
-		member      apimock.Row
+		// member is the policy's row for object id; role is used by vault types.
+		member func(id int, role string) apimock.Row
+		vault  bool
 	}{
 		"jump_group": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &jumpGroupResource{}
 			r.ApiClient = c
 			return r
-		}, "jump-group", jgMember(5, 1)},
+		}, "jump-group", func(id int, _ string) apimock.Row { return jgMember(id, 1) }, false},
 		"jumpoint": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &jumpointResource{}
 			r.ApiClient = c
 			return r
-		}, "jumpoint", apimock.Row{"jumpoint_id": 5}},
+		}, "jumpoint", func(id int, _ string) apimock.Row { return apimock.Row{"jumpoint_id": id} }, false},
 		"vault_account_group": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultAccountGroupResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account-group", apimock.Row{"account_group_id": 5, "role": "inject"}},
+		}, "vault-account-group", vaultMember("account_group_id"), true},
 		"vault_ssh_account": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultSSHAccountResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account", apimock.Row{"account_id": 5, "role": "inject"}},
+		}, "vault-account", vaultMember("account_id"), true},
 		"vault_token_account": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultTokenAccountResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account", apimock.Row{"account_id": 5, "role": "inject"}},
+		}, "vault-account", vaultMember("account_id"), true},
 		"vault_username_password_account": {func(c *api.APIClient) resource.ResourceWithImportState {
 			r := &vaultUsernamePasswordAccountResource{}
 			r.ApiClient = c
 			return r
-		}, "vault-account", apimock.Row{"account_id": 5, "role": "inject"}},
+		}, "vault-account", vaultMember("account_id"), true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			srv := apimock.New()
 			defer srv.Close()
 			srv.Rows("group-policy", gpRows(1)...)
-			srv.Rows("group-policy/1/"+tc.relation, tc.member)
+			srv.Rows("group-policy/1/"+tc.relation, tc.member(6, "inject_and_checkout"), tc.member(5, "inject"))
 
 			state, diags := importResource(t, tc.newResource(apimockClient(srv)), "5")
 			require.False(t, diags.HasError(), "%v", diags)
@@ -740,7 +746,12 @@ func TestImportStateDiscoversMembershipsOnEveryResource(t *testing.T) {
 
 			var set types.Set
 			require.False(t, state.GetAttribute(context.Background(), path.Root("group_policy_memberships"), &set).HasError())
-			assert.Len(t, set.Elements(), 1)
+			require.Len(t, set.Elements(), 1, "only object 5's membership")
+			attrs := set.Elements()[0].(types.Object).Attributes()
+			assert.Equal(t, types.StringValue("1"), attrs["group_policy_id"])
+			if tc.vault {
+				assert.Equal(t, types.StringValue("inject"), attrs["role"], "the row for object 5, not 6")
+			}
 		})
 	}
 }
