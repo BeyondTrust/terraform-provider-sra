@@ -221,7 +221,6 @@ func reimport(t *testing.T, opts *terraform.Options, g *importGuard, id string) 
 // plan` never invokes the provider's Update -- Update is apply-only -- so a test
 // ending at plan could not catch a regression there.
 func TestImportThenApplyAccountGroup(t *testing.T) {
-	parallel(t)
 	randomBits := setEnvAndGetRandom(t)
 	var id string
 	extraTag := randomBits + "-extra"
@@ -316,7 +315,6 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 // an update for it. The ssh_account_gp case therefore asserts on the plan JSON
 // instead: memberships unchanged, and nothing but the secret planned.
 func TestImportRoundTrip(t *testing.T) {
-	parallel(t)
 	cases := []struct {
 		name string
 		// fixture is relative to test-tf-files/<product>/.
@@ -381,7 +379,6 @@ func TestImportRoundTrip(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			parallel(t)
 			randomBits := setEnvAndGetRandom(t)
 			testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/%s", productPath(t), tc.fixture))
 

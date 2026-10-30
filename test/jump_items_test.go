@@ -14,7 +14,6 @@ import (
 )
 
 func TestJumpointAndJumpGroup(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jumpoint_and_jump_group", productPath(t)))
@@ -91,7 +90,6 @@ func TestJumpointAndJumpGroup(t *testing.T) {
 }
 
 func TestShellJump(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/shell_jump", productPath(t)))
@@ -141,7 +139,6 @@ func TestShellJump(t *testing.T) {
 }
 
 func TestRemoteRDP(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/remote_rdp", productPath(t)))
@@ -192,7 +189,6 @@ func TestRemoteRDP(t *testing.T) {
 }
 
 func TestRemoteVNC(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/remote_vnc", productPath(t)))
@@ -243,7 +239,6 @@ func TestRemoteVNC(t *testing.T) {
 }
 
 func TestProtocolTunnel(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/protocol_tunnel_jump", productPath(t)))
@@ -326,7 +321,6 @@ func TestProtocolTunnel(t *testing.T) {
 }
 
 func TestPostgresTunnel(t *testing.T) {
-	parallel(t)
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/postgresql_tunnel_jump", productPath(t)))
 
@@ -389,7 +383,6 @@ func TestPostgresTunnel(t *testing.T) {
 }
 
 func TestMySQLTunnel(t *testing.T) {
-	parallel(t)
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/mysql_tunnel_jump", productPath(t)))
 
@@ -450,7 +443,6 @@ func TestMySQLTunnel(t *testing.T) {
 }
 
 func TestMongodbTunnel(t *testing.T) {
-	parallel(t)
 	randomBits := setEnvAndGetRandom(t)
 	skipWithoutEndpoint[api.MongodbTunnelJump](t, "26.1.1")
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/mongodb_tunnel_jump", productPath(t)))
@@ -571,7 +563,6 @@ func TestMongodbTunnel(t *testing.T) {
 }
 
 func TestOracleTunnel(t *testing.T) {
-	parallel(t)
 	randomBits := setEnvAndGetRandom(t)
 	skipWithoutEndpoint[api.OracleTunnelJump](t, "26.3.1")
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/oracle_tunnel_jump", productPath(t)))
@@ -661,7 +652,6 @@ func TestOracleTunnel(t *testing.T) {
 }
 
 func TestNetworkTunnel(t *testing.T) {
-	parallel(t)
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/network_tunnel_jump", productPath(t)))
 
@@ -721,7 +711,6 @@ func TestNetworkTunnel(t *testing.T) {
 }
 
 func TestWebJump(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/web_jump", productPath(t)))
@@ -783,7 +772,6 @@ func TestWebJump(t *testing.T) {
 }
 
 func TestJumpClientInstaller(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jump_client_installer", productPath(t)))

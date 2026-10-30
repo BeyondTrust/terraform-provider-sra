@@ -15,10 +15,9 @@ build: tidy
 unittest: build
 	go test -v $$(go list ./... | grep -v test | xargs)
 
-# -parallel 4, not Go's default of GOMAXPROCS: every test holds API tokens and
-# writes memberships on the same group policy. -timeout 30m matches CI.
+# -timeout 30m matches CI.
 teste2e: testrelease
-	go test -v -timeout 30m -parallel 4 ./test
+	go test -v -timeout 30m ./test
 
 # Lists (dry-run, the default) or deletes leaked E2E fixture objects. See
 # CONTRIBUTING.md before setting E2E_SWEEP=delete. Never sets

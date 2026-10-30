@@ -17,7 +17,6 @@ import (
 )
 
 func TestAccountGroup(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath(t)))
@@ -75,7 +74,6 @@ func TestAccountGroup(t *testing.T) {
 }
 
 func TestAccountPolicy(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_policy", productPath(t)))
@@ -147,7 +145,6 @@ func TestAccountPolicy(t *testing.T) {
 }
 
 func TestVaultSSHKey(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/ssh_account", productPath(t)))
@@ -367,7 +364,6 @@ func TestVaultSSHKey(t *testing.T) {
 }
 
 func TestVaultUserPass(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/user_pass_account", productPath(t)))
@@ -433,7 +429,6 @@ func TestVaultUserPass(t *testing.T) {
 }
 
 func TestVaultToken(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/token_account", productPath(t)))
@@ -499,7 +494,6 @@ func TestVaultToken(t *testing.T) {
 }
 
 func TestVaultSecret(t *testing.T) {
-	parallel(t)
 
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/secret", productPath(t)))

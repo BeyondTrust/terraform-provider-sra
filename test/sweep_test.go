@@ -80,7 +80,7 @@ func TestMarkerRoundTrip(t *testing.T) {
 	now := time.Now()
 	for i := 0; i < 1000; i++ {
 		m := newMarker(now)
-		assert.False(t, seen[m], "parallel tests starting together must not share a marker")
+		assert.False(t, seen[m], "markers drawn in the same instant must not collide")
 		seen[m] = true
 	}
 }

@@ -33,7 +33,6 @@ import (
 // Terraform core's consistency check with "provider produced inconsistent result
 // after apply" -- a hard error, so terraform.Apply below fails the test.
 func TestAccountGroupMembershipUpdate(t *testing.T) {
-	parallel(t)
 	randomBits := setEnvAndGetRandom(t)
 	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group_update", productPath(t)))
 

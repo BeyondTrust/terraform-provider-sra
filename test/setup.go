@@ -26,9 +26,9 @@ import (
 )
 
 // loadMechs fetches the appliance's mech list once per test binary: the
-// product never changes mid-run. sync.OnceValues makes the first fetch safe
-// under t.Parallel and keeps its error for every later caller. The client that
-// fetched it is not kept (see freshClient).
+// product never changes mid-run. sync.OnceValues keeps the first fetch's
+// error for every later caller. The client that fetched it is not kept (see
+// freshClient).
 var loadMechs = sync.OnceValues(func() (*api.MechList, error) {
 	host := os.Getenv("BT_API_HOST")
 	client, err := newEnvClient()
@@ -53,20 +53,10 @@ func mechs(t *testing.T) *api.MechList {
 	return m
 }
 
-// parallel runs the calling E2E test in parallel with the others, except under
-// SKIP_<stage>. Stage-skipping runs share the source fixture folders (no temp
-// copy is made) and the not_so_random marker, and three fixture folders are each
-// used by two tests, so those tests would trample each other's state.
-//
-// Do not introduce t.Setenv in this package: it panics in a test that has
-// called t.Parallel, and changes the environment of every test running beside
-// it.
-func parallel(t *testing.T) {
-	t.Helper()
-	if !test_structure.SkipStageEnvVarSet() {
-		t.Parallel()
-	}
-}
+// The E2E tests run serially; do not add t.Parallel. Nearly every fixture
+// writes memberships on the same group policy, and a -parallel 4 run against
+// the CI appliances (2026-10-30) failed there with HTTP 500 adding a membership
+// and had its API token requests rejected (invalid_client).
 
 // stageSkipRandomBits is substituted for the usual random suffix whenever any
 // SKIP_<stage> env var is set, so cached fixture state keeps naming the same
@@ -110,8 +100,8 @@ func markerUsable(randomBits string) bool {
 // The timestamp is what lets the orphan sweeper (sweep.go) tell an abandoned
 // object from a live run's: no fixture type has a creation timestamp of its own.
 // The random part comes from crypto/rand. terratest's random.UniqueId re-seeds
-// from UnixNano on every call, so parallel tests starting in the same instant
-// could draw the same value.
+// from UnixNano on every call, so runs starting in the same instant (the PRA and
+// RS jobs start together) could draw the same value.
 const (
 	markerPrefix      = "e2e"
 	markerTimeDigits  = 6

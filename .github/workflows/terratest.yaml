@@ -110,11 +110,7 @@ jobs:
         # guards against. Recent runs take ~5.3m (PRA) / ~3.3m (RS), so 10m left
         # under 5m of headroom; the timeout exists to catch a genuinely hung test,
         # not to bound a healthy one.
-        #
-        # -parallel 4 caps the concurrent tests explicitly (Go's default is
-        # GOMAXPROCS): each holds API tokens, and nearly all write memberships on
-        # the same group policy.
-        run: go test -v -timeout 30m -parallel 4 $(go list ./... | grep /test | xargs)
+        run: go test -v -timeout 30m $(go list ./... | grep /test | xargs)
         env:
           BT_API_HOST: ${{ secrets.BT_API_HOST }}
           BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
@@ -169,11 +165,7 @@ jobs:
         # guards against. Recent runs take ~5.3m (PRA) / ~3.3m (RS), so 10m left
         # under 5m of headroom; the timeout exists to catch a genuinely hung test,
         # not to bound a healthy one.
-        #
-        # -parallel 4 caps the concurrent tests explicitly (Go's default is
-        # GOMAXPROCS): each holds API tokens, and nearly all write memberships on
-        # the same group policy.
-        run: go test -v -timeout 30m -parallel 4 $(go list ./... | grep /test | xargs)
+        run: go test -v -timeout 30m $(go list ./... | grep /test | xargs)
         env:
           BT_API_HOST: ${{ secrets.BT_API_HOST }}
           BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
