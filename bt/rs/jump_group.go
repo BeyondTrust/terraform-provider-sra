@@ -183,6 +183,16 @@ func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 	)
 }
 
+// ImportState also reads the object's group policy memberships, which Read
+// refreshes only once they are in state.
+func (r *jumpGroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	r.apiResource.ImportState(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ImportGPMemberships[api.GroupPolicyJumpGroup](ctx, r.ApiClient, req.ID, &resp.State, &resp.Diagnostics)
+}
+
 func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	r.apiResource.Update(ctx, req, resp)
 	if resp.Diagnostics.HasError() {

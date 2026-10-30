@@ -188,6 +188,16 @@ func (r *vaultSSHAccountResource) Read(ctx context.Context, req resource.ReadReq
 	)
 }
 
+// ImportState also reads the object's group policy memberships, which Read
+// refreshes only once they are in state.
+func (r *vaultSSHAccountResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	r.apiResource.ImportState(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ImportGPMemberships[api.GroupPolicyVaultAccount](ctx, r.ApiClient, req.ID, &resp.State, &resp.Diagnostics)
+}
+
 func (r *vaultSSHAccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	r.apiResource.Update(ctx, req, resp)
 	if resp.Diagnostics.HasError() {

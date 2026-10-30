@@ -226,23 +226,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 	readJIA := func() {
 		// Jump Item Associations
 
-		var apiSub api.AccountGroupJumpItemAssociation
-		var tfObj types.Object
-		diags := req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		if !tfObj.IsNull() {
-			diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-		}
-
-		apiSub.ID = &id
+		apiSub := api.AccountGroupJumpItemAssociation{ID: &id}
 		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
@@ -254,10 +238,14 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 			return
 		}
 
-		if item != nil && !tfObj.IsNull() {
+		// Written even when state holds none: after an import, state has only
+		// the id, and skipping the write left the attribute null, so the import
+		// never planned clean. Create and Update always write it, so a null in
+		// state comes only from import.
+		if item != nil {
 			logItem(ctx, "🙀 got item", item)
 
-			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
+			diags := resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 			resp.Diagnostics.Append(diags...)
 			if resp.Diagnostics.HasError() {
 				return
@@ -271,6 +259,38 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 		func(m *api.GroupPolicyVaultAccountGroup) *string { return m.GroupPolicyID },
 		func(m *api.GroupPolicyVaultAccountGroup, gpID *string) { m.GroupPolicyID = gpID },
 	)
+}
+
+// ImportState also reads the group's group policy memberships, and warns when
+// the imported jump_item_association is narrower than the schema default that a
+// configuration omitting it would apply.
+func (r *vaultAccountGroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	r.apiResource.ImportState(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ImportGPMemberships[api.GroupPolicyVaultAccountGroup](ctx, r.ApiClient, req.ID, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	id, err := strconv.Atoi(req.ID)
+	if err != nil {
+		return
+	}
+	jia := api.AccountGroupJumpItemAssociation{ID: &id}
+	item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, jia.Endpoint())
+	if err != nil || item == nil {
+		// The Read that follows the import makes the same call and reports it.
+		return
+	}
+	if item.FilterType != "any_jump_items" {
+		resp.Diagnostics.AddWarning(
+			fmt.Sprintf("Imported jump_item_association has filter_type %q", item.FilterType),
+			"A configuration that omits jump_item_association resets it to any_jump_items, which lets these credentials be injected into any jump item. "+
+				"Declare it, or generate the configuration with -generate-config-out.",
+		)
+	}
 }
 
 func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {

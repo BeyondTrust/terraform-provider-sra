@@ -3,6 +3,7 @@ package rs
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"terraform-provider-sra/api"
@@ -172,35 +173,16 @@ func ReadGPMemberships[T GPMembership](
 	// surfaces as drift instead of stale state.
 	refreshed := make([]T, 0, len(gpList))
 	for _, m := range gpList {
-		gpId := *getGroupPolicyID(&m)
-
-		endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
-		items, err := api.ListItemsEndpoint[T](client, endpoint)
+		item, found, err := fetchGPMembership(client, m, entityID, getGroupPolicyID, setGroupPolicyID)
 		if err != nil {
-			if api.IsNotFound(err) {
-				// Object-returning endpoints 404 for a removed membership (the
-				// array-returning ones return an empty list, handled below). Drop
-				// it either way so the removal surfaces as drift.
-				tflog.Debug(ctx, "🌈 Membership not found, dropping from state", map[string]interface{}{"read": m})
-				continue
-			}
-			// A genuine error (5xx/auth/network). Now that both response shapes
-			// decode, this is real — surface it rather than masking it.
-			diags.AddError(
-				"Error reading group policy membership",
-				fmt.Sprintf("Unexpected error refreshing membership at [%s]: %s", endpoint, err.Error()),
-			)
+			diags.AddError("Error reading group policy membership", "Unexpected error "+err.Error())
 			return
 		}
-
-		if len(items) == 0 {
+		if !found {
 			// No longer a member of this group policy; drop it from state.
 			tflog.Debug(ctx, "🌈 Membership no longer present, dropping from state", map[string]interface{}{"read": m})
 			continue
 		}
-
-		item := items[0]
-		setGroupPolicyID(&item, &gpId)
 		tflog.Trace(ctx, "🌈 Read item", map[string]interface{}{"read": item})
 		refreshed = append(refreshed, item)
 	}
@@ -210,6 +192,224 @@ func ReadGPMemberships[T GPMembership](
 	if diags.HasError() {
 		return
 	}
+}
+
+// fetchGPMembership reads entityID's membership of m's group policy. found is
+// false when the entity is no longer a member.
+func fetchGPMembership[T GPMembership](
+	client *api.APIClient,
+	m T,
+	entityID int,
+	getGroupPolicyID func(*T) *string,
+	setGroupPolicyID func(*T, *string),
+) (item T, found bool, err error) {
+	gpId := *getGroupPolicyID(&m)
+
+	endpoint := fmt.Sprintf("%s/%d", m.Endpoint(), entityID)
+	items, err := api.ListItemsEndpoint[T](client, endpoint)
+	if err != nil {
+		if api.IsNotFound(err) {
+			// Object-returning endpoints 404 for a removed membership (the
+			// array-returning ones return an empty list, handled below). Drop
+			// it either way so the removal surfaces as drift.
+			return item, false, nil
+		}
+		// A genuine error (5xx/auth/network). Now that both response shapes
+		// decode, this is real — surface it rather than masking it.
+		return item, false, fmt.Errorf("refreshing membership at [%s]: %w", endpoint, err)
+	}
+
+	if len(items) == 0 {
+		return item, false, nil
+	}
+
+	item = items[0]
+	setGroupPolicyID(&item, &gpId)
+	return item, true, nil
+}
+
+// gpRelation describes one kind of group policy membership: how to address a
+// group policy's member index for it, and which member a row names.
+type gpRelation[T GPMembership] struct {
+	name     string
+	entityID func(*T) int
+	setGP    func(*T, *string)
+}
+
+// endpoint is the group policy's member index for this relation, built by the
+// model's own Endpoint() so the path (and its escaping) is stated once.
+func (r gpRelation[T]) endpoint(gpID string) string {
+	var m T
+	r.setGP(&m, &gpID)
+	return m.Endpoint()
+}
+
+func derefID(id *int) int {
+	if id == nil {
+		return 0
+	}
+	return *id
+}
+
+// relationFor is the table of membership kinds, keyed by type, so a caller
+// names the relation by the type it already uses and cannot pass a mismatched
+// endpoint.
+func relationFor[T GPMembership]() (gpRelation[T], bool) {
+	var rel any
+	switch any(*new(T)).(type) {
+	case api.GroupPolicyJumpGroup:
+		rel = gpRelation[api.GroupPolicyJumpGroup]{"jump-group",
+			func(m *api.GroupPolicyJumpGroup) int { return derefID(m.JumpGroupID) },
+			func(m *api.GroupPolicyJumpGroup, gp *string) { m.GroupPolicyID = gp }}
+	case api.GroupPolicyJumpoint:
+		rel = gpRelation[api.GroupPolicyJumpoint]{"jumpoint",
+			func(m *api.GroupPolicyJumpoint) int { return derefID(m.JumpointID) },
+			func(m *api.GroupPolicyJumpoint, gp *string) { m.GroupPolicyID = gp }}
+	case api.GroupPolicyVaultAccountGroup:
+		rel = gpRelation[api.GroupPolicyVaultAccountGroup]{"vault-account-group",
+			func(m *api.GroupPolicyVaultAccountGroup) int { return derefID(m.AccountGroupID) },
+			func(m *api.GroupPolicyVaultAccountGroup, gp *string) { m.GroupPolicyID = gp }}
+	case api.GroupPolicyVaultAccount:
+		rel = gpRelation[api.GroupPolicyVaultAccount]{"vault-account",
+			func(m *api.GroupPolicyVaultAccount) int { return derefID(m.AccountID) },
+			func(m *api.GroupPolicyVaultAccount, gp *string) { m.GroupPolicyID = gp }}
+	}
+	r, ok := rel.(gpRelation[T])
+	return r, ok
+}
+
+// gpMembershipIndex maps each member to its memberships, for one relation,
+// across every group policy. The API has no "memberships of object X" endpoint,
+// so import discovery lists them all instead of probing every group policy per
+// imported object: ⌈G/100⌉ + Σ max(1, ⌈mᵢ/100⌉) calls per relation, once per
+// provider process, rather than R×G.
+//
+// Only ImportState reads it. Refresh never does, so a stale index cannot affect
+// drift detection.
+type gpMembershipIndex struct {
+	once     sync.Once
+	byEntity any // map[int][]T for the relation's T
+	err      error
+}
+
+type gpIndexKey struct {
+	client   *api.APIClient
+	relation string
+}
+
+var (
+	gpIndexesMu sync.Mutex
+	gpIndexes   = map[gpIndexKey]*gpMembershipIndex{}
+)
+
+// gpMembershipsOf returns entityID's memberships of every group policy. The
+// index is built on first use and its result, error included, is kept for the
+// life of the provider process: one terraform plan with many import blocks
+// shares it, and a failed build is not repeated for every import in the run.
+func gpMembershipsOf[T GPMembership](client *api.APIClient, rel gpRelation[T], entityID int) ([]T, error) {
+	gpIndexesMu.Lock()
+	key := gpIndexKey{client, rel.name}
+	idx, ok := gpIndexes[key]
+	if !ok {
+		idx = &gpMembershipIndex{}
+		gpIndexes[key] = idx
+	}
+	gpIndexesMu.Unlock()
+
+	idx.once.Do(func() {
+		idx.byEntity, idx.err = buildGPMembershipIndex(client, rel)
+	})
+	if idx.err != nil {
+		return nil, idx.err
+	}
+	return idx.byEntity.(map[int][]T)[entityID], nil
+}
+
+func buildGPMembershipIndex[T GPMembership](client *api.APIClient, rel gpRelation[T]) (map[int][]T, error) {
+	gps, err := api.ListAllItems[api.GroupPolicy](client, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	byEntity := map[int][]T{}
+	key := func(m *T) string { return strconv.Itoa(rel.entityID(m)) }
+	for _, gp := range gps {
+		if gp.ID == nil {
+			continue
+		}
+		gpID := strconv.Itoa(*gp.ID)
+		rows, err := api.ListAllItemsEndpoint(client, rel.endpoint(gpID), nil, key)
+		if api.IsNotFound(err) {
+			// Deleted between the list and this fetch: it has no members.
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			rel.setGP(&row, &gpID)
+			byEntity[rel.entityID(&row)] = append(byEntity[rel.entityID(&row)], row)
+		}
+	}
+	return byEntity, nil
+}
+
+// ImportGPMemberships writes the imported object's group policy memberships
+// into state. Read refreshes only the memberships already in state, so without
+// this an import leaves the attribute null and the next apply fails creating
+// memberships that already exist.
+//
+// Nothing found leaves the attribute null, which is what a configuration that
+// declares no memberships plans. An API account that cannot list group policies
+// gets a warning and a null attribute. Any other failure, including a list that
+// kept changing while it was read, fails the import rather than recording a
+// partial set that the next apply would act on.
+func ImportGPMemberships[T GPMembership](
+	ctx context.Context,
+	client *api.APIClient,
+	importID string,
+	state *tfsdk.State,
+	diags *diag.Diagnostics,
+) {
+	rel, ok := relationFor[T]()
+	if !ok {
+		diags.AddError("Unsupported group policy membership type", fmt.Sprintf("No group policy relation is defined for %T", *new(T)))
+		return
+	}
+
+	entityID, err := strconv.Atoi(importID)
+	if err != nil {
+		diags.AddError("Invalid import ID", fmt.Sprintf("Could not parse import ID [%s] as an integer: %s", importID, err.Error()))
+		return
+	}
+
+	members, err := gpMembershipsOf(client, rel, entityID)
+	if api.HasStatus(err, http.StatusForbidden) {
+		diags.AddWarning(
+			"group_policy_memberships were not read",
+			"This API account can't list group policies, so the import leaves group_policy_memberships unset.",
+		)
+		return
+	}
+	if err != nil {
+		diags.AddError("Error reading group policy memberships", "Could not discover the imported object's group policy memberships: "+err.Error())
+		return
+	}
+	if len(members) == 0 {
+		return
+	}
+
+	d := state.SetAttribute(ctx, path.Root("group_policy_memberships"), members)
+	diags.Append(d...)
+	if diags.HasError() {
+		return
+	}
+	diags.AddWarning(
+		fmt.Sprintf("Imported %d group policy memberships", len(members)),
+		"A configuration that omits group_policy_memberships will remove them, revoking that access. "+
+			"Declare them, generate the configuration with -generate-config-out, "+
+			"or add lifecycle { ignore_changes = [group_policy_memberships] }.",
+	)
 }
 
 // UpdateGPMemberships diffs the plan and state group policy memberships,

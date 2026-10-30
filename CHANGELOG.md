@@ -22,6 +22,11 @@ so almost nothing was captured. That automation has been removed.
 
 ### Changed
 
+- `terraform import` of `sra_jump_group`, `sra_jumpoint`, `sra_vault_account_group`, `sra_vault_ssh_account`, `sra_vault_token_account` and `sra_vault_username_password_account` now reads `group_policy_memberships`, and `sra_vault_account_group` also reads `jump_item_association`. Refresh of existing state is unchanged.
+
+  After an import, a configuration that omits the memberships plans their **removal**, which revokes that group policy's access. The import warns when this applies. It also applies when an existing resource is removed from state and imported again: within one workspace (a module refactor) use `moved` blocks instead, and across workspaces (a split) declare the memberships in the target configuration before importing. For account groups, omitting `jump_item_association` plans a reset to `any_jump_items`, which widens where the credentials can be injected; the apply already did this, and the plan now shows it. `import` blocks run with `-auto-approve` get no prompt. Declare the memberships, generate the configuration with `-generate-config-out` (it includes the discovered memberships), or add `lifecycle { ignore_changes = [group_policy_memberships] }`.
+
+  Import lists every group policy and each policy's members once per provider run. Each separate `terraform import` command repeats that listing, so use `import` blocks for bulk imports. An API account that can't list group policies gets a warning, and the memberships stay unset. Any other error while discovering memberships, or a listing that keeps changing, now fails the import; it used to succeed with the memberships unset.
 - List data sources (`sra_*_list`) now return every matching item. They returned only the first 100, the appliance's page size. On an appliance with more than 100 objects of a type:
   - a `for_each` or `count` over `items` grows on upgrade with no configuration change;
   - a map keyed by a field that was unique only within the first 100 can fail with "Duplicate object key".
@@ -36,6 +41,7 @@ so almost nothing was captured. That automation has been removed.
 
 ### Fixed
 
+- `terraform import` of the six resources above now plans clean when the configuration matches the appliance. The vault account resources still plan an update for their write-only secret (`private_key`, `password` or `token`), which the API never returns. The first apply after importing a configuration that declares memberships no longer fails with "already exists". This resolves the v1.4.0 known issue about importing `sra_vault_account_group`.
 - `sra_single_vault_ssh_account`: the provider no longer crashes when no account matches the filters. The read now fails with "No SSH account matched".
 - `sra_single_vault_ssh_account`: without `id`, it could return a username/password or token account. It now lists SSH accounts only.
 - `sra_single_vault_ssh_account` / `sra_vault_account_list`: `include_personal` was ignored. It is now sent, so a configuration that sets it gets personal accounts included.
