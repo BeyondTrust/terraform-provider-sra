@@ -2,6 +2,7 @@ package rs
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"testing"
 
@@ -66,6 +67,68 @@ func TestApiResourceCreate_204NoContent(t *testing.T) {
 	})
 
 	assert.True(t, resp.Diagnostics.HasError(), "a 204 create response must surface a diagnostic, not panic")
+}
+
+// a2UpdateHarness runs apiResource.update against a stub that records the PATCH
+// body and answers with respBody. State holds name "from-state", the plan
+// "from-plan", both with ID 7.
+func a2UpdateHarness(t *testing.T, respBody string, adjust func(state, plan a2TestTFItem, item *a2TestAPIItem)) (string, *resource.UpdateResponse) {
+	t.Helper()
+	ctx := context.Background()
+
+	var sent string
+	client := mockGPClient(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method != http.MethodPatch {
+			return false
+		}
+		assert.Equal(t, "/api/config/v1/a2-test-item/7", r.URL.Path)
+		b, _ := io.ReadAll(r.Body)
+		sent = string(b)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(respBody))
+		return true
+	})
+	r := &apiResource[a2TestAPIItem, a2TestTFItem]{ApiClient: client}
+
+	sch := a2TestSchema()
+	plan := tfsdk.Plan{Schema: sch}
+	assert.False(t, plan.Set(ctx, &a2TestTFItem{ID: types.StringValue("7"), Name: types.StringValue("from-plan")}).HasError())
+	state := tfsdk.State{Schema: sch}
+	assert.False(t, state.Set(ctx, &a2TestTFItem{ID: types.StringValue("7"), Name: types.StringValue("from-state")}).HasError())
+
+	resp := &resource.UpdateResponse{State: tfsdk.State{Schema: sch}}
+	r.update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp, adjust)
+	return sent, resp
+}
+
+// Update is shared by every resource, and its body moved into update so one
+// resource could adjust the request. With no adjuster the request must still be
+// built from the plan alone, and the response must still become the new state.
+func TestApiResourceUpdate_NoAdjustSendsThePlan(t *testing.T) {
+	sent, resp := a2UpdateHarness(t, `{"id":7,"name":"from-server"}`, nil)
+	assert.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+	assert.JSONEq(t, `{"id":7,"name":"from-plan"}`, sent)
+
+	var got a2TestTFItem
+	assert.False(t, resp.State.Get(context.Background(), &got).HasError())
+	assert.Equal(t, "from-server", got.Name.ValueString())
+	assert.Equal(t, "7", got.ID.ValueString())
+}
+
+// The adjuster sees the prior state, the plan, and the item already populated
+// from the plan, and what it leaves in the item is what goes on the wire.
+func TestApiResourceUpdate_AdjustSeesStateAndPlanAndChangesTheBody(t *testing.T) {
+	called := false
+	sent, resp := a2UpdateHarness(t, `{"id":7,"name":"from-server"}`, func(state, plan a2TestTFItem, item *a2TestAPIItem) {
+		called = true
+		assert.Equal(t, "from-state", state.Name.ValueString())
+		assert.Equal(t, "from-plan", plan.Name.ValueString())
+		assert.Equal(t, "from-plan", item.Name, "the adjuster must run after the plan is copied in")
+		item.Name = "adjusted"
+	})
+	assert.True(t, called)
+	assert.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
+	assert.JSONEq(t, `{"id":7,"name":"adjusted"}`, sent)
 }
 
 // setHasElements calls Set.Length, which panics on a null or unknown set unless

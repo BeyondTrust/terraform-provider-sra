@@ -152,6 +152,58 @@ func (MySQLTunnelJump) Endpoint() string { return "jump-item/mysql-tunnel-jump" 
 func (MySQLTunnelJump) AllowPRA() bool   { return true }
 func (MySQLTunnelJump) AllowRS() bool    { return false }
 
+// MongodbTunnelJump is named "Mongodb", not "MongoDB", because the published
+// resource name is ToSnakeCase of this type name: MongoDB would publish as
+// sra_mongo_db_tunnel_jump, as MySQL already publishes as sra_my_sql_*.
+//
+// Username and Database are plain strings, so "" is sent and clears them.
+// AuthDatabase is a pointer so it is sent only when set; see clearAuthDatabase.
+type MongodbTunnelJump struct {
+	ID                  *int    `json:"id,omitempty"`
+	Name                string  `json:"name"`
+	JumpointID          int     `json:"jumpoint_id"`
+	Hostname            string  `json:"hostname"`
+	JumpGroupID         int     `json:"jump_group_id"`
+	JumpGroupType       string  `json:"jump_group_type"`
+	Tag                 string  `json:"tag"`
+	Comments            string  `json:"comments"`
+	JumpPolicyID        *int    `json:"jump_policy_id,omitempty"`
+	SessionPolicyID     *int    `json:"session_policy_id,omitempty"`
+	TunnelListenAddress *string `json:"local_address,omitempty"`
+	Username            string  `json:"username"`
+	Database            string  `json:"database"`
+	AuthDatabase        *string `json:"auth_database,omitempty"`
+}
+
+func (MongodbTunnelJump) Endpoint() string { return "jump-item/mongodb-tunnel-jump" }
+func (MongodbTunnelJump) AllowPRA() bool   { return true }
+func (MongodbTunnelJump) AllowRS() bool    { return false }
+
+// OracleTunnelJump keeps the provider's standard Go field names, so the
+// Terraform attributes match every other jump item, while the json tags carry
+// the Oracle endpoint's own names: gateway_id, asset_group_id and
+// asset_group_type. CopyTFtoAPI and CopyAPItoTF match fields by Go name, so the
+// tags alone do the renaming.
+type OracleTunnelJump struct {
+	ID                  *int    `json:"id,omitempty"`
+	Name                string  `json:"name"`
+	JumpointID          int     `json:"gateway_id"`
+	Hostname            string  `json:"hostname"`
+	JumpGroupID         int     `json:"asset_group_id"`
+	JumpGroupType       string  `json:"asset_group_type"`
+	Tag                 string  `json:"tag"`
+	Comments            string  `json:"comments"`
+	JumpPolicyID        *int    `json:"jump_policy_id,omitempty"`
+	SessionPolicyID     *int    `json:"session_policy_id,omitempty"`
+	TunnelListenAddress *string `json:"local_address,omitempty"`
+	Username            string  `json:"username"`
+	Database            string  `json:"database"`
+}
+
+func (OracleTunnelJump) Endpoint() string { return "jump-item/oracle-tunnel-jump" }
+func (OracleTunnelJump) AllowPRA() bool   { return true }
+func (OracleTunnelJump) AllowRS() bool    { return false }
+
 type NetworkTunnelJump struct {
 	ID              *int             `json:"id,omitempty"`
 	Name            string           `json:"name"`

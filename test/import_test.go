@@ -28,7 +28,6 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -185,57 +184,6 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 			t.Errorf("orphan recovery FAILED for %s %d — LEAKED on the appliance: %v", g.addr, id, err)
 		}
 	})
-}
-
-// freshClient builds a new API client rather than reusing the package-level one.
-//
-// This is load-bearing, not defensive, and the mechanism was measured rather
-// than guessed (against mpam, 2026-09-15):
-//
-//   - The appliance retains only a bounded number of concurrent tokens per client
-//     credential and evicts the OLDEST when that bound is exceeded. Probing with
-//     repeated mints, the first token kept working through 30 further mints and
-//     returned 401 on the 31st.
-//   - Tokens carry expires_in=3600, so oauth2's ReuseTokenSource considers one
-//     valid for an hour and will not re-mint. Eviction is server-side and
-//     structurally invisible to it (it refreshes only on expiry).
-//   - Every terraform command spawns a provider subprocess that mints its own
-//     token with the same credentials, so a full suite run burns through the
-//     bound quickly.
-//
-// Net effect: the package-level client's token is evicted partway through a run
-// while oauth2 still believes it valid, and the next call returns
-// "status: 401 ... Access token is invalid". Observed, not theorised -- this test
-// passed when run alone and failed when run fourth.
-func freshClient(t *testing.T) *api.APIClient {
-	t.Helper()
-
-	c, err := freshClientE(t)
-	require.NoError(t, err, "could not build a fresh API client")
-	return c
-}
-
-// freshClientE is freshClient without the t.FailNow. The orphan cleanup needs it:
-// api.NewClient is not a pure constructor -- it mints a token (api/client.go:105)
-// and can fail -- and a require inside t.Cleanup calls FailNow, which Goexits the
-// cleanup goroutine before any of the messages naming the leaked id can print. The
-// one moment the guard exists for is the moment it must not lose its diagnostic.
-func freshClientE(t *testing.T) (*api.APIClient, error) {
-	t.Helper()
-
-	id := os.Getenv("BT_CLIENT_ID")
-	secret := os.Getenv("BT_CLIENT_SECRET")
-	c, err := api.NewClient(os.Getenv("BT_API_HOST"), &id, &secret)
-	if err != nil {
-		return nil, err
-	}
-
-	// Mirror setEnvAndGetRandom (test/setup.go:39). Without a logger, doRequest's
-	// request/response tracing is gated off (api/client.go:122) and these calls run
-	// silently -- so an "orphan recovery FAILED ... LEAKED" message would arrive
-	// with no URL or response body to act on, exactly when a human needs them.
-	c.SetTestLogger(t)
-	return c, nil
 }
 
 // reimport runs `terraform state rm` followed by `terraform import`, recording

@@ -48,9 +48,9 @@ data "sra_jump_group_list" "jg" {
 
 output "client" {
   value = {
-    "installer_id": sra_jump_client_installer.test_jc.installer_id,
-    "key_info": sra_jump_client_installer.test_jc.key_info,
-    "expires": sra_jump_client_installer.test_jc.expiration_timestamp
+    "installer_id" : sra_jump_client_installer.test_jc.installer_id,
+    "key_info" : sra_jump_client_installer.test_jc.key_info,
+    "expires" : sra_jump_client_installer.test_jc.expiration_timestamp
   }
 }
 ```

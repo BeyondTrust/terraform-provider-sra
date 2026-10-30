@@ -14,6 +14,28 @@ so almost nothing was captured. That automation has been removed.
 <a name="Unreleased"></a>
 ## [Unreleased]
 
+### Added
+
+- `sra_mongodb_tunnel_jump` and `sra_mongodb_tunnel_jump_list`, for MongoDB tunnel Jump Items. PRA only, PRA 26.1.1 or later. `auth_database` requires PRA 26.3.1 or later: it is sent only when set, because older appliances reject the field, and it reads as `""` on every version. Setting it back to `""` clears it in place.
+- `sra_oracle_tunnel_jump` and `sra_oracle_tunnel_jump_list`, for Oracle tunnel Jump Items. PRA only, PRA 26.3.1 or later. The attributes use the provider's standard names. The Oracle API calls three of them by other names: `jumpoint_id` is sent as `gateway_id`, `jump_group_id` as `asset_group_id` and `jump_group_type` as `asset_group_type`. API errors use those names.
+- On both new resources, `tunnel_listen_address` is sent to the API as `local_address`. It defaults to `127.0.0.1` and must be an IPv4 address within `127.0.0.0/24`. Neither type can be used in a vault account `jump_item_association`, which the appliance limits to MSSQL protocol tunnels.
+
+### Changed
+
+- `sra_protocol_tunnel_jump`: `hostname` is now optional. It is still required unless `tunnel_type` is `k8s`. For `k8s` the appliance derives it from `url`, so omit it.
+- `sra_protocol_tunnel_jump`: changing a known `tunnel_type` now forces replacement. `terraform plan` shows "must be replaced", and the new item gets a new ID. Update anything outside this configuration that references the old ID, such as mssql vault account jump item associations and group policy memberships. `-auto-approve` pipelines get no prompt. Only configurations whose `tunnel_type` differs from the appliance's are affected, and those fail to apply today:
+  - the type was edited after the item was created;
+  - a mysql, psql, mongodb, oracle or ip item was imported through this resource.
+- `sra_protocol_tunnel_jump`: a field that doesn't apply to the tunnel type is now a plan-time error when it is non-empty. Those fields are `tunnel_definitions` and `tunnel_listen_address` outside `tcp`, `username` and `database` outside `mssql`, and `url` and `ca_certificates` outside `k8s`. These configurations already failed to apply, with a `400` or an inconsistent result. Empty values are still accepted, so existing state and generated configuration are unaffected.
+- `sra_protocol_tunnel_jump`: a tcp `tunnel_listen_address` must be a plain IPv4 address in `127.0.0.0/24`; IPv4-mapped forms such as `::ffff:127.0.0.1` are rejected. An empty `hostname` or `tunnel_listen_address` is a plan-time error. All of these already failed to plan or apply.
+
+### Fixed
+
+- `sra_protocol_tunnel_jump`: `tunnel_type = "k8s"` is accepted. The schema allowed only `tcp` and `mssql`. A `k8s` item's `hostname` is planned as the first 128 characters of `url`, which is what the appliance stores. `url` and `ca_certificates` reject leading or trailing whitespace, because the appliance trims them. Use `trimspace(file("ca.pem"))`.
+- `sra_protocol_tunnel_jump`: required fields set from another resource's output, or from a variable under `terraform validate`, no longer fail validation while their value is unknown.
+- `sra_protocol_tunnel_jump`: `tunnel_listen_address` on a non-tcp tunnel now gives a clear error instead of an invalid plan. An omitted listen address keeps the value the appliance holds, so an imported item listening on, say, `127.0.0.5` no longer plans a change back to `127.0.0.1`.
+- `sra_protocol_tunnel_jump`: the `k8s` usage example used a resource type that doesn't exist and a `url` with no scheme. The import example named the wrong resource address.
+
 <a name="v1.4.0"></a>
 ## [v1.4.0] - 2026-09-25
 

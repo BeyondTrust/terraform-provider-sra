@@ -36,6 +36,8 @@ func ResourceList() []func() resource.Resource {
 		newJumpClientInstallerResource,
 		newPostgreSQLTunnelJumpResource,
 		newMySQLTunnelJumpResource,
+		newMongodbTunnelJumpResource,
+		newOracleTunnelJumpResource,
 		newNetworkTunnelJumpResource,
 
 		newVaultAccountGroupResource,
@@ -232,6 +234,13 @@ func (r *apiResource[TApi, TTf]) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	r.update(ctx, req, resp, nil)
+}
+
+// update is the body of the generic Update. adjust, when non-nil, runs after the
+// plan is copied into the request item and may change it using the prior state;
+// see clearAuthDatabase.
+func (r *apiResource[TApi, TTf]) update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse, adjust func(state, plan TTf, item *TApi)) {
 	var item TApi
 	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
@@ -252,6 +261,15 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
 	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
+
+	if adjust != nil {
+		var state TTf
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		adjust(state, plan, &item)
+	}
 
 	logItem(ctx, "🙀 executing item update", item)
 	newItem, err := api.UpdateItem(r.ApiClient, item)
