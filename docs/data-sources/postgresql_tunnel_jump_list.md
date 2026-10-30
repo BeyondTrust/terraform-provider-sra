@@ -31,24 +31,18 @@ Fetch a list of PostgreSQL Tunnel Jump Items. NOTE: PRA only.
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `hostname` (String)
-- `jump_group_id` (Number)
-- `jumpoint_id` (Number)
-- `name` (String)
-
-Optional:
+Read-Only:
 
 - `comments` (String)
 - `database` (String)
+- `hostname` (String)
+- `id` (String)
+- `jump_group_id` (Number)
 - `jump_group_type` (String)
 - `jump_policy_id` (Number)
+- `jumpoint_id` (Number)
+- `name` (String)
 - `session_policy_id` (Number)
 - `tag` (String)
 - `tunnel_listen_address` (String)
 - `username` (String)
-
-Read-Only:
-
-- `id` (String)

@@ -41,10 +41,9 @@ func (d *vaultAccountGroupDataSource) Schema(ctx context.Context, _ datasource.S
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"description": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"account_policy": schema.StringAttribute{

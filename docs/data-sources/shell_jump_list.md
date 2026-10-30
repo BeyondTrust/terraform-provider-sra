@@ -44,22 +44,21 @@ data "sra_shell_jump_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `hostname` (String) The hostname or IP address used to connect over SSH.
-- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
-- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
-- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
-- `name` (String) The name of the Shell Jump Item.
-- `protocol` (String)
-
-Optional:
+Read-Only:
 
 - `comments` (String) The Jump Item's comments.
+- `hostname` (String) The hostname or IP address used to connect over SSH.
+- `id` (String) The unique identifier assigned to this Shell Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
 - `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
 - `keep_alive` (Number) The number of seconds between each packet sent to keep an idle session from ending. Must be between 0 and 300, inclusive. 0 disables keep-alive.
 
+- `name` (String) The name of the Shell Jump Item.
 - `port` (Number) The port to use for SSH or telnet. Must be between 1 and 65535, inclusive. Defaults to 22 if the protocol is SSH or 23 if the protocol is Telnet.
+- `protocol` (String)
 - `session_policy_id` (Number) The unique identifier of the Session Policy used to control the rep's capabilities in the session.
 - `tag` (String) The Jump Item's tag.
 - `terminal` (String) One of the following:
@@ -67,8 +66,3 @@ Optional:
   * VT100
 
 - `username` (String) The default username that will be used to authenticate with the remote system. This is only used when credentials are not available from the ECM or Vault.
-
-Read-Only:
-
-- `id` (String) The unique identifier assigned to this Shell Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
-

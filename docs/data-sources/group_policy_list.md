@@ -39,16 +39,14 @@ data "sra_group_policy_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `name` (String) The name of the group policy.
-
-Optional:
+Read-Only:
 
 - `access_perm_status` (String) This field indicates if this policy defines user permissions or not. A value of 'defined' means the policy defines values for user permissions. A value of 'final' is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any user permission fields; otherwise the default is "not_defined". _This field only applies to PRA_
 - `auto_assignment_max_sessions` (Number) Do not assign sessions if the representative is participating in more sessions. _This field only applies to RS_
 - `default_jump_item_role_id` (Number) Default Jump Item Role.
+- `id` (String) The unique identifier assigned to this group policy by the system.
 - `inferior_jump_item_role_id` (Number) Teams Jump Item Role.
+- `name` (String) The name of the group policy.
 - `perm_accept_team_sessions` (Boolean) Allowed to manually accept sessions from a team queue. _This field only applies to RS_
 - `perm_access_allowed` (Boolean) Allowed to access endpoints. _This field only applies to PRA_
 - `perm_collaborate` (Boolean) Allowed to show screen to other Users.
@@ -85,7 +83,3 @@ Optional:
 - `private_jump_item_role_id` (Number) Personal Jump Item Role.
 - `rep_perm_status` (String) This field indicates if this policy defines representative permissions or not. A value of 'defined' means the policy defines values for representative permissions. A value of 'final' is the same as defined, except it will also prevent other policies of lower priority from overriding the permission value set by this Policy. The default value is "defined" if the request includes any representative permission fields; otherwise the default is "not_defined". _This field only applies to RS_
 - `unassigned_jump_item_role_id` (Number) System Jump Item Role.
-
-Read-Only:
-
-- `id` (String) The unique identifier assigned to this group policy by the system.
