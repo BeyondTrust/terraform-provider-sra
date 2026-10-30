@@ -469,9 +469,12 @@ func assertOnlySecretPlanned(t *testing.T, opts *terraform.Options, addr string)
 	require.Equal(t, before["group_policy_memberships"], after["group_policy_memberships"],
 		"import did not discover %s's group policy memberships", addr)
 
+	// Compare known values only. after_unknown also has entries for collection
+	// attributes that hold no unknowns, so only an exact true marks a value
+	// unknown, and computed attributes go unknown on any update.
 	changed := []string{}
 	for k := range before {
-		if _, isUnknown := unknown[k]; isUnknown || !reflect.DeepEqual(before[k], after[k]) {
+		if unknown[k] != true && !reflect.DeepEqual(before[k], after[k]) {
 			changed = append(changed, k)
 		}
 	}
