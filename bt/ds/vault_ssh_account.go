@@ -122,12 +122,23 @@ func (d *vaultSSHAccountDataSource) Read(ctx context.Context, req datasource.Rea
 	var tfId basetypes.StringValue
 	if state.ID.IsNull() || state.ID.IsUnknown() {
 		filter := api.MakeFilterMap(state)
+		// vault/account lists every account type; without this, items[0] can be
+		// a username/password or token account.
+		filter["type"] = "ssh"
 		tflog.Debug(ctx, "🙀 list with filter", map[string]interface{}{
 			"data": filter,
 		})
 
-		items := d.doFilteredRead(ctx, req, resp, filter)
+		// One page: only the first match is used.
+		items := d.doFilteredRead(ctx, req, resp, filter, false)
 		if items == nil {
+			return
+		}
+		if len(items) == 0 {
+			resp.Diagnostics.AddError(
+				"No SSH account matched",
+				"No vault SSH account matches the given filters (name, account_group_id, include_personal).",
+			)
 			return
 		}
 

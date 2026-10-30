@@ -2,6 +2,7 @@ package ds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -79,7 +80,7 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 		"data": filter,
 	})
 
-	items := d.doFilteredRead(ctx, req, resp, filter)
+	items := d.doFilteredRead(ctx, req, resp, filter, true)
 
 	if items == nil {
 		return
@@ -100,16 +101,32 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 // 	return d.doFilteredRead(ctx, req, resp, nil)
 // }
 
-func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
-	items, err := api.ListItems[TApi](d.apiClient, requestFilter)
+// doFilteredRead lists the items matching requestFilter. With all set it reads
+// every page; otherwise only the first page (up to 100 items), for a caller that
+// uses only the first item.
+func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string, all bool) []TTf {
+	var items []TApi
+	var err error
+	if all {
+		items, err = api.ListAllItems[TApi](d.apiClient, requestFilter)
+	} else {
+		items, err = api.ListItems[TApi](d.apiClient, requestFilter)
+	}
 	// Count, not content — see the logging policy in api/logging.go.
 	tflog.Debug(ctx, "🙀 ListItems got data", map[string]interface{}{
 		"count": len(items),
 	})
 	if err != nil {
+		detail := err.Error()
+		var unstable *api.ErrUnstableList
+		if errors.As(err, &unstable) {
+			// Fail rather than return the rows that were read: a short list in
+			// for_each plans the missing objects' dependants for destruction.
+			detail = unstable.Describe(strings.TrimSuffix(d.printableName(), "_list"))
+		}
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("Unable to list %s items", d.printableName()),
-			err.Error(),
+			detail,
 		)
 		return nil
 	}

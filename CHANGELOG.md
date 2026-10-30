@@ -22,6 +22,11 @@ so almost nothing was captured. That automation has been removed.
 
 ### Changed
 
+- List data sources (`sra_*_list`) now return every matching item. They returned only the first 100, the appliance's page size. On an appliance with more than 100 objects of a type:
+  - a `for_each` or `count` over `items` grows on upgrade with no configuration change;
+  - a map keyed by a field that was unique only within the first 100 can fail with "Duplicate object key".
+
+  `items[0]` is unchanged. Each further 100 items costs one more API call per read. If objects of that type are created, deleted or updated during each of 3 attempts to read the list (for vault accounts, check-outs and password rotations count), the read fails with "The list of … objects changed while it was being read" instead of returning a partial list. Re-run, or add filters so fewer objects match.
 - `sra_protocol_tunnel_jump`: `hostname` is now optional. It is still required unless `tunnel_type` is `k8s`. For `k8s` the appliance derives it from `url`, so omit it.
 - `sra_protocol_tunnel_jump`: changing a known `tunnel_type` now forces replacement. `terraform plan` shows "must be replaced", and the new item gets a new ID. Update anything outside this configuration that references the old ID, such as mssql vault account jump item associations and group policy memberships. `-auto-approve` pipelines get no prompt. Only configurations whose `tunnel_type` differs from the appliance's are affected, and those fail to apply today:
   - the type was edited after the item was created;
@@ -31,6 +36,9 @@ so almost nothing was captured. That automation has been removed.
 
 ### Fixed
 
+- `sra_single_vault_ssh_account`: the provider no longer crashes when no account matches the filters. The read now fails with "No SSH account matched".
+- `sra_single_vault_ssh_account`: without `id`, it could return a username/password or token account. It now lists SSH accounts only.
+- `sra_single_vault_ssh_account` / `sra_vault_account_list`: `include_personal` was ignored. It is now sent, so a configuration that sets it gets personal accounts included.
 - `sra_protocol_tunnel_jump`: `tunnel_type = "k8s"` is accepted. The schema allowed only `tcp` and `mssql`. A `k8s` item's `hostname` is planned as the first 128 characters of `url`, which is what the appliance stores. `url` and `ca_certificates` reject leading or trailing whitespace, because the appliance trims them. Use `trimspace(file("ca.pem"))`.
 - `sra_protocol_tunnel_jump`: required fields set from another resource's output, or from a variable under `terraform validate`, no longer fail validation while their value is unknown.
 - `sra_protocol_tunnel_jump`: `tunnel_listen_address` on a non-tcp tunnel now gives a clear error instead of an invalid plan. An omitted listen address keeps the value the appliance holds, so an imported item listening on, say, `127.0.0.5` no longer plans a change back to `127.0.0.1`.
