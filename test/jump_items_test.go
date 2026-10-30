@@ -14,10 +14,9 @@ import (
 )
 
 func TestJumpointAndJumpGroup(t *testing.T) {
-	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jumpoint_and_jump_group", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jumpoint_and_jump_group", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -91,10 +90,9 @@ func TestJumpointAndJumpGroup(t *testing.T) {
 }
 
 func TestShellJump(t *testing.T) {
-	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/shell_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/shell_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -141,10 +139,9 @@ func TestShellJump(t *testing.T) {
 }
 
 func TestRemoteRDP(t *testing.T) {
-	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/remote_rdp", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/remote_rdp", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -192,10 +189,9 @@ func TestRemoteRDP(t *testing.T) {
 }
 
 func TestRemoteVNC(t *testing.T) {
-	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/remote_vnc", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/remote_vnc", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -243,10 +239,9 @@ func TestRemoteVNC(t *testing.T) {
 }
 
 func TestProtocolTunnel(t *testing.T) {
-	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/protocol_tunnel_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/protocol_tunnel_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -266,7 +261,7 @@ func TestProtocolTunnel(t *testing.T) {
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 		_, err := terraform.InitAndApplyE(t, terraformOptions)
-		if mechs.IsPRA() {
+		if mechs(t).IsPRA() {
 			assert.Nil(t, err)
 		} else {
 			assert.NotNil(t, err)
@@ -274,7 +269,7 @@ func TestProtocolTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Create new Protocol Tunnel items", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -291,7 +286,7 @@ func TestProtocolTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Find the new Protocol Tunnel items with the datasource", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -327,7 +322,7 @@ func TestProtocolTunnel(t *testing.T) {
 
 func TestPostgresTunnel(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/postgresql_tunnel_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/postgresql_tunnel_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -346,7 +341,7 @@ func TestPostgresTunnel(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		if mechs.IsPRA() {
+		if mechs(t).IsPRA() {
 			terraform.InitAndApply(t, terraformOptions)
 		} else {
 			// Expect non-PRA to error on PRA-only resources
@@ -356,7 +351,7 @@ func TestPostgresTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Create new Postgres Tunnel items", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -370,7 +365,7 @@ func TestPostgresTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Find the new Postgres Tunnel items with the datasource", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -389,7 +384,7 @@ func TestPostgresTunnel(t *testing.T) {
 
 func TestMySQLTunnel(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/mysql_tunnel_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/mysql_tunnel_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -408,7 +403,7 @@ func TestMySQLTunnel(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		if mechs.IsPRA() {
+		if mechs(t).IsPRA() {
 			terraform.InitAndApply(t, terraformOptions)
 		} else {
 			_, err := terraform.InitAndApplyE(t, terraformOptions)
@@ -417,7 +412,7 @@ func TestMySQLTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Create new MySQL Tunnel items", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -431,7 +426,7 @@ func TestMySQLTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Find the new MySQL Tunnel items with the datasource", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -450,7 +445,7 @@ func TestMySQLTunnel(t *testing.T) {
 func TestMongodbTunnel(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
 	skipWithoutEndpoint[api.MongodbTunnelJump](t, "26.1.1")
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/mongodb_tunnel_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/mongodb_tunnel_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -467,14 +462,14 @@ func TestMongodbTunnel(t *testing.T) {
 		terraformOptions := withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		if mechs.IsPRA() {
+		if mechs(t).IsPRA() {
 			terraform.InitAndApply(t, terraformOptions)
 		} else {
 			_, err := terraform.InitAndApplyE(t, terraformOptions)
 			assert.NotNil(t, err)
 		}
 	})
-	if !mechs.IsPRA() {
+	if !mechs(t).IsPRA() {
 		return
 	}
 
@@ -486,7 +481,7 @@ func TestMongodbTunnel(t *testing.T) {
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, randomBits, item2["tag"])
-		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "the schema default")
+		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "an omitted address is planned as 127.0.0.1 on create")
 		assert.Equal(t, "", item2["auth_database"], "state is empty, not null, on every appliance version")
 		assert.Equal(t, 0, len(list))
 	})
@@ -570,7 +565,7 @@ func TestMongodbTunnel(t *testing.T) {
 func TestOracleTunnel(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
 	skipWithoutEndpoint[api.OracleTunnelJump](t, "26.3.1")
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/oracle_tunnel_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/oracle_tunnel_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -587,14 +582,14 @@ func TestOracleTunnel(t *testing.T) {
 		terraformOptions := withBaseTFOptions(t, &terraform.Options{TerraformDir: testFolder, Vars: vars})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		if mechs.IsPRA() {
+		if mechs(t).IsPRA() {
 			terraform.InitAndApply(t, terraformOptions)
 		} else {
 			_, err := terraform.InitAndApplyE(t, terraformOptions)
 			assert.NotNil(t, err)
 		}
 	})
-	if !mechs.IsPRA() {
+	if !mechs(t).IsPRA() {
 		return
 	}
 
@@ -606,7 +601,7 @@ func TestOracleTunnel(t *testing.T) {
 
 		assert.Equal(t, randomBits, item["tag"])
 		assert.Equal(t, randomBits, item2["tag"])
-		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "the schema default")
+		assert.Equal(t, "127.0.0.1", item2["tunnel_listen_address"], "an omitted address is planned as 127.0.0.1 on create")
 		assert.Equal(t, 0, len(list))
 	})
 
@@ -658,7 +653,7 @@ func TestOracleTunnel(t *testing.T) {
 
 func TestNetworkTunnel(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/network_tunnel_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/network_tunnel_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -676,7 +671,7 @@ func TestNetworkTunnel(t *testing.T) {
 		})
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
-		if mechs.IsPRA() {
+		if mechs(t).IsPRA() {
 			terraform.InitAndApply(t, terraformOptions)
 		} else {
 			_, err := terraform.InitAndApplyE(t, terraformOptions)
@@ -685,7 +680,7 @@ func TestNetworkTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Create new Network Tunnel items", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -699,7 +694,7 @@ func TestNetworkTunnel(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Find the new Network Tunnel items with the datasource", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -716,10 +711,9 @@ func TestNetworkTunnel(t *testing.T) {
 }
 
 func TestWebJump(t *testing.T) {
-	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/web_jump", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/web_jump", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -739,7 +733,7 @@ func TestWebJump(t *testing.T) {
 
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 		_, err := terraform.InitAndApplyE(t, terraformOptions)
-		if mechs.IsPRA() {
+		if mechs(t).IsPRA() {
 			assert.Nil(t, err)
 		} else {
 			assert.NotNil(t, err)
@@ -747,7 +741,7 @@ func TestWebJump(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Create a new Web Jump item", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -759,7 +753,7 @@ func TestWebJump(t *testing.T) {
 	})
 
 	test_structure.RunTestStage(t, "Find the new Web Jump item with the datasource", func() {
-		if !mechs.IsPRA() {
+		if !mechs(t).IsPRA() {
 			return
 		}
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -778,10 +772,9 @@ func TestWebJump(t *testing.T) {
 }
 
 func TestJumpClientInstaller(t *testing.T) {
-	// t.Parallel()
 
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jump_client_installer", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/jump_items/jump_client_installer", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
@@ -844,7 +837,7 @@ func assertJGGPMembership(t *testing.T, parsed *gabs.Container, gpID string, jpI
 	assert.Nil(t, err)
 	membership := membershipsData.Data().(map[string]any)
 	assert.Equal(t, gpID, membership["group_policy_id"])
-	if mechs.IsPRA() {
+	if mechs(t).IsPRA() {
 		assert.Equal(t, jpID, fmt.Sprintf("%v", membership["jump_policy_id"]))
 	}
 	assert.Equal(t, jirID, fmt.Sprintf("%v", membership["jump_item_role_id"]))

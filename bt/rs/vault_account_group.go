@@ -177,10 +177,6 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 			return
 		}
 
-		if apiSub.Criteria == nil {
-			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
-		}
-
 		var item *api.AccountGroupJumpItemAssociation
 		item, err = api.UpdateItemEndpoint(r.ApiClient, apiSub, apiSub.Endpoint())
 
@@ -202,12 +198,7 @@ func (r *vaultAccountGroupResource) Create(ctx context.Context, req resource.Cre
 
 	updateJIA()
 
-	CreateGPMemberships[api.GroupPolicyVaultAccountGroup](ctx, r.ApiClient, req.Plan, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyVaultAccountGroup, entityID int) { m.AccountGroupID = &entityID },
-		func(m *api.GroupPolicyVaultAccountGroup) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyVaultAccountGroup, gpID *string) { m.GroupPolicyID = gpID },
-		&agMembershipMutex,
-	)
+	CreateGPMemberships[api.GroupPolicyVaultAccountGroup](ctx, r.ApiClient, req.Plan, &resp.State, &resp.Diagnostics, id, &agMembershipMutex)
 }
 
 func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -230,23 +221,7 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 	readJIA := func() {
 		// Jump Item Associations
 
-		var apiSub api.AccountGroupJumpItemAssociation
-		var tfObj types.Object
-		diags := req.State.GetAttribute(ctx, path.Root("jump_item_association"), &tfObj)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		if !tfObj.IsNull() {
-			diags = tfObj.As(ctx, &apiSub, basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true})
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-		}
-
-		apiSub.ID = &id
+		apiSub := api.AccountGroupJumpItemAssociation{ID: &id}
 		tflog.Debug(ctx, fmt.Sprintf("🙀 Reading API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
 		item, err := api.GetItemEndpoint[api.AccountGroupJumpItemAssociation](r.ApiClient, apiSub.Endpoint())
@@ -258,23 +233,42 @@ func (r *vaultAccountGroupResource) Read(ctx context.Context, req resource.ReadR
 			return
 		}
 
-		if item != nil && !tfObj.IsNull() {
+		// Written even when state holds none: after an import, state has only
+		// the id, and skipping the write left the attribute null, so the import
+		// never planned clean. Create and Update always write it, so a null in
+		// state comes only from import.
+		if item != nil {
 			logItem(ctx, "🙀 got item", item)
 
-			diags = resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
+			var prior types.Object
+			resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("jump_item_association"), &prior)...)
+			diags := resp.State.SetAttribute(ctx, path.Root("jump_item_association"), item)
 			resp.Diagnostics.Append(diags...)
 			if resp.Diagnostics.HasError() {
 				return
+			}
+			// The schema default a configuration omitting the block applies is
+			// any_jump_items, so anything narrower would be widened.
+			if prior.IsNull() && item.FilterType != "any_jump_items" {
+				resp.Diagnostics.AddWarning(
+					fmt.Sprintf("Imported jump_item_association has filter_type %q", item.FilterType),
+					"A configuration that omits jump_item_association resets it to any_jump_items, which lets these credentials be injected into any jump item. "+
+						"Declare it, or generate the configuration with -generate-config-out.",
+				)
 			}
 		}
 	}
 
 	readJIA()
 
-	ReadGPMemberships[api.GroupPolicyVaultAccountGroup](ctx, r.ApiClient, req.State, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyVaultAccountGroup) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyVaultAccountGroup, gpID *string) { m.GroupPolicyID = gpID },
-	)
+	ReadGPMemberships[api.GroupPolicyVaultAccountGroup](ctx, r.ApiClient, req.State, &resp.State, &resp.Diagnostics, id)
+}
+
+// ImportState also reads the group's group policy memberships. Read, which
+// follows it, warns when the imported jump_item_association is narrower than the
+// default a configuration omitting it would apply.
+func (r *vaultAccountGroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	importWithGPMemberships(ctx, &r.apiResource, &accountGroupMemberIndex, req, resp)
 }
 
 func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -314,10 +308,6 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 		apiSub.ID = &id
 		tflog.Debug(ctx, fmt.Sprintf("🙀 Updating API with ID %d [%s]", *apiSub.ID, apiSub.Endpoint()))
 
-		if apiSub.Criteria == nil {
-			apiSub.Criteria = &api.JumpItemAssociationCriteria{}
-		}
-
 		// The account-group jump-item-association endpoint only ever documents
 		// GET and PATCH (PRA openapi/bt-pra-configuration.openapi.yaml:5286,5299;
 		// RS openapi/bt-rs-configuration.openapi.yaml:4201,4214) — there is no
@@ -347,9 +337,6 @@ func (r *vaultAccountGroupResource) Update(ctx context.Context, req resource.Upd
 	updateJIA()
 
 	UpdateGPMemberships[api.GroupPolicyVaultAccountGroup](ctx, r.ApiClient, req.Plan, req.State, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyVaultAccountGroup, entityID int) { m.AccountGroupID = &entityID },
-		func(m *api.GroupPolicyVaultAccountGroup) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyVaultAccountGroup, gpID *string) { m.GroupPolicyID = gpID },
 		api.DiffGPAccountGroupLists,
 		&agMembershipMutex,
 	)

@@ -2,6 +2,7 @@ package ds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -100,16 +101,24 @@ func (d *apiDataSource[TDataSource, TApi, TTf]) Read(ctx context.Context, req da
 // 	return d.doFilteredRead(ctx, req, resp, nil)
 // }
 
+// doFilteredRead lists every item matching requestFilter, across all pages.
 func (d *apiDataSource[TDataSource, TApi, TTf]) doFilteredRead(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse, requestFilter map[string]string) []TTf {
-	items, err := api.ListItems[TApi](d.apiClient, requestFilter)
+	items, err := api.ListAllItems[TApi](d.apiClient, requestFilter)
 	// Count, not content — see the logging policy in api/logging.go.
 	tflog.Debug(ctx, "🙀 ListItems got data", map[string]interface{}{
 		"count": len(items),
 	})
 	if err != nil {
+		detail := err.Error()
+		var unstable *api.ErrUnstableList
+		if errors.As(err, &unstable) {
+			// Fail rather than return the rows that were read: a short list in
+			// for_each plans the missing objects' dependants for destruction.
+			detail = unstable.Describe(strings.TrimSuffix(d.printableName(), "_list"))
+		}
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("Unable to list %s items", d.printableName()),
-			err.Error(),
+			detail,
 		)
 		return nil
 	}

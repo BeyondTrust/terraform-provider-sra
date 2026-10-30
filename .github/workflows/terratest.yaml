@@ -89,6 +89,18 @@ jobs:
         with:
           terraform-version: latest
 
+      - name: "Sweep dry-run"
+        # Lists objects that earlier interrupted runs leaked, by fixture name and
+        # marker. Read-only, and its output never names a non-fixture object, so
+        # it is safe in public logs. Deleting stays a deliberate, local step
+        # (CONTRIBUTING.md), so this never fails the job.
+        continue-on-error: true
+        run: E2E_SWEEP=dry-run go test -count=1 -v -timeout 10m -run '^TestE2EOrphanSweep$' ./test
+        env:
+          BT_API_HOST: ${{ secrets.BT_API_HOST }}
+          BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
+          BT_CLIENT_SECRET: ${{ secrets.BT_CLIENT_SECRET }}
+
       - name: "Run Tests"
         # 30m, not 10m. A `go test` timeout panics from the time.AfterFunc
         # goroutine and exits the process, so the test goroutine's deferred
@@ -132,6 +144,18 @@ jobs:
         uses: autero1/action-terraform@43105c5ac1431a67287f012739dbbe6a163d6d95 # v3.0.1
         with:
           terraform-version: latest
+      - name: "Sweep dry-run"
+        # Lists objects that earlier interrupted runs leaked, by fixture name and
+        # marker. Read-only, and its output never names a non-fixture object, so
+        # it is safe in public logs. Deleting stays a deliberate, local step
+        # (CONTRIBUTING.md), so this never fails the job.
+        continue-on-error: true
+        run: E2E_SWEEP=dry-run go test -count=1 -v -timeout 10m -run '^TestE2EOrphanSweep$' ./test
+        env:
+          BT_API_HOST: ${{ secrets.BT_API_HOST }}
+          BT_CLIENT_ID: ${{ secrets.BT_CLIENT_ID }}
+          BT_CLIENT_SECRET: ${{ secrets.BT_CLIENT_SECRET }}
+
       - name: "Run Tests"
         # 30m, not 10m. A `go test` timeout panics from the time.AfterFunc
         # goroutine and exits the process, so the test goroutine's deferred

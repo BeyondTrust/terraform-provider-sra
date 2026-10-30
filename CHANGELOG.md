@@ -18,10 +18,22 @@ so almost nothing was captured. That automation has been removed.
 
 - `sra_mongodb_tunnel_jump` and `sra_mongodb_tunnel_jump_list`, for MongoDB tunnel Jump Items. PRA only, PRA 26.1.1 or later. `auth_database` requires PRA 26.3.1 or later: it is sent only when set, because older appliances reject the field, and it reads as `""` on every version. Setting it back to `""` clears it in place.
 - `sra_oracle_tunnel_jump` and `sra_oracle_tunnel_jump_list`, for Oracle tunnel Jump Items. PRA only, PRA 26.3.1 or later. The attributes use the provider's standard names. The Oracle API calls three of them by other names: `jumpoint_id` is sent as `gateway_id`, `jump_group_id` as `asset_group_id` and `jump_group_type` as `asset_group_type`. API errors use those names.
-- On both new resources, `tunnel_listen_address` is sent to the API as `local_address`. It defaults to `127.0.0.1` and must be an IPv4 address within `127.0.0.0/24`. Neither type can be used in a vault account `jump_item_association`, which the appliance limits to MSSQL protocol tunnels.
+- On both new resources, `tunnel_listen_address` is sent to the API as `local_address`. It must be an IPv4 address within `127.0.0.0/24`. When omitted it keeps the value the appliance holds, and defaults to `127.0.0.1` on create. Neither type can be used in a vault account `jump_item_association`, which the appliance limits to MSSQL protocol tunnels.
 
 ### Changed
 
+- `terraform import` of `sra_jump_group`, `sra_jumpoint`, `sra_vault_account_group`, `sra_vault_ssh_account`, `sra_vault_token_account` and `sra_vault_username_password_account` now reads `group_policy_memberships`, and `sra_vault_account_group` also reads `jump_item_association`. A refresh of an account group whose state has a null `jump_item_association` (v1.4.0 imports left it so) now warns when the appliance's association is narrower than `any_jump_items`, because a configuration that omits the block widens it. Each plan repeats the warning until an apply writes the association to state.
+
+  After an import, a configuration that omits the memberships plans their **removal**, which revokes that group policy's access. The import warns when this applies. It also applies when an existing resource is removed from state and imported again: within one workspace (a module refactor) use `moved` blocks instead, and across workspaces (a split) declare the memberships in the target configuration before importing. For account groups, omitting `jump_item_association` plans a reset to `any_jump_items`, which widens where the credentials can be injected; the apply already did this, and the plan now shows it. `import` blocks run with `-auto-approve` get no prompt. Declare the memberships, generate the configuration with `-generate-config-out` (it includes the discovered memberships), or add `lifecycle { ignore_changes = [group_policy_memberships] }`.
+
+  Import lists every group policy and each policy's members once per provider run. Each separate `terraform import` command repeats that listing, so use `import` blocks for bulk imports. An API account that can't list group policies gets a warning, and the memberships stay unset. Any other error while discovering memberships, or a listing that keeps changing, now fails the import; it used to succeed with the memberships unset.
+- List data sources (`sra_*_list`) now return every matching item. They returned only the first 100, the appliance's page size. On an appliance with more than 100 objects of a type:
+  - a `for_each` or `count` over `items` grows on upgrade with no configuration change;
+  - a map keyed by a field that was unique only within the first 100 can fail with "Duplicate object key".
+
+  `items[0]` is unchanged. Each further 100 items costs one more API call per read. A read starts again when a later page reports a different total or page count than the first, or when the rows read don't add up to the total (pages that repeat rows leave it short). If that happens in each of 3 attempts (for vault accounts, check-outs and password rotations are changes too), the read fails. The error is "The appliance returned overlapping pages for …" when the last attempt read repeated rows, and "The list of … objects changed while it was being read" otherwise. A delete and a create between two page reads leave the total unchanged and aren't detected: the list can then miss an object that existed throughout the read, and include the deleted one.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: `tunnel_listen_address` is validated at plan time as a plain IPv4 address in `127.0.0.0/24`, so IPv4-mapped forms such as `::ffff:127.0.0.1` are rejected. They already failed at apply. An empty string is accepted only on an existing item, where it keeps the current address. On create it is now a plan-time error instead of "Provider produced invalid plan"; omit the attribute to get `127.0.0.1`.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: removing `tunnel_listen_address` from the configuration now keeps the appliance's value instead of resetting it to `127.0.0.1`. Set `127.0.0.1` explicitly to reset it.
 - `sra_protocol_tunnel_jump`: `hostname` is now optional. It is still required unless `tunnel_type` is `k8s`. For `k8s` the appliance derives it from `url`, so omit it.
 - `sra_protocol_tunnel_jump`: changing a known `tunnel_type` now forces replacement. `terraform plan` shows "must be replaced", and the new item gets a new ID. Update anything outside this configuration that references the old ID, such as mssql vault account jump item associations and group policy memberships. `-auto-approve` pipelines get no prompt. Only configurations whose `tunnel_type` differs from the appliance's are affected, and those fail to apply today:
   - the type was edited after the item was created;
@@ -31,10 +43,24 @@ so almost nothing was captured. That automation has been removed.
 
 ### Fixed
 
+- `terraform import` of the six resources above now plans clean when the configuration matches the appliance. The vault account resources still plan an update for their write-only secret (`private_key`, `password` or `token`), which the API never returns. The first apply after importing a configuration that declares memberships no longer fails with "already exists". This resolves the v1.4.0 known issue about importing `sra_vault_account_group`.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: a `tunnel_listen_address` set from another resource's output no longer gives an invalid plan or a failed apply. The unknown value was planned as `127.0.0.1`.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: a `name` or `hostname` set from another resource's output no longer fails the plan with "name is required" or a hostname length error.
+- `sra_my_sql_tunnel_jump` / `sra_postgresql_tunnel_jump`: an imported item whose listen address is outside `127.0.0.0/24` (the appliance accepts any `127.x.x.x` address) no longer fails plans when the configuration omits the address. Only the configured value is validated.
+- `sra_single_vault_ssh_account`: the provider no longer crashes when no account matches the filters. The read now fails with "No SSH account matched".
+- `sra_single_vault_ssh_account`: without `id`, it could return a username/password or token account. It now returns only SSH and SSH CA accounts: it looks for an SSH account first, then for an SSH CA account.
+- `sra_single_vault_ssh_account` / `sra_vault_account_list`: `include_personal` was ignored. It is now sent, so a configuration that sets it gets personal accounts included.
+- List data sources: the attributes inside `items` are documented as read-only. Some were listed as required or optional, as though they could be set. No behaviour change.
 - `sra_protocol_tunnel_jump`: `tunnel_type = "k8s"` is accepted. The schema allowed only `tcp` and `mssql`. A `k8s` item's `hostname` is planned as the first 128 characters of `url`, which is what the appliance stores. `url` and `ca_certificates` reject leading or trailing whitespace, because the appliance trims them. Use `trimspace(file("ca.pem"))`.
 - `sra_protocol_tunnel_jump`: required fields set from another resource's output, or from a variable under `terraform validate`, no longer fail validation while their value is unknown.
 - `sra_protocol_tunnel_jump`: `tunnel_listen_address` on a non-tcp tunnel now gives a clear error instead of an invalid plan. An omitted listen address keeps the value the appliance holds, so an imported item listening on, say, `127.0.0.5` no longer plans a change back to `127.0.0.1`.
 - `sra_protocol_tunnel_jump`: the `k8s` usage example used a resource type that doesn't exist and a `url` with no scheme. The import example named the wrong resource address.
+
+### Internal
+
+- E2E: `make teste2e` uses CI's 30-minute timeout.
+- E2E: fixture markers are now `e2e` plus a creation timestamp plus 6 `crypto/rand` characters, replacing terratest's `UniqueId`. `TestE2EOrphanSweep` (`make sweepe2e`) lists, and in delete mode removes, objects that interrupted runs leaked; see CONTRIBUTING.md. CI runs it as a dry-run before the suite, and runs its offline tests with the unit tests.
+- `sra_vault_account_group`: the `jump_item_association` request body now uses the same encoder as the vault account resources. A missing `criteria` was sent as five explicit nulls; it is now omitted for `any_jump_items` and `no_jump_items`, and sent as five empty arrays under `criteria`. The appliance treats both forms alike, so its behaviour doesn't change.
 
 <a name="v1.4.0"></a>
 ## [v1.4.0] - 2026-09-25

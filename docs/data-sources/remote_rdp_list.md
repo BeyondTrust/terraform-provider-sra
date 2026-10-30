@@ -45,24 +45,23 @@ data "sra_remote_rdp_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `hostname` (String) The hostname or IP address used to connect over RDP.
-- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
-- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
-- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
-- `name` (String) The name of the Remote RDP Jump Item.
-
-Optional:
+Read-Only:
 
 - `comments` (String) The Jump Item's comments.
 - `console` (Boolean) If true, starts a console session. If false, starts a new session.
 - `credential_type` (String) Valid only when secure_app_type is "remote_desktop_agent_credentials". _This field only applies to PRA_
 - `domain` (String) The Endpoint domain.
 - `endpoint_id` (Number) The unique identifier of the linked Endpoint. This is `null` when no endpoint is linked to the RDP connection.
+- `hostname` (String) The hostname or IP address used to connect over RDP.
+- `id` (String) The unique identifier assigned to this RDP Jump Item by Privileged Remote Access. Other Jump Item types, like Shell Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+
 - `ignore_untrusted` (Boolean) If true, untrusted server certificates are ignored. If false, the user is shown a warning when the server's certificate cannot be verified.
 
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
 - `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
+- `name` (String) The name of the Remote RDP Jump Item.
 - `quality` (String) The quality of the connection. One of the following:
   * low
   * performance
@@ -90,8 +89,3 @@ If blank then SecureApp technology will not be used.
 - `session_policy_id` (Number) The unique identifier of the Session Policy.
 - `tag` (String) The Jump Item's tag.
 - `target_system` (String) Valid only when secure_app_type is "remote_desktop_agent_credentials". _This field only applies to PRA_
-
-Read-Only:
-
-- `id` (String) The unique identifier assigned to this RDP Jump Item by Privileged Remote Access. Other Jump Item types, like Shell Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
-

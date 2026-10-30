@@ -7,11 +7,9 @@ package test
 // WHAT THIS DOES NOT CATCH -- stated so it is not overestimated later:
 //
 //   - A jump-item-association PATCH that returns 200 echoing the request but does
-//     not persist. Update writes the API *response* into state
-//     (bt/rs/vault_account_group.go:196), and nothing here reads the association
-//     back out of band -- the existence check below fetches the account group, not
-//     .../jump-item-association. State and plan agree, the apply succeeds, and the
-//     appliance is wrong. Closing this needs a direct read of the sub-resource.
+//     not persist is now caught, but only indirectly: Update writes the API
+//     *response* into state, and it is the final plan's refresh (which reads the
+//     association back) that would show the difference.
 //   - A PATCH writing wrong field values IS caught, but incidentally: by Terraform
 //     core's inconsistent-result check, because the fixture declares filter_type,
 //     criteria.tag and jump_items explicitly, so those planned values are known.
@@ -21,19 +19,24 @@ package test
 //     Optional+Computed attributes -- which is why the account-policy case pins
 //     maximum_password_age explicitly.
 //
-// All of this was verified against a PRA appliance. The rs/ fixtures are mirrored
-// from the pra/ ones and compile-checked but have not been executed locally;
-// CI's terratest_rs job is the first thing that runs them.
+// The original tests were verified against a PRA appliance; the import-discovery
+// rebuild (memberships and the account group association read on import) has
+// not yet been run live. The rs/ fixtures are mirrored from the pra/ ones and
+// compile-checked but have not been executed locally; CI's terratest_rs job is
+// the first thing that runs them.
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 
 	"terraform-provider-sra/api"
 
+	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
 	"github.com/stretchr/testify/require"
@@ -49,14 +52,7 @@ import (
 //
 // The rule is split in two because the guard applies it at two points: the marker
 // is checked before any network call, and ownership only after the object is read.
-//
-// markerUsable reports whether randomBits can establish ownership at all. An empty
-// marker makes the Contains check below unconditionally true, and the stage-skip
-// constant is shared by every test in such a run (test/setup.go:52), so it also
-// matches objects left behind by earlier runs.
-func markerUsable(randomBits string) bool {
-	return randomBits != "" && randomBits != stageSkipRandomBits
-}
+// markerUsable, the first half, lives in setup.go beside the marker itself.
 
 // safeToReclaim reports whether blob -- the marshalled object as read back from
 // the API -- may be deleted as this run's orphan. It re-checks the marker rather
@@ -122,7 +118,7 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 		//    exactly the blind cross-namespace delete the check exists to prevent.
 		//    A guard built as &importGuard{addr: "..."} compiles fine.
 		//  - Under stage-skipping, setEnvAndGetRandom pins randomBits to the shared
-		//    constant "not_so_random" for every test (test/setup.go:51-52). The
+		//    constant "not_so_random" for every test (stageSkipRandomBits). The
 		//    marker then matches leftovers from ANY earlier skip-mode run, not just
 		//    this one, so it no longer establishes ownership. Refusing is also the
 		//    behaviour stage-skipping wants: SKIP_teardown exists precisely to leave
@@ -134,14 +130,8 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 			return
 		}
 
-		c, err := freshClientE(t)
-		if err != nil {
-			t.Errorf("orphan recovery: could not build a client to reclaim %s %d — LEAKED on the appliance: %v", g.addr, id, err)
-			return
-		}
-
 		// Confirm ownership BEFORE deleting. The type parameter I and the address
-		// string are supplied independently by the caller, and DeleteItem derives
+		// string are supplied independently by the caller, and the delete derives
 		// its path solely from I.Endpoint() -- so a mis-paired case (say
 		// sra_jump_group's address with api.VaultAccountGroup) would delete a
 		// same-numbered object in a DIFFERENT id namespace, on a shared appliance,
@@ -149,39 +139,42 @@ func guardImportOrphan[I api.APIResource](t *testing.T, g *importGuard) {
 		// a datasource rather than a managed resource. Every fixture names its
 		// resources with the run's randomBits, so requiring that marker turns both
 		// mistakes into a loud refusal instead of a silent deletion.
-		item, err := api.GetItem[I](c, &id)
-		if err != nil && !api.IsNotFound(err) {
-			// Retry once with a new client. The documented failure here is a 401
-			// from token eviction (see freshClient), for which a fresh mint IS the
-			// remedy -- and without the retry a single unlucky read costs a real
-			// object that the delete below would have reclaimed.
-			if retry, rerr := freshClientE(t); rerr == nil {
-				c = retry
-				item, err = api.GetItem[I](c, &id)
+		owned := func(item *I) error {
+			blob, err := json.Marshal(item)
+			if err != nil || !safeToReclaim(blob, g.randomBits) {
+				return errors.New("object does not carry this run's marker")
 			}
-		}
-		switch {
-		case api.IsNotFound(err):
-			return // already gone: destroy reclaimed it, or it was never created
-		case err != nil:
-			t.Errorf("orphan recovery: could not read %s %d to confirm ownership — LEAKED on the appliance: %v", g.addr, id, err)
-			return
-		}
-		blob, err := json.Marshal(item)
-		if err != nil || !safeToReclaim(blob, g.randomBits) {
-			t.Errorf("orphan recovery REFUSED for %s %d: object does not carry this run's marker %q, so it is not ours to delete. "+
-				"Check the case's API type matches its address. Nothing was deleted; if an object really did leak, remove it by hand.",
-				g.addr, id, g.randomBits)
-			return
+			return nil
 		}
 
-		switch err := api.DeleteItem[I](c, &id); {
-		case err == nil:
-			t.Logf("orphan recovery: reclaimed %s %d", g.addr, id)
-		case api.IsNotFound(err):
-			// Raced with something else that removed it. Still the desired end state.
-		default:
+		reclaim := func() (deleteOutcome, error) {
+			c, err := freshClientE(t)
+			if err != nil {
+				return deleteOutcome{}, fmt.Errorf("could not build a client: %w", err)
+			}
+			var tmp I
+			return deleteIfStill(c, tmp.Endpoint(), id, owned)
+		}
+		// A second attempt, with a new client, on any error. The documented
+		// failure here is a 401 from token eviction (see freshClient), for which a
+		// fresh mint IS the remedy -- and without the retry a single unlucky read
+		// costs a real object that the delete would have reclaimed. A retry
+		// re-reads and re-checks ownership, so it cannot delete on stale
+		// information.
+		outcome, err := reclaim()
+		if err != nil {
+			outcome, err = reclaim()
+		}
+
+		switch {
+		case err != nil:
 			t.Errorf("orphan recovery FAILED for %s %d — LEAKED on the appliance: %v", g.addr, id, err)
+		case outcome.refused != nil:
+			t.Errorf("orphan recovery REFUSED for %s %d: %v (%q), so it is not ours to delete. "+
+				"Check the case's API type matches its address. Nothing was deleted; if an object really did leak, remove it by hand.",
+				g.addr, id, outcome.refused, g.randomBits)
+		case outcome.result == "deleted":
+			t.Logf("orphan recovery: reclaimed %s %d", g.addr, id)
 		}
 	})
 }
@@ -211,29 +204,29 @@ func reimport(t *testing.T, opts *terraform.Options, g *importGuard, id string) 
 	}
 }
 
-// TestImportThenApplyAccountGroup is the regression test for the defect that
-// motivated this file: sra_vault_account_group's update path POSTed to an
-// endpoint exposing only GET and PATCH, which made `terraform import` impossible
-// to complete.
+// TestImportThenApplyAccountGroup imports an account group that declares both
+// jump_item_association and group_policy_memberships, asserts the import plans
+// clean, and then changes the association so the apply goes through Update.
 //
-// It targets new_account_group_jia specifically. Do NOT retarget this at
-// new_account_group -- that resource also declares group_policy_memberships,
-// which are likewise null in state after import, so the post-import apply would
-// call api.CreateItem (a bare POST, no upsert) for a membership that already
-// exists. The appliance would 409 -- masking this regression behind an unrelated
-// failure -- or silently duplicate the membership. new_account_group_jia has the
-// jump item association and no memberships, so it exercises the same PATCH path
-// with no duplicate-create surface.
+// Two regressions are covered. Import used to leave both attributes null (Read
+// refreshed only what was already in state), so the post-import apply PATCHed
+// the association and POSTed a membership that already existed, which the
+// appliance rejects. And Update once POSTed to the association endpoint, which
+// exposes only GET and PATCH; changing extra_tags after the import is what
+// routes the apply through Update now that the import itself is clean. The
+// POST-vs-PATCH choice with a null association in state stays covered by
+// TestVaultAccountGroupUpdate_JIAUsesPatchNeverPost.
 //
 // The assertion that matters is that the post-import APPLY succeeds. `terraform
 // plan` never invokes the provider's Update -- Update is apply-only -- so a test
-// ending at plan could not catch this bug nor fail when it was reintroduced.
+// ending at plan could not catch a regression there.
 func TestImportThenApplyAccountGroup(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
 	var id string
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath()))
+	extraTag := randomBits + "-extra"
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group", productPath(t)))
 
-	guard := &importGuard{addr: "sra_vault_account_group.new_account_group_jia", randomBits: randomBits}
+	guard := &importGuard{addr: "sra_vault_account_group.new_account_group", randomBits: randomBits}
 	guardImportOrphan[api.VaultAccountGroup](t, guard)
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
@@ -250,6 +243,12 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		})
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 		terraform.InitAndApply(t, terraformOptions)
+
+		// The second apply settles the list data source's output, which is read
+		// at plan time before the groups exist (see TestImportRoundTrip).
+		terraform.Apply(t, terraformOptions)
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+			"fixture is not stable before import — this is pre-existing drift, not an import defect")
 	})
 
 	test_structure.RunTestStage(t, "Import the account group and apply over it", func() {
@@ -257,58 +256,28 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 
 		// Capture the id BEFORE detaching from state -- once `state rm` has run,
 		// this is the only handle left on the object.
-		id = terraform.OutputMap(t, terraformOptions, "group_jia")["id"]
+		id = terraform.OutputMap(t, terraformOptions, "group")["id"]
 		require.NotEmpty(t, id, "could not read the account group id from outputs")
 
 		reimport(t, terraformOptions, guard, id)
 
-		// Guard against this test hollowing out. Its regression value depends
-		// entirely on the post-import plan being NON-empty, because only then does
-		// the apply below invoke Update. That is true today only because of a
-		// pre-existing read gap: readJIA writes jump_item_association back to state
-		// only when the pre-refresh value is non-null
-		// (bt/rs/vault_account_group.go:263), and after import state holds just id,
-		// so the attribute stays null while the config declares it.
-		//
-		// Close that gap -- a legitimate future fix -- and the plan goes clean, the
-		// apply becomes a no-op, Update is never called, and this test would pass
-		// green with the POST regression fully restored. That is exactly the vacuity
-		// an earlier draft of this work was rejected for. Asserting the plan is
-		// dirty converts that silent hollowing into a loud failure that says what to
-		// do about it.
-		//
-		// If you are here because this assertion just failed: the fix is NOT to
-		// delete it. Either the import null-gate was closed (good -- rebuild this
-		// test around a resource that still diffs after import, since this one no
-		// longer exercises Update), or something else made the fixture converge.
-		// The gap itself is documented under "Known issues" in CHANGELOG.md.
-		require.Equal(t, 2, terraform.PlanExitCode(t, terraformOptions),
-			"post-import plan is CLEAN, so the apply below is a no-op and no longer exercises Update. "+
-				"If readJIA's import null-gate was fixed, this test must be rebuilt around a resource "+
-				"that still diffs after import -- do not simply delete this assertion.")
+		// Assert == 0, never != 2: PlanExitCode returns 1 on a plan error.
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
+			"plan after import was not clean: import should read jump_item_association and "+
+				"group_policy_memberships, so a configuration that matches the appliance plans no changes")
 
-		// The regression assertion. Pre-fix this routed to CreateItem (POST)
-		// against a GET/PATCH-only endpoint and failed; post-fix it PATCHes.
-		//
-		// Deliberately NOT asserting PlanExitCode == 0 here: a clean plan is
-		// unreachable for this resource. readJIA gates its state write on the
-		// pre-refresh value being non-null (bt/rs/vault_account_group.go:263) and
-		// after import it is null, so jump_item_association stays null while the
-		// schema default supplies a non-null value (vault_account_group.go:84).
-		// ReadGPMemberships has the equivalent early return on a null state set
-		// (bt/rs/gp_membership.go:155). Both are pre-existing and deliberately out
-		// of scope here -- fixing them changes refresh behaviour for every existing
-		// account group, not just imported ones (documented under "Known issues" in
-		// CHANGELOG.md). TestImportRoundTrip covers the clean-plan property on
-		// resources that do not have this gap.
+		// Now change the association, so the apply goes through Update.
+		terraformOptions.Vars["extra_tags"] = []string{extraTag}
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+		require.Equal(t, 2, terraform.PlanExitCode(t, terraformOptions),
+			"adding a criteria tag should plan an update")
+
 		terraform.Apply(t, terraformOptions)
 	})
 
-	test_structure.RunTestStage(t, "Confirm the account group still exists", func() {
+	test_structure.RunTestStage(t, "Confirm the update", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
 
-		// Guards against a silently destructive apply: the step above would also
-		// "succeed" if it had deleted and recreated the object.
 		// id crosses stages deliberately: this stage compares the pre-import id
 		// against the post-apply one, so it cannot be re-derived here. Guard it
 		// explicitly, because under SKIP_<stage> a value produced in a skipped
@@ -317,27 +286,34 @@ func TestImportThenApplyAccountGroup(t *testing.T) {
 		require.NotEmpty(t, id, "the account group id was never captured — the import stage did not run "+
 			"(SKIP_<stage> set?); this is a harness problem, not a provider one")
 
-		numericID, err := strconv.Atoi(id)
-		require.NoError(t, err)
-		item, err := api.GetItem[api.VaultAccountGroup](freshClient(t), &numericID)
-		require.NoError(t, err, "account group %d no longer exists after the post-import apply", numericID)
-		require.NotNil(t, item)
-
-		// And the id must be unchanged -- a destroy/recreate would renumber it.
-		require.Equal(t, id, terraform.OutputMap(t, terraformOptions, "group_jia")["id"],
+		group := extractJson(t, terraformOptions, "group")
+		require.Equal(t, id, group.Path("id").Data(),
 			"the post-import apply replaced the account group instead of updating it")
+
+		// The output is state, so this shows the apply wrote the tag; the clean
+		// plan below, which refreshes from the appliance, shows it persisted.
+		tags, _ := group.Path("jump_item_association.criteria.tag").Data().([]any)
+		require.ElementsMatch(t, []any{randomBits, extraTag}, tags, "the apply did not write the new tag to state")
+
+		memberships, _ := group.Path("group_policy_memberships").Data().([]any)
+		require.Len(t, memberships, 1, "the membership was dropped or duplicated by the post-import apply")
+
+		require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions), "plan after the update was not clean")
 	})
 }
 
-// TestImportRoundTrip asserts that importing a flat resource yields a genuinely
-// clean plan -- the property TestImportThenApplyAccountGroup cannot assert,
-// because that resource's jump_item_association stays null after import while its
-// schema default supplies a value.
+// TestImportRoundTrip asserts that importing a resource whose configuration
+// matches the appliance yields a genuinely clean plan.
 //
-// The two cases are separate resources rather than one because they cover
-// different families: sra_jump_group has no vault surface, and
-// sra_vault_account_policy does. Both are "flat" in the sense that matters here
-// -- no TF-only sub-resource that CopyAPItoTF leaves null on import.
+// The cases cover different families: sra_jump_group has no vault surface and
+// sra_vault_account_policy does. The example_gp cases declare
+// group_policy_memberships, which import discovers by listing every group
+// policy's members (refresh reads back only the memberships already in state).
+//
+// No vault account can be in this list: its secret (private_key, password or
+// token) is write-only and the API never returns it, so an import always plans
+// an update for it. The ssh_account_gp case therefore asserts on the plan JSON
+// instead: memberships unchanged, and nothing but the secret planned.
 func TestImportRoundTrip(t *testing.T) {
 	cases := []struct {
 		name string
@@ -351,6 +327,8 @@ func TestImportRoundTrip(t *testing.T) {
 		// be a plain type parameter on the struct, so each case supplies it.
 		guard func(*testing.T, *importGuard)
 		why   string
+		// assertImported replaces the default whole-plan PlanExitCode == 0 check.
+		assertImported func(t *testing.T, opts *terraform.Options, addr string)
 	}{
 		{
 			name:      "jump_group",
@@ -358,10 +336,23 @@ func TestImportRoundTrip(t *testing.T) {
 			addr:      "sra_jump_group.example",
 			outputKey: "jump_group",
 			guard:     guardImportOrphan[api.JumpGroup],
-			// .example declares only name and code_name, so state-null equals
-			// config-null throughout. Do NOT switch this to .example_gp -- that one
-			// declares group_policy_memberships and will diff after import.
-			why: "flat: only name and code_name declared",
+			why:       "flat: only name and code_name declared",
+		},
+		{
+			name:      "jump_group_gp",
+			fixture:   "jump_items/jumpoint_and_jump_group",
+			addr:      "sra_jump_group.example_gp",
+			outputKey: "jump_group_gp",
+			guard:     guardImportOrphan[api.JumpGroup],
+			why:       "import must discover the jump-group membership of data.sra_group_policy_list.gp.items[0]",
+		},
+		{
+			name:      "jumpoint_gp",
+			fixture:   "jump_items/jumpoint_and_jump_group",
+			addr:      "sra_jumpoint.example_gp",
+			outputKey: "jumpoint_gp",
+			guard:     guardImportOrphan[api.Jumpoint],
+			why:       "import must discover the jumpoint membership of data.sra_group_policy_list.gp.items[0]",
 		},
 		{
 			name:      "vault_account_policy",
@@ -375,12 +366,21 @@ func TestImportRoundTrip(t *testing.T) {
 			// post-import value depend on the appliance rather than the config.
 			why: "flat, and sets every Optional+Computed field explicitly",
 		},
+		{
+			name:           "ssh_account_gp",
+			fixture:        "vault/ssh_account",
+			addr:           "sra_vault_ssh_account.stand_alone_gp",
+			outputKey:      "stand_alone_gp",
+			guard:          guardImportOrphan[api.VaultSSHAccount],
+			why:            "import must discover the vault-account membership",
+			assertImported: assertOnlySecretPlanned,
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			randomBits := setEnvAndGetRandom(t)
-			testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/%s", productPath(), tc.fixture))
+			testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/%s", productPath(t), tc.fixture))
 
 			guard := &importGuard{addr: tc.addr, randomBits: randomBits}
 			tc.guard(t, guard)
@@ -423,15 +423,18 @@ func TestImportRoundTrip(t *testing.T) {
 
 				reimport(t, terraformOptions, guard, id)
 
+				if tc.assertImported != nil {
+					tc.assertImported(t, terraformOptions, tc.addr)
+					return
+				}
+
 				// Assert == 0, never != 2: GetExitCodeForTerraformCommandContextE
 				// returns 1 on a plan *error*, so != 2 would pass on a broken plan.
 				//
 				// Note this covers the WHOLE configuration, not just tc.addr. The
-				// fixtures declare siblings (jumpoint_and_jump_group also creates
-				// .example_gp with group_policy_memberships, refreshed through
-				// ReadGPMemberships at plan time) and list datasources. A dirty plan
-				// therefore does not prove the imported resource is at fault -- read
-				// the plan output before concluding the import failed to round-trip.
+				// fixtures declare siblings and list datasources, so a dirty plan
+				// does not prove the imported resource is at fault -- read the plan
+				// output before concluding the import failed to round-trip.
 				require.Equal(t, 0, terraform.PlanExitCode(t, terraformOptions),
 					"plan after import was not clean. Most likely %s does not round-trip (%s), "+
 						"but this assertion covers the whole fixture — check the plan output for drift "+
@@ -439,4 +442,39 @@ func TestImportRoundTrip(t *testing.T) {
 			})
 		})
 	}
+}
+
+// assertOnlySecretPlanned is the round-trip check for an imported SSH account.
+// Its private_key and private_key_passphrase are write-only, so the import
+// always plans an update for them; anything else changing, memberships above
+// all, is an import that did not round-trip.
+//
+// The plan JSON holds the fixture's private key in clear, so it is never logged.
+func assertOnlySecretPlanned(t *testing.T, opts *terraform.Options, addr string) {
+	quiet := *opts
+	quiet.Logger = logger.Discard
+	plan := planStruct(t, &quiet)
+
+	change, ok := plan.ResourceChangesMap[addr]
+	require.True(t, ok, "%s is missing from the plan", addr)
+	before, _ := change.Change.Before.(map[string]interface{})
+	after, _ := change.Change.After.(map[string]interface{})
+	unknown, _ := change.Change.AfterUnknown.(map[string]interface{})
+	require.NotNil(t, before, "%s has no prior state in the plan", addr)
+	require.NotNil(t, after, "%s is planned for deletion", addr)
+
+	require.Equal(t, before["group_policy_memberships"], after["group_policy_memberships"],
+		"import did not discover %s's group policy memberships", addr)
+
+	// Compare known values only. after_unknown also has entries for collection
+	// attributes that hold no unknowns, so only an exact true marks a value
+	// unknown, and computed attributes go unknown on any update.
+	changed := []string{}
+	for k := range before {
+		if unknown[k] != true && !reflect.DeepEqual(before[k], after[k]) {
+			changed = append(changed, k)
+		}
+	}
+	require.ElementsMatch(t, []string{"private_key", "private_key_passphrase"}, changed,
+		"after import %s should plan only its write-only secret", addr)
 }

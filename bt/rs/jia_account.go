@@ -230,7 +230,7 @@ func UpdateAccountJIA(
 	var err error
 	if !stateIsGone && planIsGone {
 		logItem(ctx, "🦠 Deleting item", apiSub)
-		err = api.DeleteItemEndpoint[api.AccountJumpItemAssociation](client, apiSub.Endpoint())
+		err = api.DeleteItemEndpoint(client, apiSub.Endpoint())
 	} else if stateIsGone {
 		logItem(ctx, "🦠 Creating item", apiSub)
 		item, err = api.CreateItem(client, apiSub)

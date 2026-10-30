@@ -628,6 +628,17 @@ type AccountGroupJumpItemAssociation struct {
 	JumpItems  []InjectableJumpItem         `json:"jump_items" tfsdk:"jump_items"`
 }
 
+// MarshalJSON sends the same body the vault account association does; see
+// AccountJumpItemAssociation.MarshalJSON for the three criteria shapes and why
+// only two of them are ever sent. The account-group endpoint reads criteria the
+// same way (both go through AccountBaseRepo).
+//
+// The conversion is also the guard against the two structs drifting apart: it
+// stops compiling if their fields ever differ.
+func (a AccountGroupJumpItemAssociation) MarshalJSON() ([]byte, error) {
+	return json.Marshal(AccountJumpItemAssociation(a))
+}
+
 func (a AccountGroupJumpItemAssociation) Endpoint() string {
 	return fmt.Sprintf("vault/account-group/%d/jump-item-association", *a.ID)
 }
@@ -667,6 +678,23 @@ func (a GroupPolicyVaultAccountGroup) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account-group", url.PathEscape(*a.GroupPolicyID))
 }
 
+// EntityID is the member: the vault account group this row adds.
+func (a GroupPolicyVaultAccountGroup) EntityID() int { return intOrZero(a.AccountGroupID) }
+
+func (a GroupPolicyVaultAccountGroup) WithEntityID(id int) GroupPolicyVaultAccountGroup {
+	a.AccountGroupID = &id
+	return a
+}
+
+func (a GroupPolicyVaultAccountGroup) GroupPolicyIDValue() string {
+	return stringOrEmpty(a.GroupPolicyID)
+}
+
+func (a GroupPolicyVaultAccountGroup) WithGroupPolicyID(id string) GroupPolicyVaultAccountGroup {
+	a.GroupPolicyID = &id
+	return a
+}
+
 type GroupPolicyVaultAccount struct {
 	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
 	AccountID     *int    `tfsdk:"-" json:"account_id"`
@@ -675,6 +703,21 @@ type GroupPolicyVaultAccount struct {
 
 func (a GroupPolicyVaultAccount) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/vault-account", url.PathEscape(*a.GroupPolicyID))
+}
+
+// EntityID is the member: the vault account this row adds.
+func (a GroupPolicyVaultAccount) EntityID() int { return intOrZero(a.AccountID) }
+
+func (a GroupPolicyVaultAccount) WithEntityID(id int) GroupPolicyVaultAccount {
+	a.AccountID = &id
+	return a
+}
+
+func (a GroupPolicyVaultAccount) GroupPolicyIDValue() string { return stringOrEmpty(a.GroupPolicyID) }
+
+func (a GroupPolicyVaultAccount) WithGroupPolicyID(id string) GroupPolicyVaultAccount {
+	a.GroupPolicyID = &id
+	return a
 }
 
 type GroupPolicyProvision struct {
@@ -696,6 +739,21 @@ func (a GroupPolicyJumpGroup) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jump-group", url.PathEscape(*a.GroupPolicyID))
 }
 
+// EntityID is the member: the jump group this row adds.
+func (a GroupPolicyJumpGroup) EntityID() int { return intOrZero(a.JumpGroupID) }
+
+func (a GroupPolicyJumpGroup) WithEntityID(id int) GroupPolicyJumpGroup {
+	a.JumpGroupID = &id
+	return a
+}
+
+func (a GroupPolicyJumpGroup) GroupPolicyIDValue() string { return stringOrEmpty(a.GroupPolicyID) }
+
+func (a GroupPolicyJumpGroup) WithGroupPolicyID(id string) GroupPolicyJumpGroup {
+	a.GroupPolicyID = &id
+	return a
+}
+
 type GroupPolicyJumpoint struct {
 	GroupPolicyID *string `tfsdk:"group_policy_id" json:"-"`
 	JumpointID    *int    `tfsdk:"-" json:"jumpoint_id"`
@@ -703,6 +761,35 @@ type GroupPolicyJumpoint struct {
 
 func (a GroupPolicyJumpoint) Endpoint() string {
 	return fmt.Sprintf("group-policy/%s/jumpoint", url.PathEscape(*a.GroupPolicyID))
+}
+
+// EntityID is the member: the jumpoint this row adds.
+func (a GroupPolicyJumpoint) EntityID() int { return intOrZero(a.JumpointID) }
+
+func (a GroupPolicyJumpoint) WithEntityID(id int) GroupPolicyJumpoint {
+	a.JumpointID = &id
+	return a
+}
+
+func (a GroupPolicyJumpoint) GroupPolicyIDValue() string { return stringOrEmpty(a.GroupPolicyID) }
+
+func (a GroupPolicyJumpoint) WithGroupPolicyID(id string) GroupPolicyJumpoint {
+	a.GroupPolicyID = &id
+	return a
+}
+
+func intOrZero(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+func stringOrEmpty(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 type MechList struct {

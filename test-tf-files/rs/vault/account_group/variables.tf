@@ -9,3 +9,9 @@ variable "name" {
   type        = string
   default     = "fun_account"
 }
+
+variable "extra_tags" {
+  description = "Criteria tags added to new_account_group's jump item association after the first apply"
+  type        = list(string)
+  default     = []
+}

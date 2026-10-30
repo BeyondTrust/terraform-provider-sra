@@ -34,7 +34,7 @@ import (
 // after apply" -- a hard error, so terraform.Apply below fails the test.
 func TestAccountGroupMembershipUpdate(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group_update", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/vault/account_group_update", productPath(t)))
 
 	// Reassigned between stages to change the config. Options are saved/loaded
 	// through test_structure, so the toggle has to be written back each time.

@@ -153,12 +153,7 @@ func (r *jumpGroupResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, r.ApiClient, req.Plan, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyJumpGroup, entityID int) { m.JumpGroupID = &entityID },
-		func(m *api.GroupPolicyJumpGroup) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyJumpGroup, gpID *string) { m.GroupPolicyID = gpID },
-		&jgMembershipMutex,
-	)
+	CreateGPMemberships[api.GroupPolicyJumpGroup](ctx, r.ApiClient, req.Plan, &resp.State, &resp.Diagnostics, id, &jgMembershipMutex)
 }
 
 func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -177,10 +172,13 @@ func (r *jumpGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	ReadGPMemberships[api.GroupPolicyJumpGroup](ctx, r.ApiClient, req.State, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyJumpGroup) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyJumpGroup, gpID *string) { m.GroupPolicyID = gpID },
-	)
+	ReadGPMemberships[api.GroupPolicyJumpGroup](ctx, r.ApiClient, req.State, &resp.State, &resp.Diagnostics, id)
+}
+
+// ImportState also reads the object's group policy memberships, which Read
+// refreshes only once they are in state.
+func (r *jumpGroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	importWithGPMemberships(ctx, &r.apiResource, &jumpGroupMemberIndex, req, resp)
 }
 
 func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -197,9 +195,6 @@ func (r *jumpGroupResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	UpdateGPMemberships[api.GroupPolicyJumpGroup](ctx, r.ApiClient, req.Plan, req.State, &resp.State, &resp.Diagnostics, id,
-		func(m *api.GroupPolicyJumpGroup, entityID int) { m.JumpGroupID = &entityID },
-		func(m *api.GroupPolicyJumpGroup) *string { return m.GroupPolicyID },
-		func(m *api.GroupPolicyJumpGroup, gpID *string) { m.GroupPolicyID = gpID },
 		api.DiffGPJumpItemLists,
 		&jgMembershipMutex,
 	)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/oauth2"
@@ -26,6 +27,11 @@ type APIClient struct {
 	testLogger Logger
 	logCtx     *context.Context
 	mu         sync.Mutex
+
+	// ListRetryBackoff is the pause before each retry of a list that changed
+	// while ListAllItemsEndpoint read it; its length is the number of retries.
+	// nil means 1s then 2s. Tests set zero pauses so no test sleeps.
+	ListRetryBackoff []time.Duration
 
 	// oauth is retained so that a 401 can be answered by minting a fresh token
 	// rather than surfacing as a hard error mid-apply. See doRequest.
@@ -198,6 +204,14 @@ func NewClient(host string, client_id *string, client_secret *string) (*APIClien
 }
 
 func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
+	body, _, err := c.doRequestWithHeaders(req)
+	return body, err
+}
+
+// doRequestWithHeaders is doRequest that also returns the response headers. The
+// paginated list reads it for the X-BT-Pagination-* headers; every other caller
+// wants only the body.
+func (c *APIClient) doRequestWithHeaders(req *http.Request) ([]byte, http.Header, error) {
 	req.Header.Set("User-Agent", "SRA-Terraform-Plugin")
 	req.Header.Set("Accept", "application/json")
 
@@ -227,9 +241,9 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 		}
 	}
 
-	body, status, usedGen, err := c.send(req)
+	body, header, status, usedGen, err := c.send(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// A 401 here does not necessarily mean the credentials are wrong. The
@@ -245,40 +259,40 @@ func (c *APIClient) doRequest(req *http.Request) ([]byte, error) {
 	if status == http.StatusUnauthorized && c.canReauthenticate() {
 		if replay, ok := replayable(req); ok && c.reauthenticate(usedGen) {
 			c.LogString("🔑 doRequest [%s]: got 401, re-authenticated and replaying once", req.Method)
-			body, status, _, err = c.send(replay)
+			body, header, status, _, err = c.send(replay)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
 
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return nil, &StatusError{Status: status, Body: string(body)}
+		return nil, nil, &StatusError{Status: status, Body: string(body)}
 	}
 
 	if status == http.StatusNoContent {
-		return nil, nil
+		return nil, header, nil
 	}
 
-	return body, nil
+	return body, header, nil
 }
 
 // send performs one round trip and reads the response. It returns the auth
 // generation the request was sent under so the caller can tell reauthenticate
 // which token failed.
-func (c *APIClient) send(req *http.Request) (body []byte, status int, usedGen uint64, err error) {
+func (c *APIClient) send(req *http.Request) (body []byte, header http.Header, status int, usedGen uint64, err error) {
 	client, gen := c.httpClient()
 
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, 0, gen, err
+		return nil, nil, 0, gen, err
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	body, err = io.ReadAll(res.Body)
 	if err != nil {
-		return nil, 0, gen, err
+		return nil, nil, 0, gen, err
 	}
 
-	return body, res.StatusCode, gen, nil
+	return body, res.Header, res.StatusCode, gen, nil
 }

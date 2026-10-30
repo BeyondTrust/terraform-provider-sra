@@ -1,15 +1,19 @@
 package test
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"terraform-provider-sra/api"
 	"testing"
+	"time"
 
 	"github.com/Jeffail/gabs"
 	"github.com/gruntwork-io/terratest/modules/logger"
@@ -21,9 +25,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mechs is fetched once per test binary: the appliance's product never changes
-// mid-run. The client that fetched it is not kept (see freshClient).
-var mechs *api.MechList
+// loadMechs fetches the appliance's mech list once per test binary: the
+// product never changes mid-run. sync.OnceValues keeps the first fetch's
+// error for every later caller. The client that fetched it is not kept (see
+// freshClient).
+var loadMechs = sync.OnceValues(func() (*api.MechList, error) {
+	host := os.Getenv("BT_API_HOST")
+	client, err := newEnvClient()
+	if err != nil {
+		return nil, fmt.Errorf("could not create API client for BT_API_HOST [%s]: %w — check BT_API_HOST/BT_CLIENT_ID/BT_CLIENT_SECRET", host, err)
+	}
+	m, err := api.Get[api.MechList](client)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch mechs from BT_API_HOST [%s]: %w", host, err)
+	}
+	return m, nil
+})
+
+// mechs returns the appliance's mech list, failing the test if it can't be
+// fetched.
+func mechs(t *testing.T) *api.MechList {
+	t.Helper()
+	m, err := loadMechs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+// The E2E tests run serially; do not add t.Parallel. Nearly every fixture
+// writes memberships on the same group policy, and a -parallel 4 run against
+// the CI appliances (2026-10-30) failed there with HTTP 500 adding a membership
+// and had its API token requests rejected (invalid_client).
 
 // stageSkipRandomBits is substituted for the usual random suffix whenever any
 // SKIP_<stage> env var is set, so cached fixture state keeps naming the same
@@ -39,27 +72,114 @@ func setEnvAndGetRandom(t *testing.T) string {
 	// os.Setenv("SKIP_setup", "true")
 	// os.Setenv("SKIP_teardown", "true")
 
-	if mechs == nil {
-		t.Logf("🚀 Running tests against [%s]", os.Getenv("BT_API_HOST"))
-		client, err := freshClientE(t)
-		if err != nil {
-			t.Fatalf("could not create API client for BT_API_HOST [%s]: %v — check BT_API_HOST/BT_CLIENT_ID/BT_CLIENT_SECRET", os.Getenv("BT_API_HOST"), err)
-		}
+	t.Logf("🚀 Running tests against [%s], product %s", os.Getenv("BT_API_HOST"), mechs(t).Product)
 
-		mechs, err = api.Get[api.MechList](client)
-		if err != nil {
-			t.Fatalf("could not fetch mechs from BT_API_HOST [%s]: %v", os.Getenv("BT_API_HOST"), err)
-		}
-		t.Logf("Got mechs [%+v]", mechs)
-	}
-
-	randomBits := strings.ToLower(random.UniqueId())
+	randomBits := newMarker(time.Now())
 
 	if test_structure.SkipStageEnvVarSet() {
 		randomBits = stageSkipRandomBits
 	}
 
 	return randomBits
+}
+
+// markerUsable reports whether randomBits can establish ownership at all. An empty
+// marker makes a Contains check unconditionally true, and the stage-skip
+// constant is shared by every test in such a run (see setEnvAndGetRandom), so it
+// also matches objects left behind by earlier runs.
+func markerUsable(randomBits string) bool {
+	return randomBits != "" && randomBits != stageSkipRandomBits
+}
+
+// A marker is the random_bits every fixture object is named, tagged or
+// code-named with: "e2e", then the creation time as 6 zero-padded base36 digits
+// of Unix minutes, then 6 random [0-9a-z] characters. 15 characters; the longest
+// field built from one is code_name "gp_example_<marker>2", 28 characters,
+// within the appliance's 64.
+//
+// The timestamp is what lets the orphan sweeper (sweep.go) tell an abandoned
+// object from a live run's: no fixture type has a creation timestamp of its own.
+// The random part comes from crypto/rand. terratest's random.UniqueId re-seeds
+// from UnixNano on every call, so runs starting in the same instant (the PRA and
+// RS jobs start together) could draw the same value.
+const (
+	markerPrefix      = "e2e"
+	markerTimeDigits  = 6
+	markerRandomChars = 6
+	markerAlphabet    = "0123456789abcdefghijklmnopqrstuvwxyz"
+	markerLen         = len(markerPrefix) + markerTimeDigits + markerRandomChars
+
+	// markerCharClass is markerAlphabet as a regular expression class.
+	markerCharClass = "[0-9a-z]"
+	// legacyMarkerLen is the length of the UniqueId marker used before
+	// timestamps.
+	legacyMarkerLen = 6
+	// markerSuffix is what the vault/secret fixture appends when it passes
+	// "${var.random_bits}2" down to the ssh_account module.
+	markerSuffix = "2"
+)
+
+func newMarker(now time.Time) string {
+	minutes := strconv.FormatInt(now.Unix()/60, 36)
+	b := []byte(markerPrefix + strings.Repeat("0", markerTimeDigits-len(minutes)) + minutes)
+
+	// Rejection sampling keeps every character equally likely: 252 is the
+	// largest multiple of 36 that fits in a byte.
+	buf := make([]byte, 1)
+	for len(b) < markerLen {
+		if _, err := rand.Read(buf); err != nil {
+			panic(fmt.Sprintf("crypto/rand: %v", err))
+		}
+		if buf[0] < 252 {
+			b = append(b, markerAlphabet[buf[0]%36])
+		}
+	}
+	return string(b)
+}
+
+type markerKind int
+
+const (
+	markerUnusable markerKind = iota
+	// markerLegacy is the 6-character UniqueId marker used before timestamps.
+	// Nothing about it says when it was made.
+	markerLegacy
+	markerTimestamped
+)
+
+var (
+	timestampedMarkerPattern = regexp.QuoteMeta(markerPrefix) + fmt.Sprintf("%s{%d}", markerCharClass, markerTimeDigits+markerRandomChars)
+	legacyMarkerPattern      = fmt.Sprintf("%s{%d}", markerCharClass, legacyMarkerLen)
+
+	timestampedMarkerRE = regexp.MustCompile("^" + timestampedMarkerPattern + "$")
+	legacyMarkerRE      = regexp.MustCompile("^" + legacyMarkerPattern + "$")
+
+	// markerToken matches either kind of marker, with an optional suffix, as
+	// capture group 1. The sweeper's name matchers embed it.
+	markerToken = "((?:" + timestampedMarkerPattern + "|" + legacyMarkerPattern + ")(?:" + regexp.QuoteMeta(markerSuffix) + ")?)"
+)
+
+// parseMarker classifies s, ignoring a single trailing markerSuffix. For a
+// timestamped marker, at is its creation time, to the minute.
+func parseMarker(s string) (kind markerKind, at time.Time) {
+	if !markerUsable(s) {
+		return markerUnusable, time.Time{}
+	}
+	base := s
+	if len(s) == markerLen+len(markerSuffix) || len(s) == legacyMarkerLen+len(markerSuffix) {
+		base = strings.TrimSuffix(s, markerSuffix)
+	}
+	switch {
+	case timestampedMarkerRE.MatchString(base):
+		minutes, err := strconv.ParseInt(base[len(markerPrefix):len(markerPrefix)+markerTimeDigits], 36, 64)
+		if err != nil {
+			return markerUnusable, time.Time{}
+		}
+		return markerTimestamped, time.Unix(minutes*60, 0)
+	case legacyMarkerRE.MatchString(base):
+		return markerLegacy, time.Time{}
+	}
+	return markerUnusable, time.Time{}
 }
 
 // Load .env file (if present) when the test package is initialized. This helps when running
@@ -112,8 +232,9 @@ func findRepoRoot() (string, error) {
 	return "", fmt.Errorf("repo root not found")
 }
 
-func productPath() string {
-	if mechs.IsRS() {
+func productPath(t *testing.T) string {
+	t.Helper()
+	if mechs(t).IsRS() {
 		return "rs"
 	} else {
 		return "pra"
@@ -171,7 +292,7 @@ func assertSoleMembership(t *testing.T, parsed *gabs.Container, wantGroupPolicyI
 // terraform command.
 //
 // This is load-bearing, not defensive, and the mechanism was measured rather
-// than guessed (against mpam, 2026-09-15):
+// than guessed (against a PRA test appliance, 2026-09-15):
 //
 //   - The appliance retains only a bounded number of concurrent tokens per client
 //     credential and evicts the OLDEST when that bound is exceeded. Probing with
@@ -204,9 +325,7 @@ func freshClient(t *testing.T) *api.APIClient {
 func freshClientE(t *testing.T) (*api.APIClient, error) {
 	t.Helper()
 
-	id := os.Getenv("BT_CLIENT_ID")
-	secret := os.Getenv("BT_CLIENT_SECRET")
-	c, err := api.NewClient(os.Getenv("BT_API_HOST"), &id, &secret)
+	c, err := newEnvClient()
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +338,13 @@ func freshClientE(t *testing.T) (*api.APIClient, error) {
 	return c, nil
 }
 
+// newEnvClient builds a client from BT_API_HOST, BT_CLIENT_ID and
+// BT_CLIENT_SECRET. It mints a token, so it can fail.
+func newEnvClient() (*api.APIClient, error) {
+	id, secret := os.Getenv("BT_CLIENT_ID"), os.Getenv("BT_CLIENT_SECRET")
+	return api.NewClient(os.Getenv("BT_API_HOST"), &id, &secret)
+}
+
 // skipWithoutEndpoint skips a PRA test when the appliance has no endpoint for
 // item type T, because it predates minVersion. The appliance has no fallback
 // route, so a missing endpoint answers 404; any other error fails the test. On
@@ -229,7 +355,7 @@ func freshClientE(t *testing.T) (*api.APIClient, error) {
 // unknown filter key is a 400.
 func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
 	t.Helper()
-	if !mechs.IsPRA() {
+	if !mechs(t).IsPRA() {
 		return
 	}
 	var tmp T
@@ -238,6 +364,19 @@ func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
 		t.Skipf("%s requires PRA %s or later; this appliance has no such endpoint", tmp.Endpoint(), minVersion)
 	}
 	require.NoError(t, err, "probing %s", tmp.Endpoint())
+}
+
+// planStruct plans options into a temporary plan file and returns it parsed. It
+// works on a copy: setting PlanFilePath on options would add -out to every later
+// plan made with them. The plan's output is logged through options.Logger; the
+// JSON from show never is, as the plan output already shows any diff.
+func planStruct(t *testing.T, options *terraform.Options) *terraform.PlanStruct {
+	t.Helper()
+	planOptions := *options
+	planOptions.PlanFilePath = filepath.Join(t.TempDir(), "plan.tfplan")
+	terraform.PlanContext(t, t.Context(), &planOptions)
+	planOptions.Logger = logger.Discard
+	return terraform.ShowWithStructContext(t, t.Context(), &planOptions)
 }
 
 // requireNoResourceChanges plans options and requires every resource change to
@@ -249,12 +388,7 @@ func skipWithoutEndpoint[T api.APIResource](t *testing.T, minVersion string) {
 // the plan after any apply that changed them shows "Changes to Outputs".
 func requireNoResourceChanges(t *testing.T, options *terraform.Options, msg string) {
 	t.Helper()
-	planOptions := *options
-	planOptions.PlanFilePath = filepath.Join(t.TempDir(), "plan.tfplan")
-	terraform.PlanContext(t, t.Context(), &planOptions)
-	// The plan output above already shows any diff; the JSON adds only noise.
-	planOptions.Logger = logger.Discard
-	plan := terraform.ShowWithStructContext(t, t.Context(), &planOptions)
+	plan := planStruct(t, options)
 
 	var changed []string
 	for address, rc := range plan.ResourceChangesMap {

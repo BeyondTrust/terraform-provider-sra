@@ -44,23 +44,17 @@ data "sra_remote_vnc_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `hostname` (String) The hostname or IP address.
-- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
-- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
-- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
-- `name` (String) The name of the Remote VNC Jump Item.
-
-Optional:
+Read-Only:
 
 - `comments` (String) The Jump Item's comments.
+- `hostname` (String) The hostname or IP address.
+- `id` (String) The unique identifier assigned to this Remote VNC Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item.
+- `jump_group_type` (String) The type of Jump Group that owns this Jump Item.
 - `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made.
+- `name` (String) The name of the Remote VNC Jump Item.
 - `port` (Number) The port to use. Must be between 100 and 65535, inclusive.
 - `session_policy_id` (Number) The unique identifier of the Session Policy used to control the rep's capabilities in the session.
 - `tag` (String) The Jump Item's tag.
-
-Read-Only:
-
-- `id` (String) The unique identifier assigned to this Remote VNC Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
-

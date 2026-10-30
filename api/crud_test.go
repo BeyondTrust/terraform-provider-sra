@@ -1,14 +1,20 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"terraform-provider-sra/api/apimock"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testAPIResource struct {
@@ -601,12 +607,12 @@ func TestDeleteItemEndpoint(t *testing.T) {
 	assert.Nil(t, err)
 
 	{
-		err := DeleteItemEndpoint[testAPIResource](c, "delete")
+		err := DeleteItemEndpoint(c, "delete")
 		assert.Nil(t, err)
 	}
 
 	{
-		err := DeleteItemEndpoint[testAPIResource](c, "error")
+		err := DeleteItemEndpoint(c, "error")
 		assert.Equal(t, "status: 400, body: error", err.Error())
 	}
 }
@@ -658,4 +664,308 @@ func TestHasStatusMatchesOnlyTheGivenCode(t *testing.T) {
 	assert.False(t, HasStatus(err, http.StatusNotFound))
 	assert.False(t, HasStatus(errors.New("status: 422, body: not a StatusError"), http.StatusUnprocessableEntity),
 		"a lookalike string must not satisfy a typed check")
+}
+
+// --- ListAllItems -----------------------------------------------------------
+
+type pagedResource struct {
+	ID   *int   `json:"id,omitempty"`
+	Name string `json:"name"`
+}
+
+func (pagedResource) Endpoint() string { return "paged" }
+
+// memberRow stands in for the group policy membership types: no ID, and a zero
+// value whose Endpoint() would dereference a nil group policy ID.
+type memberRow struct {
+	JumpGroupID *int `json:"jump_group_id"`
+}
+
+func (m memberRow) Endpoint() string { panic("membership endpoints are built by the caller") }
+
+func memberKey(m *memberRow) string { return fmt.Sprint(*m.JumpGroupID) }
+
+func pagedRows(n int) []apimock.Row {
+	rows := make([]apimock.Row, n)
+	for i := range rows {
+		rows[i] = apimock.Row{"id": i + 1, "name": fmt.Sprintf("item %d", i+1)}
+	}
+	return rows
+}
+
+// mockClient is a client of srv that retries an unstable list without pausing.
+func mockClient(srv *apimock.Server) *APIClient {
+	return &APIClient{RootURL: srv.URL, BaseURL: srv.URL + apimock.BasePath, HTTPClient: srv.Client(), ListRetryBackoff: []time.Duration{0, 0}}
+}
+
+func ids(items []pagedResource) []int {
+	out := make([]int, len(items))
+	for i, it := range items {
+		out[i] = *it.ID
+	}
+	return out
+}
+
+func seq(from, to int) []int {
+	out := []int{}
+	for i := from; i <= to; i++ {
+		out = append(out, i)
+	}
+	return out
+}
+
+func TestListAllItemsReadsEveryPage(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		rows, calls int
+	}{
+		{0, 1}, {99, 1}, {100, 1}, {101, 2}, {200, 2}, {250, 3},
+	} {
+		t.Run(fmt.Sprint(tc.rows), func(t *testing.T) {
+			t.Parallel()
+			srv := apimock.New()
+			defer srv.Close()
+			srv.Rows("paged", pagedRows(tc.rows)...)
+
+			items, err := ListAllItems[pagedResource](mockClient(srv), nil)
+			require.NoError(t, err)
+			assert.Equal(t, seq(1, tc.rows), ids(items), "every row, once, in order")
+			assert.Equal(t, tc.calls, srv.Calls(http.MethodGet, "paged"),
+				"bounded by Last-Page; never asks past the end, where the appliance would repeat the last page")
+		})
+	}
+}
+
+func TestListAllItemsSendsFiltersWithPaging(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+	srv.Rows("paged", pagedRows(150)...)
+
+	_, err := ListAllItems[pagedResource](mockClient(srv), map[string]string{"name": "item 7"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"GET paged?current_page=1&name=item+7&per_page=100"}, srv.Requests())
+}
+
+// The appliance clamps a page past the end to the last page. Without the paging
+// headers there is no Last-Page to stop at, so exactly 100 rows must not loop:
+// page 2 repeats page 1, adds nothing, and ends the pass.
+func TestListAllItemsWithoutHeadersStopsOnRepeatOrShortPage(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		rows, calls int
+	}{
+		{100, 2}, {150, 2}, {250, 3},
+	} {
+		t.Run(fmt.Sprint(tc.rows), func(t *testing.T) {
+			t.Parallel()
+			srv := apimock.New()
+			defer srv.Close()
+			srv.Set("paged", &apimock.Collection{Rows: pagedRows(tc.rows), NoHeaders: true})
+
+			items, err := ListAllItems[pagedResource](mockClient(srv), nil)
+			require.NoError(t, err)
+			assert.Equal(t, seq(1, tc.rows), ids(items))
+			assert.Equal(t, tc.calls, srv.Calls(http.MethodGet, "paged"))
+		})
+	}
+}
+
+// Without headers, overlapping pages dedup to the first occurrence and keep the
+// order rows were first read in, so items[0] is what an unpaged GET returned.
+func TestListAllItemsDedupKeepsFirstOccurrenceInOrder(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+	// Page p returns ids (p-1)*50+1 .. (p-1)*50+100, capped at 150: every page
+	// half-overlaps the previous one.
+	srv.Handle(http.MethodGet, "paged", func(w http.ResponseWriter, r *http.Request) {
+		p, _ := strconv.Atoi(r.URL.Query().Get("current_page"))
+		rows := []apimock.Row{}
+		for id := (p-1)*50 + 1; id <= min((p-1)*50+100, 150); id++ {
+			rows = append(rows, apimock.Row{"id": id})
+		}
+		_ = json.NewEncoder(w).Encode(rows)
+	})
+
+	items, err := ListAllItems[pagedResource](mockClient(srv), nil)
+	require.NoError(t, err)
+	assert.Equal(t, seq(1, 150), ids(items))
+	assert.Equal(t, 3, srv.Calls(http.MethodGet, "paged"))
+}
+
+// Membership rows have no id. Keyed on the member's own id they stay distinct;
+// keyed on a missing id they would collapse into one.
+func TestListAllItemsEndpointUsesTheGivenKey(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+	srv.Rows("group-policy/7/jump-group",
+		apimock.Row{"jump_group_id": 3}, apimock.Row{"jump_group_id": 1}, apimock.Row{"jump_group_id": 2})
+
+	items, err := ListAllItemsEndpoint(mockClient(srv), "group-policy/7/jump-group", nil, memberKey)
+	require.NoError(t, err)
+	require.Len(t, items, 3)
+	assert.Equal(t, 3, *items[0].JumpGroupID)
+}
+
+func TestListAllItemsRequiresAnIDField(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+
+	_, err := ListAllItems[memberRow](mockClient(srv), nil)
+	require.ErrorContains(t, err, "use ListAllItemsEndpoint")
+	assert.Empty(t, srv.Requests())
+}
+
+// The 201-row case: a delete between page 1 and page 2 shifts every later row
+// back one place, so OFFSET 100 skips the row that moved onto page 1. Total and
+// Last-Page change, and the pass is thrown away rather than returned short.
+func TestListAllItemsRestartsWhenAPageReportsADifferentTotal(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(c *apimock.Collection)
+		calls  int
+	}{
+		// The unstable pass stops at page 2; the stable one reads 200 or 202 rows.
+		{"delete", func(c *apimock.Collection) { c.Rows = c.Rows[1:] }, 2 + 2},
+		{"growth", func(c *apimock.Collection) { c.Rows = append(c.Rows, apimock.Row{"id": 1000}) }, 2 + 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := apimock.New()
+			defer srv.Close()
+			mutated := false
+			srv.Set("paged", &apimock.Collection{
+				Rows: pagedRows(201),
+				OnPage: func(c *apimock.Collection, page int) {
+					if page == 2 && !mutated {
+						mutated = true
+						tc.mutate(c)
+					}
+				},
+			})
+
+			items, err := ListAllItems[pagedResource](mockClient(srv), nil)
+			require.NoError(t, err)
+			assert.Len(t, items, len(srv.Collection("paged").Rows), "the stable second pass, complete")
+			assert.Equal(t, tc.calls, srv.Calls(http.MethodGet, "paged"))
+		})
+	}
+}
+
+func TestListAllItemsGivesUpAfterThreeUnstablePasses(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+	srv.Set("paged", &apimock.Collection{
+		Rows: pagedRows(201),
+		OnPage: func(c *apimock.Collection, page int) {
+			if page == 2 {
+				c.Rows = c.Rows[1:]
+			}
+		},
+	})
+
+	items, err := ListAllItems[pagedResource](mockClient(srv), nil)
+	assert.Nil(t, items, "never a partial list")
+	var unstable *ErrUnstableList
+	require.ErrorAs(t, err, &unstable)
+	assert.Equal(t, ListChanged, unstable.Cause)
+	assert.Equal(t, 3, unstable.Attempts)
+	assert.Equal(t, 6, srv.Calls(http.MethodGet, "paged"), "three passes of two pages")
+	assert.Contains(t, unstable.Describe("vault_account"),
+		"The list of vault_account objects changed while it was being read, in 3 consecutive attempts")
+	assert.Contains(t, unstable.Describe("vault_account"), "add filters")
+}
+
+// Jump groups sort on a non-unique name, and OFFSET can split ties differently
+// per page: a row reappears on page 2 and another is never read. The headers
+// never change, so only the unique count against Total gives it away.
+func TestListAllItemsEndpointReportsOverlappingPages(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+	rows := make([]apimock.Row, 200)
+	for i := range rows {
+		rows[i] = apimock.Row{"jump_group_id": i + 1}
+	}
+	srv.Set("group-policy/7/jump-group", &apimock.Collection{
+		Rows: rows,
+		OnPage: func(c *apimock.Collection, page int) {
+			// Page 1 ends with row 100; page 2 sees the tie the other way round
+			// and starts with it again.
+			switch page {
+			case 1:
+				c.Rows[99], c.Rows[100] = apimock.Row{"jump_group_id": 100}, apimock.Row{"jump_group_id": 101}
+			case 2:
+				c.Rows[99], c.Rows[100] = apimock.Row{"jump_group_id": 101}, apimock.Row{"jump_group_id": 100}
+			}
+		},
+	})
+
+	_, err := ListAllItemsEndpoint(mockClient(srv), "group-policy/7/jump-group", nil, memberKey)
+	var unstable *ErrUnstableList
+	require.ErrorAs(t, err, &unstable)
+	assert.Equal(t, ListOverlapped, unstable.Cause)
+	assert.Equal(t, 3, unstable.Attempts)
+	assert.Equal(t, 199, unstable.Got)
+	assert.Equal(t, 200, unstable.Total)
+	assert.Contains(t, unstable.Describe("jump_group"), "overlapping pages for jump_group")
+}
+
+func TestListAllItemsStopsAtThePageCap(t *testing.T) {
+	t.Parallel()
+
+	t.Run("header", func(t *testing.T) {
+		t.Parallel()
+		srv := apimock.New()
+		defer srv.Close()
+		srv.Handle(http.MethodGet, "paged", func(w http.ResponseWriter, r *http.Request) {
+			apimock.WritePageClaiming(w, pagedRows(100), 100001, 1001)
+		})
+
+		_, err := ListAllItems[pagedResource](mockClient(srv), nil)
+		var unstable *ErrUnstableList
+		require.ErrorAs(t, err, &unstable)
+		assert.Equal(t, ListPageCap, unstable.Cause)
+		assert.Equal(t, 1, srv.Calls(http.MethodGet, "paged"), "known from page 1; not read, not retried")
+		assert.Contains(t, unstable.Error(), "1000-page limit")
+	})
+
+	t.Run("no header", func(t *testing.T) {
+		t.Parallel()
+		srv := apimock.New()
+		defer srv.Close()
+		// An endpoint that never runs out of new rows.
+		srv.Handle(http.MethodGet, "paged", func(w http.ResponseWriter, r *http.Request) {
+			p, _ := strconv.Atoi(r.URL.Query().Get("current_page"))
+			rows := make([]apimock.Row, 100)
+			for i := range rows {
+				rows[i] = apimock.Row{"id": p*100 + i}
+			}
+			_ = json.NewEncoder(w).Encode(rows)
+		})
+
+		_, err := ListAllItems[pagedResource](mockClient(srv), nil)
+		var unstable *ErrUnstableList
+		require.ErrorAs(t, err, &unstable)
+		assert.Equal(t, ListPageCap, unstable.Cause)
+		assert.Equal(t, 1000, srv.Calls(http.MethodGet, "paged"))
+	})
+}
+
+func TestListAllItemsPassesThroughAPIErrors(t *testing.T) {
+	t.Parallel()
+	srv := apimock.New()
+	defer srv.Close()
+	srv.Set("paged", &apimock.Collection{Status: http.StatusForbidden})
+
+	_, err := ListAllItems[pagedResource](mockClient(srv), nil)
+	assert.True(t, HasStatus(err, http.StatusForbidden))
+	assert.Equal(t, 1, srv.Calls(http.MethodGet, "paged"), "an API error is not an unstable list; no retry")
 }

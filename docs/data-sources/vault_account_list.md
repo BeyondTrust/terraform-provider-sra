@@ -43,19 +43,13 @@ data "sra_vault_account_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `name` (String) The name of the Account.
-
-Optional:
-
-- `description` (String) The Account's description.
-- `owner_user_id` (Number) The unique identifier of a user who owns the personal account.
-
 Read-Only:
 
 - `account_group_id` (Number) The unique identifier of the Vault Account Group. For most account types, the `account_group_id` defaults to `1`, which is the default Account Group. If the `type` is `x509_ca`, or the account is personal, account_group_id will not be present.
 - `account_policy` (String) The code name of the Account Policy associated with the account. When the value is `null`, the account policy is inherited from the account group. If there is no account group, it is inherited from the global default.
+- `description` (String) The Account's description.
 - `id` (String) The unique identifier assigned to this Account by the system.
+- `name` (String) The name of the Account.
+- `owner_user_id` (Number) The unique identifier of a user who owns the personal account.
 - `personal` (Boolean) Indicates if this is a personal account.
 - `type` (String)

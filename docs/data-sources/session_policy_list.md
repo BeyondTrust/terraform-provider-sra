@@ -39,15 +39,9 @@ output "specific_session_policy" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `code_name` (String) The code name of the Session Policy.
-- `display_name` (String) The display name of the Session Policy.
-
-Optional:
-
-- `description` (String) The Session Policy's comments.
-
 Read-Only:
 
+- `code_name` (String) The code name of the Session Policy.
+- `description` (String) The Session Policy's comments.
+- `display_name` (String) The display name of the Session Policy.
 - `id` (String) The unique identifier assigned to this Session Policy by the appliance.
