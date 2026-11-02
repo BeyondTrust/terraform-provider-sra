@@ -32,10 +32,7 @@ var (
 )
 
 func newVaultUsernamePasswordAccountResource() resource.Resource {
-	r := &vaultUsernamePasswordAccountResource{}
-	r.apiResource.prepareCreate = r.prepareCreatePassword
-	r.apiResource.prepareUpdate = r.prepareUpdatePassword
-	return r
+	return &vaultUsernamePasswordAccountResource{}
 }
 
 type vaultUsernamePasswordAccountResource struct {
@@ -140,7 +137,7 @@ func (r *vaultUsernamePasswordAccountResource) ConfigValidators(context.Context)
 }
 
 func (r *vaultUsernamePasswordAccountResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	r.apiResource.Create(ctx, req, resp)
+	r.create(ctx, req, resp, passwordForCreate)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -192,7 +189,7 @@ func (r *vaultUsernamePasswordAccountResource) ImportState(ctx context.Context, 
 }
 
 func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	r.apiResource.Update(ctx, req, resp)
+	r.update(ctx, req, resp, passwordForUpdate)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -216,29 +213,23 @@ func (r *vaultUsernamePasswordAccountResource) Update(ctx context.Context, req r
 	)
 }
 
-func (r *vaultUsernamePasswordAccountResource) prepareCreatePassword(ctx context.Context, req resource.CreateRequest, item *api.VaultUsernamePasswordAccount, diagnostics *diag.Diagnostics) {
-	var config, plan models.VaultUsernamePasswordAccount
-	diagnostics.Append(req.Config.Get(ctx, &config)...)
-	diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	if diagnostics.HasError() {
-		return
-	}
-	if password, ok := vaultAccountPassword(config, plan, true, diagnostics); ok {
+// passwordForCreate sends password_wo on create. A write-only value is always
+// null in the plan, so it comes from the configuration.
+func passwordForCreate(config, plan models.VaultUsernamePasswordAccount, item *api.VaultUsernamePasswordAccount) diag.Diagnostics {
+	var diagnostics diag.Diagnostics
+	if password, ok := vaultAccountPassword(config, plan, true, &diagnostics); ok {
 		item.Password = password
 	}
+	return diagnostics
 }
 
-func (r *vaultUsernamePasswordAccountResource) prepareUpdatePassword(ctx context.Context, req resource.UpdateRequest, item *api.VaultUsernamePasswordAccount, diagnostics *diag.Diagnostics) {
-	var config, plan, state models.VaultUsernamePasswordAccount
-	diagnostics.Append(req.Config.Get(ctx, &config)...)
-	diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	diagnostics.Append(req.State.Get(ctx, &state)...)
-	if diagnostics.HasError() {
-		return
-	}
-	if password, ok := vaultAccountPassword(config, plan, !plan.PasswordWOVersion.Equal(state.PasswordWOVersion), diagnostics); ok {
+// passwordForUpdate sends password_wo only when password_wo_version changes.
+func passwordForUpdate(config, state, plan models.VaultUsernamePasswordAccount, item *api.VaultUsernamePasswordAccount) diag.Diagnostics {
+	var diagnostics diag.Diagnostics
+	if password, ok := vaultAccountPassword(config, plan, !plan.PasswordWOVersion.Equal(state.PasswordWOVersion), &diagnostics); ok {
 		item.Password = password
 	}
+	return diagnostics
 }
 
 func vaultAccountPassword(config, plan models.VaultUsernamePasswordAccount, useWriteOnly bool, diagnostics *diag.Diagnostics) (string, bool) {

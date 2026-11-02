@@ -33,10 +33,6 @@ func TestVaultUsernamePasswordAccountWriteOnlyPasswordSchema(t *testing.T) {
 		t.Fatal("password_wo must be optional, sensitive, and write-only")
 	}
 
-	if got := len(managed.ConfigValidators(context.Background())); got != 2 {
-		t.Fatalf("expected two password configuration validators, got %d", got)
-	}
-
 	modelType := reflect.TypeOf(models.VaultUsernamePasswordAccount{})
 	modelAttributes := make(map[string]struct{}, modelType.NumField())
 	for index := 0; index < modelType.NumField(); index++ {

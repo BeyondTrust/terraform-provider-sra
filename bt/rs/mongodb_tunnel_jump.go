@@ -5,6 +5,7 @@ import (
 	"terraform-provider-sra/api"
 	"terraform-provider-sra/bt/models"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -69,9 +70,10 @@ func (r *mongodbTunnelJumpResource) Update(ctx context.Context, req resource.Upd
 // the field is left out of the PATCH and the old value stays. State can only be
 // non-empty on 26.3.1 or later, where "" is accepted, so this never sends the
 // key to an appliance that rejects it. An unknown plan value never clears.
-func clearAuthDatabase(state, plan models.MongodbTunnelJump, item *api.MongodbTunnelJump) {
+func clearAuthDatabase(_, state, plan models.MongodbTunnelJump, item *api.MongodbTunnelJump) diag.Diagnostics {
 	if isKnown(plan.AuthDatabase) && plan.AuthDatabase.ValueString() == "" && isSet(state.AuthDatabase) {
 		empty := ""
 		item.AuthDatabase = &empty
 	}
+	return nil
 }
