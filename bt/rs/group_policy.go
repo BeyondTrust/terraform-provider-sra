@@ -38,7 +38,7 @@ func newGroupPolicyResource() resource.Resource {
 }
 
 type groupPolicyResource struct {
-	apiResource[api.GroupPolicy, models.GroupPolicy]
+	apiResource[api.GroupPolicy, models.GroupPolicyResource]
 }
 
 func (r *groupPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -130,14 +130,10 @@ func (r *groupPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest
 					int64validator.Between(1, 10),
 				},
 			},
-			"perm_support_button_personal_deploy":     optionalComputedGroupPolicyBool("Whether representatives may deploy and manage personal Support Buttons. This field only applies to RS."),
-			"perm_support_button_team_manage":         optionalComputedGroupPolicyBool("Whether representatives may manage team Support Buttons. This field only applies to RS."),
-			"perm_support_button_change_public_sites": optionalComputedGroupPolicyBool("Whether representatives may change the Public Portal for Support Buttons. This field only applies to RS."),
-			"perm_support_button_team_deploy":         optionalComputedGroupPolicyBool("Whether representatives may deploy team Support Buttons. This field only applies to RS."),
-			"perm_local_vnc":                          optionalComputedGroupPolicyBool("Whether representatives may use Local VNC. This field only applies to RS."),
-			"perm_local_rdp":                          optionalComputedGroupPolicyBool("Whether representatives may use Local RDP. This field only applies to RS."),
-			"perm_vpro":                               optionalComputedGroupPolicyBool("Whether representatives may use Intel vPro. This field only applies to RS."),
-			"perm_console_idle_timeout":               groupPolicyProductIdleTimeoutAttribute("The Representative Console inactivity timeout in seconds. This field only applies to RS."),
+			"perm_local_vnc":            optionalComputedGroupPolicyBool("Whether representatives may use Local VNC. This field only applies to RS."),
+			"perm_local_rdp":            optionalComputedGroupPolicyBool("Whether representatives may use Local RDP. This field only applies to RS."),
+			"perm_vpro":                 optionalComputedGroupPolicyBool("Whether representatives may use Intel vPro. This field only applies to RS."),
+			"perm_console_idle_timeout": groupPolicyProductIdleTimeoutAttribute("The Representative Console inactivity timeout in seconds. This field only applies to RS."),
 		},
 	}
 }
@@ -147,7 +143,7 @@ func (r *groupPolicyResource) ModifyPlan(ctx context.Context, req resource.Modif
 		return
 	}
 
-	var config models.GroupPolicy
+	var config models.GroupPolicyResource
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -252,7 +248,7 @@ func groupPolicyProductDefault(name string, value attr.Value) (attr.Value, bool)
 	return nil, false
 }
 
-func configuredGroupPolicyFieldsForOtherProduct(config models.GroupPolicy, product string) []configuredGroupPolicyField {
+func configuredGroupPolicyFieldsForOtherProduct(config models.GroupPolicyResource, product string) []configuredGroupPolicyField {
 	configValue := reflect.ValueOf(config)
 	configType := reflect.TypeOf(config)
 	var fields []configuredGroupPolicyField
@@ -278,7 +274,7 @@ func configuredGroupPolicyFieldsForOtherProduct(config models.GroupPolicy, produ
 	return fields
 }
 
-func praGroupPolicyAccessConflicts(plan models.GroupPolicy) (enabledPermissions []string, accessConflict bool, statusConflict bool) {
+func praGroupPolicyAccessConflicts(plan models.GroupPolicyResource) (enabledPermissions []string, accessConflict bool, statusConflict bool) {
 	permissions := []struct {
 		name  string
 		value types.Bool
