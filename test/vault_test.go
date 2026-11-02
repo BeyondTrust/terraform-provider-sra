@@ -1,7 +1,10 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Jeffail/gabs"
+	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	test_structure "github.com/gruntwork-io/terratest/modules/test-structure"
 )
@@ -426,6 +430,48 @@ func TestVaultUserPass(t *testing.T) {
 			assert.Equal(t, item["id"], list[0]["id"])
 		}
 	})
+
+	test_structure.RunTestStage(t, "Test the write-only password", func() {
+		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)
+		const addr = "sra_vault_username_password_account.write_only"
+
+		writeOnly := terraform.OutputMap(t, terraformOptions, "write_only")
+		assert.Equal(t, "1", writeOnly["password_wo_version"])
+		assertSecretNotStored(t, testFolder, "write-only-password")
+		requireNoResourceChanges(t, terraformOptions, "a write-only password must not plan a change on refresh")
+
+		// Bumping the version is the only way to send a new password.
+		rotated := "rotated-" + randomBits
+		terraformOptions.Vars["write_only_password"] = rotated
+		terraformOptions.Vars["password_wo_version"] = 2
+		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
+
+		quiet := *terraformOptions
+		quiet.Logger = logger.Discard
+		plan := planStruct(t, &quiet)
+		change, ok := plan.ResourceChangesMap[addr]
+		require.True(t, ok, "%s is missing from the plan", addr)
+		assert.True(t, change.Change.Actions.Update(), "a version bump must update %s in place, got %v", addr, change.Change.Actions)
+		rawPlan, err := json.Marshal(plan.RawPlan)
+		require.NoError(t, err)
+		assert.NotContains(t, string(rawPlan), rotated, "the plan must not hold the write-only password")
+
+		terraform.Apply(t, terraformOptions)
+		writeOnly = terraform.OutputMap(t, terraformOptions, "write_only")
+		assert.Equal(t, "2", writeOnly["password_wo_version"])
+		assertSecretNotStored(t, testFolder, rotated)
+		requireNoResourceChanges(t, terraformOptions, "the rotated write-only password must settle in one apply")
+	})
+}
+
+// assertSecretNotStored fails if secret appears anywhere in the fixture's local
+// state file. The file is read directly, not through terraform state pull, so
+// the state (which holds the fixture's other passwords) is never logged.
+func assertSecretNotStored(t *testing.T, dir, secret string) {
+	t.Helper()
+	state, err := os.ReadFile(filepath.Join(dir, "terraform.tfstate"))
+	require.NoError(t, err)
+	assert.NotContains(t, string(state), secret, "the write-only password must not be stored in state")
 }
 
 func TestVaultToken(t *testing.T) {
