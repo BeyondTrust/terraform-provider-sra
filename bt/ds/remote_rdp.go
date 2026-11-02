@@ -49,81 +49,81 @@ func (d *remoteRDPDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 							Optional: false,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"jumpoint_id": schema.Int64Attribute{
-							Required: true,
+							Computed: true,
 						},
 						"hostname": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"jump_group_id": schema.Int64Attribute{
-							Required: true,
+							Computed: true,
 						},
 						"jump_group_type": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"quality": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"console": schema.BoolAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"ignore_untrusted": schema.BoolAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"tag": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"comments": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"rdp_username": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"domain": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"secure_app_type": schema.StringAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"remote_app_name": schema.StringAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"remote_app_params": schema.StringAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"remote_exe_path": schema.StringAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"remote_exe_params": schema.StringAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"target_system": schema.StringAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"credential_type": schema.StringAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"session_forensics": schema.BoolAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"jump_policy_id": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 						"session_policy_id": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 						"endpoint_id": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 					},
 				},

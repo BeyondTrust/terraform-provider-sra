@@ -41,13 +41,13 @@ func (d *sessionPolicyDataSource) Schema(ctx context.Context, _ datasource.Schem
 							Optional: false,
 						},
 						"display_name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"code_name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"description": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 					},
 				},

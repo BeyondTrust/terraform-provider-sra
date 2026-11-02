@@ -40,15 +40,9 @@ data "sra_jump_group_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `code_name` (String)
-- `name` (String) The display name of the Jump Group. This value must be unique.
-
-Optional:
-
-- `comments` (String) The Jump Group's comments.
-
 Read-Only:
 
+- `code_name` (String)
+- `comments` (String) The Jump Group's comments.
 - `id` (String) The unique identifier assigned to this Jump Group by the appliance.
+- `name` (String) The display name of the Jump Group. This value must be unique.

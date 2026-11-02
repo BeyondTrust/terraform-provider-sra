@@ -36,11 +36,6 @@ var (
 	groupPolicyMemberMutex sync.Mutex
 )
 
-const (
-	groupPolicyMemberPageSize     = 100
-	groupPolicyMemberMaximumPages = 10000
-)
-
 func newGroupPolicyMemberResource() resource.Resource {
 	return &groupPolicyMemberResource{}
 }
@@ -246,7 +241,7 @@ func (r *groupPolicyMemberResource) Delete(ctx context.Context, req resource.Del
 	defer groupPolicyMemberMutex.Unlock()
 
 	endpoint := fmt.Sprintf("group-policy/%s/member/%s", groupPolicyID, memberID)
-	if err := api.DeleteItemEndpoint[api.GroupPolicyMember](r.ApiClient, endpoint); err != nil {
+	if err := api.DeleteItemEndpoint(r.ApiClient, endpoint); err != nil {
 		if api.IsNotFound(err) {
 			return
 		}
@@ -328,38 +323,24 @@ func matchingGroupPolicyMembers(client *api.APIClient, wanted api.GroupPolicyMem
 	return matches, nil
 }
 
+// listGroupPolicyMembers reads every page of a policy's members.
 func listGroupPolicyMembers(client *api.APIClient, endpoint string) ([]api.GroupPolicyMember, error) {
-	all := make([]api.GroupPolicyMember, 0)
-	seen := make(map[int]struct{})
-	for page := 1; page <= groupPolicyMemberMaximumPages; page++ {
-		items, err := api.ListItemsEndpoint[api.GroupPolicyMember](client, endpoint, map[string]string{
-			"per_page":     strconv.Itoa(groupPolicyMemberPageSize),
-			"current_page": strconv.Itoa(page),
-		})
-		if err != nil {
-			return nil, err
+	members, err := api.ListAllItemsEndpoint(client, endpoint, nil, func(m *api.GroupPolicyMember) string {
+		if m.ID == nil {
+			return ""
 		}
-
-		newItems := 0
-		for _, item := range items {
-			if item.ID == nil {
-				continue
-			}
-			if _, exists := seen[*item.ID]; exists {
-				continue
-			}
-			seen[*item.ID] = struct{}{}
-			all = append(all, item)
-			newItems++
-		}
-		if len(items) < groupPolicyMemberPageSize {
-			return all, nil
-		}
-		if newItems == 0 {
-			return nil, fmt.Errorf("pagination for %s repeated a full page without new member IDs", endpoint)
+		return strconv.Itoa(*m.ID)
+	})
+	if err != nil {
+		return nil, err
+	}
+	withID := members[:0]
+	for _, m := range members {
+		if m.ID != nil {
+			withID = append(withID, m)
 		}
 	}
-	return nil, fmt.Errorf("pagination for %s exceeded %d pages", endpoint, groupPolicyMemberMaximumPages)
+	return withID, nil
 }
 
 func discoverCreatedGroupPolicyMemberID(client *api.APIClient, wanted api.GroupPolicyMember) (int, error) {

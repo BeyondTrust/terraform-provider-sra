@@ -1,6 +1,6 @@
 terraform {
-  # This module is now only being tested with Terraform 1.1.x. However, to make upgrading easier, we are setting 1.0.0 as the minimum version.
-  required_version = ">= 1.0.0"
+  # password_wo is a write-only argument, which needs Terraform 1.11.
+  required_version = ">= 1.11.0"
 
   required_providers {
     sra = {
@@ -74,6 +74,15 @@ resource "sra_vault_username_password_account" "stand_alone_both" {
       { id : module.account_group.shell.id, type : "shell_jump" }
     ]
   }
+}
+
+# password_wo is sent on create and whenever password_wo_version changes, and is
+# never stored in state.
+resource "sra_vault_username_password_account" "write_only" {
+  name                = "Standalone UP WO ${var.name} ${var.random_bits}"
+  username            = var.random_bits
+  password_wo         = var.write_only_password
+  password_wo_version = var.password_wo_version
 }
 
 data "sra_vault_account_list" "acc" {

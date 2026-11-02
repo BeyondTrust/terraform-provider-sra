@@ -48,46 +48,46 @@ func (d *shellJumpDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 							Optional: false,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"jumpoint_id": schema.Int64Attribute{
-							Required: true,
+							Computed: true,
 						},
 						"hostname": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"protocol": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"port": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 						"jump_group_id": schema.Int64Attribute{
-							Required: true,
+							Computed: true,
 						},
 						"jump_group_type": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"terminal": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"keep_alive": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 						"tag": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"comments": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"jump_policy_id": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 						"username": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"session_policy_id": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 					},
 				},

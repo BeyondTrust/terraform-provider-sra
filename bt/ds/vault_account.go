@@ -50,17 +50,15 @@ func (d *vaultAccountDataSource) Schema(ctx context.Context, _ datasource.Schema
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"description": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"personal": schema.BoolAttribute{
 							Computed: true,
 						},
 						"owner_user_id": schema.Int64Attribute{
-							Optional: true,
 							Computed: true,
 						},
 						"account_group_id": schema.Int64Attribute{

@@ -11,7 +11,7 @@ import (
 
 func TestGroupPolicy(t *testing.T) {
 	randomBits := setEnvAndGetRandom(t)
-	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/group_policy", productPath()))
+	testFolder := test_structure.CopyTerraformFolderToTemp(t, "../", fmt.Sprintf("test-tf-files/%s/group_policy", productPath(t)))
 
 	defer test_structure.RunTestStage(t, "teardown", func() {
 		terraformOptions := test_structure.LoadTerraformOptions(t, testFolder)

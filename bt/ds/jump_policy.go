@@ -43,98 +43,79 @@ func (d *jumpPolicyDataSource) Schema(ctx context.Context, _ datasource.SchemaRe
 							Optional: false,
 						},
 						"display_name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"code_name": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"description": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"schedule_enabled": schema.BoolAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"schedule_strict": schema.BoolAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"ticket_id_required": schema.BoolAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"session_start_notification": schema.BoolAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"session_end_notification": schema.BoolAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"notification_email_addresses": schema.SetAttribute{
-							Optional:    true,
 							Computed:    true,
 							ElementType: types.StringType,
 							Description: "This field only applies to PRA",
 						},
 						"notification_display_name": schema.StringAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"notification_email_language": schema.StringAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"approval_required": schema.BoolAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"approval_max_duration": schema.Int64Attribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"approval_scope": schema.StringAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"approval_email_addresses": schema.SetAttribute{
-							Optional:    true,
 							Computed:    true,
 							ElementType: types.StringType,
 							Description: "This field only applies to PRA",
 						},
 						"approval_user_ids": schema.SetAttribute{
-							Optional:    true,
 							Computed:    true,
 							ElementType: types.StringType,
 							Description: "This field only applies to PRA",
 						},
 						"approval_display_name": schema.StringAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"approval_email_language": schema.StringAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"approval_approver_scope": schema.StringAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"recordings_disabled": schema.BoolAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "This field only applies to PRA",
 						},

@@ -27,7 +27,7 @@ resource "sra_vault_account_group" "new_account_group" {
   jump_item_association = {
     filter_type = "criteria"
     criteria = {
-      tag = [var.random_bits]
+      tag = concat([var.random_bits], var.extra_tags)
     }
     jump_items = [
       { id : module.shell_jump.item.id, type : "shell_jump" }

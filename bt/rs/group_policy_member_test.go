@@ -3,6 +3,7 @@ package rs
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"terraform-provider-sra/api"
+	"terraform-provider-sra/api/apimock"
 	"terraform-provider-sra/bt/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -275,9 +277,10 @@ func TestGroupPolicyMemberReadPreservesConfiguredSelectorAndImportsLDAP(t *testi
 			managed.ApiClient = client
 			sch := groupPolicyMemberTestSchema(t, managed)
 			model := models.GroupPolicyMember{ID: types.StringValue("77"), GroupPolicyID: types.StringValue("9")}
-			if selector == "user_id" {
+			switch selector {
+			case "user_id":
 				model.UserID = types.Int64Value(42)
-			} else if selector == "distinguished_name" {
+			case "distinguished_name":
 				model.DistinguishedName = types.StringValue("CN=Supplier,OU=Users,DC=example,DC=com")
 			}
 			plan := groupPolicyMemberTestPlan(t, sch, model)
@@ -314,4 +317,22 @@ func groupPolicyMemberTestPlan(t *testing.T, sch schema.Schema, model models.Gro
 	raw, err := object.ToTerraformValue(ctx)
 	require.NoError(t, err)
 	return tfsdk.Plan{Schema: sch, Raw: raw}
+}
+
+// The member list pages at 100, and a new member's ID is found by listing the
+// policy after the create, so a member past the first page must still be found.
+func TestDiscoverGroupPolicyMemberIDReadsEveryPage(t *testing.T) {
+	srv := apimock.New()
+	defer srv.Close()
+	rows := make([]apimock.Row, 150)
+	for i := range rows {
+		rows[i] = apimock.Row{"id": i + 1, "security_provider_id": 5, "group_name": fmt.Sprint("g", i+1)}
+	}
+	srv.Rows("group-policy/9/member", rows...)
+
+	policyID, name := "9", "g120"
+	id, err := discoverCreatedGroupPolicyMemberID(apimockClient(srv), api.GroupPolicyMember{GroupPolicyID: &policyID, SecurityProviderID: 5, GroupName: &name})
+	require.NoError(t, err)
+	assert.Equal(t, 120, id)
+	assert.Equal(t, 2, srv.Calls(http.MethodGet, "group-policy/9/member"), "the listing must read both pages")
 }

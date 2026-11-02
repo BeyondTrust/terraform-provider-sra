@@ -44,13 +44,13 @@ func (d *jumpGroupDataSource) Schema(ctx context.Context, _ datasource.SchemaReq
 							Optional: false,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"code_name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"comments": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 					},
 				},

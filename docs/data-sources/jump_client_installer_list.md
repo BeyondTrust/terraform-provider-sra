@@ -43,11 +43,7 @@ data "sra_jump_client_installer_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `jump_group_id` (Number) The unique identifier of the shared Jump Group or user that owns this Jump Client.
-
-Optional:
+Read-Only:
 
 - `allow_override_attended_session_policy` (Boolean) If true, the attended session policy can be specified during installation, which will override the value specified in this API call. _This field only applies to RS_
 - `allow_override_comments` (Boolean) If true, the comments can be specified during installation, which will override the comments specified in this API call.
@@ -64,22 +60,20 @@ Optional:
 - `customer_client_start_mode` (String) This setting determines how sessions are started from the deployed Jump Client. If normal, the customer client will start with the window visible. If minimized, it will start with the window minimized. If hidden, it will start with no visible customer window and will not appear in the taskbar. Hidden mode requires additional permission. _This field only applies to RS_
 - `elevate_install` (Boolean) If true, the installer will attempt to elevate the Jump Client to make it run as a service.
 - `elevate_prompt` (Boolean) If true, the installer will prompt for elevation credentials if necessary. This parameter is ignored if elevate_install is false.
+- `expiration_timestamp` (String) The date/time at which the Jump Client installer will no longer be valid.
+- `id` (String) The unique identifier assigned to this Jump Client Installer by the appliance.
+- `installer_id` (String) The unique installer identifier that can be used to download the installer for a specific platform.
+- `is_quiet` (Boolean) If true, the customer client will start minimized when sessions are started from the deployed Jump Client. _This field only applies to RS_
+- `jump_group_id` (Number) The unique identifier of the shared Jump Group or user that owns this Jump Client.
 - `jump_group_type` (String) The type of Jump Group that owns this Jump Client.
 - `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item.
+- `key_info` (Attributes) (see [below for nested schema](#nestedatt--items--key_info))
 - `max_offline_minutes` (Number) The maximum number of minutes the installed Jump Client can be offline before being uninstalled. If 0, the Jump Client will follow the global lost client settings.
 - `name` (String) The Jump Client's user-friendly name.
 - `session_policy_id` (Number) The session policy used on the Jump Client system. _This field only applies to PRA_
 - `tag` (String) The Jump Client's tag.
 - `unattended_session_policy_id` (Number) The session policy used when an end user is not present on the Jump Client system. _This field only applies to RS_
 - `valid_duration` (Number)
-
-Read-Only:
-
-- `expiration_timestamp` (String) The date/time at which the Jump Client installer will no longer be valid.
-- `id` (String) The unique identifier assigned to this Jump Client Installer by the appliance.
-- `installer_id` (String) The unique installer identifier that can be used to download the installer for a specific platform.
-- `is_quiet` (Boolean) If true, the customer client will start minimized when sessions are started from the deployed Jump Client. _This field only applies to RS_
-- `key_info` (Attributes) (see [below for nested schema](#nestedatt--items--key_info))
 
 <a id="nestedatt--items--key_info"></a>
 ### Nested Schema for `items.key_info`
