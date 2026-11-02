@@ -14,6 +14,9 @@ so almost nothing was captured. That automation has been removed.
 <a name="Unreleased"></a>
 ## [Unreleased]
 
+<a name="v1.5.0"></a>
+## [v1.5.0] - 2026-11-02
+
 ### Added
 
 - `sra_mongodb_tunnel_jump` and `sra_mongodb_tunnel_jump_list`, for MongoDB tunnel Jump Items. PRA only, PRA 26.1.1 or later. `auth_database` requires PRA 26.3.1 or later: it is sent only when set, because older appliances reject the field, and it reads as `""` on every version. Setting it back to `""` clears it in place.
@@ -60,6 +63,15 @@ so almost nothing was captured. That automation has been removed.
 - `sra_protocol_tunnel_jump`: `tunnel_listen_address` on a non-tcp tunnel now gives a clear error instead of an invalid plan. An omitted listen address keeps the value the appliance holds, so an imported item listening on, say, `127.0.0.5` no longer plans a change back to `127.0.0.1`.
 - `sra_protocol_tunnel_jump`: the `k8s` usage example used a resource type that doesn't exist and a `url` with no scheme. The import example named the wrong resource address.
 - Updates to username/password, SSH, and token Vault accounts no longer send `personal`, `owner_user_id`, or `last_checkout_timestamp`, which the Configuration API marks as read-only.
+
+### Known issues
+
+- `terraform import` of `sra_jump_client_installer` still forces a replacement on the next plan. See v1.4.0 for why this can't be fixed in the provider.
+
+### Dependencies
+
+- Bump terraform-plugin-log to 0.11.0 and golang.org/x/oauth2 to 0.37.0. These are the only modules in the provider binary that changed.
+- Test and CI only: testify 1.12.1, hcl 2.25.0 (with go-cty 1.19.0), klauspost/compress 1.18.7, and the GitHub Actions that build, lint and release the provider, including checkout 7.0.1, setup-go 7.0.0, golangci-lint-action 9.3.0 and goreleaser-action 7.3.0.
 
 ### Internal
 
@@ -282,7 +294,8 @@ so almost nothing was captured. That automation has been removed.
 <a name="v1.0.2"></a>
 ## [v1.0.2] - 2023-07-05
 
-[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.5.0...HEAD
+[v1.5.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/beyondtrust/terraform-provider-sra/compare/v1.1.0...v1.2.0
