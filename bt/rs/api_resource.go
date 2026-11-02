@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -105,6 +106,14 @@ Additionally, for Terraform to be happy:
 */
 
 func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	r.create(ctx, req, resp, nil)
+}
+
+// create is the body of the generic Create. adjust, when non-nil, runs after the
+// plan is copied into the request item and may change it using the
+// configuration, the only place a write-only value can be read; see
+// passwordForCreate.
+func (r *apiResource[TApi, TTf]) create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse, adjust func(config, plan TTf, item *TApi) diag.Diagnostics) {
 	var item TApi
 	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
@@ -126,6 +135,18 @@ func (r *apiResource[TApi, TTf]) Create(ctx context.Context, req resource.Create
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
 	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
+
+	if adjust != nil {
+		var config TTf
+		resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		resp.Diagnostics.Append(adjust(config, plan, &item)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 
 	tflog.Debug(ctx, "🙀 executing item post", map[string]interface{}{
 		"endpoint": item.Endpoint(),
@@ -238,9 +259,10 @@ func (r *apiResource[TApi, TTf]) Update(ctx context.Context, req resource.Update
 }
 
 // update is the body of the generic Update. adjust, when non-nil, runs after the
-// plan is copied into the request item and may change it using the prior state;
-// see clearAuthDatabase.
-func (r *apiResource[TApi, TTf]) update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse, adjust func(state, plan TTf, item *TApi)) {
+// plan is copied into the request item and may change it using the
+// configuration (the only place a write-only value can be read) and the prior
+// state; see clearAuthDatabase and passwordForUpdate.
+func (r *apiResource[TApi, TTf]) update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse, adjust func(config, state, plan TTf, item *TApi) diag.Diagnostics) {
 	var item TApi
 	if !api.IsProductAllowed(ctx, item, r.ApiClient.Product) {
 		resp.Diagnostics.AddError(
@@ -261,14 +283,21 @@ func (r *apiResource[TApi, TTf]) update(ctx context.Context, req resource.Update
 	tfObj := reflect.ValueOf(&plan).Elem()
 	apiObj := reflect.ValueOf(&item).Elem()
 	api.CopyTFtoAPI(ctx, tfObj, apiObj, r.ApiClient.Product)
+	if preparer, ok := any(&item).(api.UpdateRequestPreparer); ok {
+		preparer.PrepareUpdateRequest()
+	}
 
 	if adjust != nil {
-		var state TTf
+		var config, state TTf
+		resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		adjust(state, plan, &item)
+		resp.Diagnostics.Append(adjust(config, state, plan, &item)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	logItem(ctx, "🙀 executing item update", item)
