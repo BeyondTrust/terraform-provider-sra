@@ -62,7 +62,7 @@ func TestGroupPolicy(t *testing.T) {
 		item := terraform.OutputMap(t, terraformOptions, "item")
 		require.Equal(t, "true", item[perm], "the fixture grants %s", perm)
 
-		terraformOptions.Vars["optional_permission"] = nil
+		terraformOptions.Vars["grant_optional_permission"] = false
 		test_structure.SaveTerraformOptions(t, testFolder, terraformOptions)
 
 		plan := planStruct(t, terraformOptions)

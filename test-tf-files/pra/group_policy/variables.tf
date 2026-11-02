@@ -2,8 +2,8 @@ variable "random_bits" {
   type = string
 }
 
-variable "optional_permission" {
-  description = "perm_invite_external_user; null leaves it out of the configuration"
+variable "grant_optional_permission" {
+  description = "Grant perm_invite_external_user; false leaves it out of the configuration"
   type        = bool
   default     = true
 }
