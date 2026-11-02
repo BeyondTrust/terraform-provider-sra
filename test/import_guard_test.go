@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"terraform-provider-sra/api"
 
@@ -27,7 +28,8 @@ func TestMarkerUsable(t *testing.T) {
 		want       bool
 		why        string
 	}{
-		{"a real marker", "abc123", true, "the normal case: setEnvAndGetRandom's lowercased UniqueId"},
+		{"a legacy marker", "abc123", true, "the 6-character UniqueId marker earlier runs used"},
+		{"a timestamped marker", newMarker(time.Unix(0, 0)), true, "the normal case: setEnvAndGetRandom's newMarker"},
 		{"empty", "", false, "strings.Contains(x, \"\") is always true, which would disable the ownership check entirely"},
 		{"stage-skip constant", stageSkipRandomBits, false, "shared by every test in a SKIP_ run, so it matches objects earlier runs left behind"},
 	} {

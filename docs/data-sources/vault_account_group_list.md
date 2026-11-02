@@ -39,15 +39,9 @@ data "sra_vault_account_group_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `name` (String) The name of the Account Group. This value must be unique.
-
-Optional:
-
-- `description` (String) The Account Group's description.
-
 Read-Only:
 
 - `account_policy` (String) The code name of the Account Policy associated with the Account Group. When the value is `null`, the account policy is inherited from the global default.
+- `description` (String) The Account Group's description.
 - `id` (String) The unique identifier assigned to this Account Group by the system.
+- `name` (String) The name of the Account Group. This value must be unique.

@@ -27,6 +27,13 @@ func MakeFilterMap(source any) map[string]string {
 				if !v.IsNull() {
 					final = strconv.Itoa(int(v.ValueInt64()))
 				}
+			case reflect.Bool:
+				// Unknown is checked as well as null: ValueBool of an unknown is
+				// false, which would send a filter the configuration never set.
+				v := fld.Interface().(types.Bool)
+				if !v.IsNull() && !v.IsUnknown() {
+					final = strconv.FormatBool(v.ValueBool())
+				}
 			}
 			if final != "" {
 				filter[f] = final

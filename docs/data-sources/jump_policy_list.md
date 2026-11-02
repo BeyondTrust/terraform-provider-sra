@@ -39,11 +39,7 @@ data "sra_jump_policy_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `display_name` (String) The display name of the Jump Policy.
-
-Optional:
+Read-Only:
 
 - `approval_approver_scope` (String) The scope of approval granted to approvers. If "not_requestor", then the approver cannot approve their own requests. If "anyone", anyone who is permitted to approve, can approve requests, including their own. _This field only applies to PRA_
 - `approval_display_name` (String) The display name of the approvers that requestors will see. It is required only if approvals are enabled. _This field only applies to PRA_
@@ -55,6 +51,8 @@ Optional:
 - `approval_user_ids` (Set of String) This field only applies to PRA
 - `code_name` (String) The code name of the Jump Policy.
 - `description` (String) The Jump Policy's comments.
+- `display_name` (String) The display name of the Jump Policy.
+- `id` (String) The unique identifier assigned to this Jump Policy by the appliance.
 - `notification_display_name` (String) The display name of the recipients shown to users. Required in POST only if one or more notifications are enabled. _This field only applies to PRA_
 - `notification_email_addresses` (Set of String) This field only applies to PRA
 - `notification_email_language` (String) The language in which notification emails will be sent. Must be the locale code for one of the locales listed on the Localization → Languages page. _This field only applies to PRA_
@@ -64,7 +62,3 @@ Optional:
 - `session_end_notification` (Boolean) If true, an email notification is sent to the configured recipients when a session ends. _This field only applies to PRA_
 - `session_start_notification` (Boolean) If true, an email notification is sent to the configured recipients when a session starts. _This field only applies to PRA_
 - `ticket_id_required` (Boolean) If true, users must enter a valid ticket ID that will be verified against the Ticket System configured on the Jump → Jump Policies page. This setting has no effect if a Ticket System is not configured.
-
-Read-Only:
-
-- `id` (String) The unique identifier assigned to this Jump Policy by the appliance.

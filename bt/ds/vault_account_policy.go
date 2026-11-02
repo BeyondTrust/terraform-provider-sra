@@ -42,13 +42,12 @@ func (d *vaultAccountPolicyDataSource) Schema(ctx context.Context, _ datasource.
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"code_name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"description": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"auto_rotate_credentials": schema.BoolAttribute{

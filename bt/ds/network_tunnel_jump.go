@@ -37,31 +37,31 @@ func (d *networkTunnelJumpDataSource) Schema(ctx context.Context, _ datasource.S
 		Attributes: map[string]schema.Attribute{
 			"items": schema.ListNestedAttribute{Computed: true, NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
 				"id":                schema.StringAttribute{Computed: true},
-				"name":              schema.StringAttribute{Required: true},
-				"jumpoint_id":       schema.Int64Attribute{Required: true},
-				"jump_group_id":     schema.Int64Attribute{Required: true},
-				"jump_group_type":   schema.StringAttribute{Optional: true, Computed: true},
-				"tag":               schema.StringAttribute{Optional: true, Computed: true},
-				"comments":          schema.StringAttribute{Optional: true, Computed: true},
-				"jump_policy_id":    schema.Int64Attribute{Optional: true},
-				"session_policy_id": schema.Int64Attribute{Optional: true},
-				"filter_rules": schema.ListNestedAttribute{Optional: true, Computed: true, NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
-					"ip_addresses": schema.SingleNestedAttribute{Required: true, Attributes: map[string]schema.Attribute{
-						"cidr": schema.StringAttribute{Optional: true},
-						"range": schema.SingleNestedAttribute{Optional: true, Attributes: map[string]schema.Attribute{
-							"start": schema.StringAttribute{Required: true},
-							"end":   schema.StringAttribute{Required: true},
+				"name":              schema.StringAttribute{Computed: true},
+				"jumpoint_id":       schema.Int64Attribute{Computed: true},
+				"jump_group_id":     schema.Int64Attribute{Computed: true},
+				"jump_group_type":   schema.StringAttribute{Computed: true},
+				"tag":               schema.StringAttribute{Computed: true},
+				"comments":          schema.StringAttribute{Computed: true},
+				"jump_policy_id":    schema.Int64Attribute{Computed: true},
+				"session_policy_id": schema.Int64Attribute{Computed: true},
+				"filter_rules": schema.ListNestedAttribute{Computed: true, NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
+					"ip_addresses": schema.SingleNestedAttribute{Computed: true, Attributes: map[string]schema.Attribute{
+						"cidr": schema.StringAttribute{Computed: true},
+						"range": schema.SingleNestedAttribute{Computed: true, Attributes: map[string]schema.Attribute{
+							"start": schema.StringAttribute{Computed: true},
+							"end":   schema.StringAttribute{Computed: true},
 						}},
-						"list": schema.ListAttribute{ElementType: types.StringType, Optional: true},
+						"list": schema.ListAttribute{ElementType: types.StringType, Computed: true},
 					}},
-					"ports": schema.SingleNestedAttribute{Optional: true, Computed: true, Attributes: map[string]schema.Attribute{
-						"list": schema.ListAttribute{ElementType: types.Int64Type, Optional: true, Computed: true},
-						"range": schema.SingleNestedAttribute{Optional: true, Attributes: map[string]schema.Attribute{
-							"start": schema.Int64Attribute{Required: true},
-							"end":   schema.Int64Attribute{Required: true},
+					"ports": schema.SingleNestedAttribute{Computed: true, Attributes: map[string]schema.Attribute{
+						"list": schema.ListAttribute{ElementType: types.Int64Type, Computed: true},
+						"range": schema.SingleNestedAttribute{Computed: true, Attributes: map[string]schema.Attribute{
+							"start": schema.Int64Attribute{Computed: true},
+							"end":   schema.Int64Attribute{Computed: true},
 						}},
 					}},
-					"protocol": schema.StringAttribute{Optional: true, Computed: true},
+					"protocol": schema.StringAttribute{Computed: true},
 				}}},
 			}}},
 			"name":            schema.StringAttribute{Optional: true, Description: "Filter by name"},

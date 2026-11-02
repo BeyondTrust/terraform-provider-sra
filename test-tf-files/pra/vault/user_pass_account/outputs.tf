@@ -43,6 +43,12 @@ output "stand_alone_both" {
   sensitive   = true
 }
 
+output "write_only" {
+  description = "The created user/pass with a write-only password"
+  value       = sra_vault_username_password_account.write_only
+  sensitive   = true
+}
+
 output "list" {
   description = "The datasource query result"
   value       = data.sra_vault_account_list.acc.items

@@ -90,6 +90,47 @@ The E2E tests can be easily run with the `Makefile` shortcut, which builds the c
 make teste2e
 ```
 
+#### Cleaning up after interrupted E2E runs
+
+A run that dies between `terraform apply` and its deferred `terraform destroy` (a cancelled CI job, a killed local run, a `go test` timeout) leaves its objects on the appliance. `TestE2EOrphanSweep` finds them and, when told to, deletes them. It does nothing unless `E2E_SWEEP` is set, and it reads every `E2E_SWEEP*` variable from the real process environment only: a `.env` file can't turn it on.
+
+```sh
+make sweepe2e                       # dry-run: list only
+E2E_SWEEP=gp-snapshot make sweepe2e # read-only membership snapshot
+```
+
+| Variable | Meaning |
+| --- | --- |
+| `E2E_SWEEP` | `dry-run`, `delete` or `gp-snapshot`. Anything else fails the test. |
+| `E2E_SWEEP_CONFIRM_HOST` | Delete mode only. Must equal `BT_API_HOST` (scheme, trailing slash and case are ignored). Type it yourself; never derive it from `$BT_API_HOST`. |
+| `E2E_SWEEP_MIN_AGE` | Minimum marker age, as a Go duration. Default `24h`; delete mode never goes below `1h`. |
+| `E2E_SWEEP_MAX` | Most objects of one type a delete may remove (default 20). Over it, a dry-run warns and a delete aborts before deleting anything. |
+| `E2E_SWEEP_CANDIDATES_OUT` | Dry-run only. Writes the legacy candidates to this file for review. |
+| `E2E_SWEEP_LEGACY_IDS` | Delete mode only. A reviewed candidates file; only the objects it lists are eligible among legacy ones. |
+
+`gp-snapshot` lists the members of the first group policy, the one the fixtures add memberships to, as ids classed `fixture` or `non-fixture`. Compare a snapshot from before a run with one from after it: the non-fixture members should be identical, and no fixture members should remain.
+
+**Fixture markers.** Every fixture object carries its run's marker in a name, tag or code name: `e2e`, then the creation time as 6 base36 digits of Unix minutes, then 6 random characters, for example `e2e0wq3k1a8x2pm`. Some objects carry it with a `2` appended. The sweeper matches only full fixture names (`This is a Name <marker> GP`, `Test JG <marker>`, and so on); for Jump Items, the name, the tag and a fixture Jump Group must all match. Group policies, users, jump policies, session policies, jump item roles, deployed Jump Clients and the Default account group are never deleted. Its output names fixture candidates only; everything else appears as a count, or as a type and id in a reason. The per-type counts cover fixture candidates (matched, eligible, legacy, excluded by reason), never every object of a type. A list that fails, or a failure to get an API token, is reported as its status code or failure class, never its response body or URL.
+
+**Delete mode needs an opt-in on the appliance.** Create a Jump Group by hand, once per test appliance, with code name `e2e_sweep_allowed` and comments set to the appliance's host in normalised form (no scheme, no trailing slash, lower case, for example `pra.example.com`). Without it, or if its comments name another host (a restored backup or a cloned appliance), delete mode refuses to run. Never create it on a production appliance.
+
+```sh
+read -r host </dev/tty   # type the host yourself
+E2E_SWEEP=delete E2E_SWEEP_CONFIRM_HOST="$host" make sweepe2e
+```
+
+Before deleting, each object is read again and re-matched, and anything that contains or uses it is checked again on the appliance. An account group that holds other accounts, an account policy that something else uses (personal accounts included), and a Jump Group or Jumpoint that another item, installer, Jump Client or jump item association criteria uses are all kept. A Jumpoint is also kept when an installer or Jump Client uses it as its Jump Zone Proxy (`jumpoint_proxy`, the Jumpoint's name); if the list doesn't return that field, every Jumpoint is kept (`proxy-push refs unchecked`). Any error in one of those checks keeps the object.
+
+For jump item association criteria, the sweeper reads the association of every account group and of every account that can have one of its own: accounts in the Default group, except personal, `x509_ca` and `windows_local` accounts, for which the API refuses to create an association. Accounts in other groups use their group's association. An account read that returns 404 means the account has no association, which is normal. Every account group has an association, so if every account group read returns 404 the sweeper assumes the path is wrong and keeps every Jump Group (`jump-item-association-check-failed`).
+
+**Age.** A marker is eligible once it is older than `E2E_SWEEP_MIN_AGE`. The argument that it can't belong to a live run rests on CI's `go test -timeout 30m`. A local run with `-timeout 0`, or one paused in a debugger, can outlive the floor, and clock skew between machines shifts ages. Markers more than 5 minutes in the future are skipped.
+
+**Legacy markers.** Runs before timestamped markers used 6 random characters, which carry no creation time. Those objects are never deleted on a pattern match alone:
+
+1. Run a dry-run with `E2E_SWEEP_CANDIDATES_OUT=<file>`. The file starts with `# listed-at <time>` and has one `type<TAB>id<TAB># name` line per legacy candidate.
+2. Review it, and delete the lines for anything you want to keep.
+3. At least 35 minutes after the dry-run, run delete mode with `E2E_SWEEP_LEGACY_IDS=<file>`. Only the listed objects are deleted, each re-matched first. Any other line format is rejected.
+
 #### Running Unit Tests
 
 Unit tests can be run manually with the `go test` command by excluding the `./test` directory:

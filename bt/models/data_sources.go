@@ -101,11 +101,12 @@ type GroupPolicy struct {
 	InferiorJumpItemRoleID              types.Int64  `tfsdk:"inferior_jump_item_role_id"`
 	UnassignedJumpItemRoleID            types.Int64  `tfsdk:"unassigned_jump_item_role_id"`
 
-	PermAccessAllowed      types.Bool   `tfsdk:"perm_access_allowed" sraproduct:"pra"`
-	AccessPermStatus       types.String `tfsdk:"access_perm_status" sraproduct:"pra"`
-	PermInviteExternalUser types.Bool   `tfsdk:"perm_invite_external_user" sraproduct:"pra"`
-	PermWebJump            types.Bool   `tfsdk:"perm_web_jump" sraproduct:"pra"`
-	PermProtocolTunnel     types.Bool   `tfsdk:"perm_protocol_tunnel" sraproduct:"pra"`
+	PermAccessAllowed                types.Bool   `tfsdk:"perm_access_allowed" sraproduct:"pra"`
+	AccessPermStatus                 types.String `tfsdk:"access_perm_status" sraproduct:"pra"`
+	PermInviteExternalUser           types.Bool   `tfsdk:"perm_invite_external_user" sraproduct:"pra"`
+	PermWebJump                      types.Bool   `tfsdk:"perm_web_jump" sraproduct:"pra"`
+	PermProtocolTunnel               types.Bool   `tfsdk:"perm_protocol_tunnel" sraproduct:"pra"`
+	PermSdStaticPortForExternalTools types.Bool   `tfsdk:"perm_sd_static_port_for_external_tools" sraproduct:"pra"`
 
 	PermSupportAllowed                 types.String `tfsdk:"perm_support_allowed" sraproduct:"rs"`
 	RepPermStatus                      types.String `tfsdk:"rep_perm_status" sraproduct:"rs"`
@@ -126,6 +127,62 @@ type GroupPolicy struct {
 	PermLocalRDP                       types.Bool   `tfsdk:"perm_local_rdp" sraproduct:"rs"`
 	PermVpro                           types.Bool   `tfsdk:"perm_vpro" sraproduct:"rs"`
 	PermConsoleIdleTimeout             types.Int64  `tfsdk:"perm_console_idle_timeout" sraproduct:"rs"`
+}
+
+// GroupPolicyResource is GroupPolicy without the four RS Support Button
+// permissions. The OpenAPI spec lists them, but the Configuration API neither
+// accepts nor returns them, so a create that sends them fails with 400.
+type GroupPolicyResource struct {
+	ID                                  types.String `tfsdk:"id"`
+	Name                                types.String `tfsdk:"name"`
+	PermShareOtherTeam                  types.Bool   `tfsdk:"perm_share_other_team"`
+	PermSessionIdleTimeout              types.Int64  `tfsdk:"perm_session_idle_timeout"`
+	PermExtendedAvailabilityModeAllowed types.Bool   `tfsdk:"perm_extended_availability_mode_allowed"`
+	PermEditExternalKey                 types.Bool   `tfsdk:"perm_edit_external_key"`
+	PermCollaborate                     types.Bool   `tfsdk:"perm_collaborate"`
+	PermCollaborateControl              types.Bool   `tfsdk:"perm_collaborate_control"`
+	PermJumpClient                      types.Bool   `tfsdk:"perm_jump_client"`
+	PermLocalJump                       types.Bool   `tfsdk:"perm_local_jump"`
+	PermRemoteJump                      types.Bool   `tfsdk:"perm_remote_jump"`
+	PermRemoteVnc                       types.Bool   `tfsdk:"perm_remote_vnc"`
+	PermRemoteRdp                       types.Bool   `tfsdk:"perm_remote_rdp"`
+	PermShellJump                       types.Bool   `tfsdk:"perm_shell_jump"`
+	DefaultJumpItemRoleID               types.Int64  `tfsdk:"default_jump_item_role_id"`
+	PrivateJumpItemRoleID               types.Int64  `tfsdk:"private_jump_item_role_id"`
+	InferiorJumpItemRoleID              types.Int64  `tfsdk:"inferior_jump_item_role_id"`
+	UnassignedJumpItemRoleID            types.Int64  `tfsdk:"unassigned_jump_item_role_id"`
+
+	PermAccessAllowed                types.Bool   `tfsdk:"perm_access_allowed" sraproduct:"pra"`
+	AccessPermStatus                 types.String `tfsdk:"access_perm_status" sraproduct:"pra"`
+	PermInviteExternalUser           types.Bool   `tfsdk:"perm_invite_external_user" sraproduct:"pra"`
+	PermWebJump                      types.Bool   `tfsdk:"perm_web_jump" sraproduct:"pra"`
+	PermProtocolTunnel               types.Bool   `tfsdk:"perm_protocol_tunnel" sraproduct:"pra"`
+	PermSdStaticPortForExternalTools types.Bool   `tfsdk:"perm_sd_static_port_for_external_tools" sraproduct:"pra"`
+
+	PermSupportAllowed        types.String `tfsdk:"perm_support_allowed" sraproduct:"rs"`
+	RepPermStatus             types.String `tfsdk:"rep_perm_status" sraproduct:"rs"`
+	PermGenerateSessionKey    types.Bool   `tfsdk:"perm_generate_session_key" sraproduct:"rs"`
+	PermSendIosProfiles       types.Bool   `tfsdk:"perm_send_ios_profiles" sraproduct:"rs"`
+	PermAcceptTeamSessions    types.Bool   `tfsdk:"perm_accept_team_sessions" sraproduct:"rs"`
+	PermTransferOtherTeam     types.Bool   `tfsdk:"perm_transfer_other_team" sraproduct:"rs"`
+	PermInviteExternalRep     types.Bool   `tfsdk:"perm_invite_external_rep" sraproduct:"rs"`
+	PermNextSessionButton     types.Bool   `tfsdk:"perm_next_session_button" sraproduct:"rs"`
+	PermDisableAutoAssignment types.Bool   `tfsdk:"perm_disable_auto_assignment" sraproduct:"rs"`
+	PermRoutingIdleTimeout    types.Int64  `tfsdk:"perm_routing_idle_timeout" sraproduct:"rs"`
+	AutoAssignmentMaxSessions types.Int64  `tfsdk:"auto_assignment_max_sessions" sraproduct:"rs"`
+	PermLocalVNC              types.Bool   `tfsdk:"perm_local_vnc" sraproduct:"rs"`
+	PermLocalRDP              types.Bool   `tfsdk:"perm_local_rdp" sraproduct:"rs"`
+	PermVpro                  types.Bool   `tfsdk:"perm_vpro" sraproduct:"rs"`
+	PermConsoleIdleTimeout    types.Int64  `tfsdk:"perm_console_idle_timeout" sraproduct:"rs"`
+}
+
+type GroupPolicyMember struct {
+	ID                 types.String `tfsdk:"id"`
+	GroupPolicyID      types.String `tfsdk:"group_policy_id"`
+	SecurityProviderID types.Int64  `tfsdk:"security_provider_id"`
+	DistinguishedName  types.String `tfsdk:"distinguished_name"`
+	GroupName          types.String `tfsdk:"group_name"`
+	UserID             types.Int64  `tfsdk:"user_id"`
 }
 
 type JumpPolicy struct {

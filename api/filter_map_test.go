@@ -42,3 +42,25 @@ func TestFilterMap(t *testing.T) {
 	_, exists = filter["NotMapped"]
 	assert.False(t, exists)
 }
+
+// Before bools were handled, include_personal on the single SSH account data
+// source was silently dropped.
+func TestFilterMapBool(t *testing.T) {
+	t.Parallel()
+
+	type boolModel struct {
+		On      types.Bool `filter:"on"`
+		Off     types.Bool `filter:"off"`
+		Null    types.Bool `filter:"null"`
+		Unknown types.Bool `filter:"unknown"`
+	}
+
+	filter := MakeFilterMap(boolModel{
+		On:      types.BoolValue(true),
+		Off:     types.BoolValue(false),
+		Null:    types.BoolNull(),
+		Unknown: types.BoolUnknown(),
+	})
+
+	assert.Equal(t, map[string]string{"on": "true", "off": "false"}, filter)
+}

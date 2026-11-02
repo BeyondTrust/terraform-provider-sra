@@ -39,13 +39,11 @@ data "sra_jump_item_role_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
+Read-Only:
 
 - `description` (String) The description of the Jump Item Role.
+- `id` (String) The unique identifier assigned to this Jump Item Role.
 - `name` (String) The name of the Jump Item Role.
-
-Optional:
-
 - `perm_add` (Boolean) If true, users can create and deploy new Jump Items or upgrade Jump Clients.
 - `perm_assign_jump_group` (Boolean) If true, users can move or copy Jump Items from one Jump Group to another Jump Group.
 - `perm_edit_behavior` (Boolean) If true, users can edit all behavior and experience fields on Jump Items. This includes, but is not limited to: Connection Type, Quality, Console Session, Terminal Type.
@@ -60,7 +58,3 @@ Optional:
 - `perm_start` (Boolean) If true, users can start sessions with Jump Items.
 - `perm_view_jump_item_report` (Boolean) If true, users can view Jump Item Report events for Jump Groups they are assigned to using this role.
 
-
-Read-Only:
-
-- `id` (String) The unique identifier assigned to this Jump Item Role.
