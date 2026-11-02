@@ -61,6 +61,7 @@ so almost nothing was captured. That automation has been removed.
 
 ### Internal
 
+- E2E: `TestVaultUserPass` creates an account with `password_wo`, checks that neither the password nor a later rotated one reaches state or the plan, and checks that bumping `password_wo_version` updates in place and settles in one apply. The user/pass fixtures need Terraform 1.11 or later.
 - E2E: `make teste2e` uses CI's 30-minute timeout.
 - E2E: fixture markers are now `e2e` plus a creation timestamp plus 6 `crypto/rand` characters, replacing terratest's `UniqueId`. `TestE2EOrphanSweep` (`make sweepe2e`) lists, and in delete mode removes, objects that interrupted runs leaked; see CONTRIBUTING.md. CI runs it as a dry-run before the suite, and runs its offline tests with the unit tests.
 - `sra_vault_account_group`: the `jump_item_association` request body now uses the same encoder as the vault account resources. A missing `criteria` was sent as five explicit nulls; it is now omitted for `any_jump_items` and `no_jump_items`, and sent as five empty arrays under `criteria`. The appliance treats both forms alike, so its behaviour doesn't change.
