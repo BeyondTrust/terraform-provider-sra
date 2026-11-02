@@ -30,41 +30,32 @@ Fetch a list of Network Tunnel Jump Items. NOTE: PRA only.
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `jump_group_id` (Number)
-- `jumpoint_id` (Number)
-- `name` (String)
-
-Optional:
+Read-Only:
 
 - `comments` (String)
 - `filter_rules` (Attributes List) (see [below for nested schema](#nestedatt--items--filter_rules))
+- `id` (String)
+- `jump_group_id` (Number)
 - `jump_group_type` (String)
 - `jump_policy_id` (Number)
+- `jumpoint_id` (Number)
+- `name` (String)
 - `session_policy_id` (Number)
 - `tag` (String)
-
-Read-Only:
-
-- `id` (String)
 
 <a id="nestedatt--items--filter_rules"></a>
 ### Nested Schema for `items.filter_rules`
 
-Required:
+Read-Only:
 
 - `ip_addresses` (Attributes) (see [below for nested schema](#nestedatt--items--filter_rules--ip_addresses))
-
-Optional:
-
 - `ports` (Attributes) (see [below for nested schema](#nestedatt--items--filter_rules--ports))
 - `protocol` (String)
 
 <a id="nestedatt--items--filter_rules--ip_addresses"></a>
 ### Nested Schema for `items.filter_rules.ip_addresses`
 
-Optional:
+Read-Only:
 
 - `cidr` (String)
 - `list` (List of String)
@@ -73,7 +64,7 @@ Optional:
 <a id="nestedatt--items--filter_rules--ip_addresses--range"></a>
 ### Nested Schema for `items.filter_rules.ip_addresses.range`
 
-Required:
+Read-Only:
 
 - `end` (String)
 - `start` (String)
@@ -83,7 +74,7 @@ Required:
 <a id="nestedatt--items--filter_rules--ports"></a>
 ### Nested Schema for `items.filter_rules.ports`
 
-Optional:
+Read-Only:
 
 - `list` (List of Number)
 - `range` (Attributes) (see [below for nested schema](#nestedatt--items--filter_rules--ports--range))
@@ -91,7 +82,7 @@ Optional:
 <a id="nestedatt--items--filter_rules--ports--range"></a>
 ### Nested Schema for `items.filter_rules.ports.range`
 
-Required:
+Read-Only:
 
 - `end` (Number)
 - `start` (Number)

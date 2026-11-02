@@ -79,3 +79,23 @@ Required:
 
 - `id` (Number) The unique identifier assigned to this Account by the system.
 - `type` (String)
+
+## Import
+
+Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+
+```shell
+#!/usr/bin/env bash
+
+# Item can be imported by specifying the ID
+terraform import sra_vault_token_account.example 123
+
+# Import also reads group_policy_memberships. A configuration that omits them
+# plans their removal, which revokes that group policy's access. Declare them,
+# generate the configuration with -generate-config-out (it includes them), or
+# add lifecycle { ignore_changes = [group_policy_memberships] }.
+#
+# token plans an update after import: the API never returns it.
+```

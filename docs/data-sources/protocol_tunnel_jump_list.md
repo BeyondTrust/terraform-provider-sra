@@ -47,20 +47,19 @@ data "sra_protocol_tunnel_jump_list" "filtered" {
 <a id="nestedatt--items"></a>
 ### Nested Schema for `items`
 
-Required:
-
-- `hostname` (String) The hostname or IP address. The hostname is not required for Kubernetes tunnel Jump Items. It is automatically set to be the same as the url. If the url is longer than 128 characters the hostname will be truncated. _This field only applies to PRA_
-- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item. _This field only applies to PRA_
-- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made. For Kubernetes tunnel Jump Items, only Linux jumpoints are supported. _This field only applies to PRA_
-- `name` (String) The name of the Protocol Tunnel Jump Item. _This field only applies to PRA_
-
-Optional:
+Read-Only:
 
 - `ca_certificates` (String) The certificate used for Kubernetes tunnel Jump Items. This field is required when `tunnel_type` is `k8s`. _This field only applies to PRA_
 - `comments` (String) The Jump Item's comments. _This field only applies to PRA_
 - `database` (String) The database name used for MSSQL tunnel Jump Items. _This field only applies to PRA_
+- `hostname` (String) The hostname or IP address. The hostname is not required for Kubernetes tunnel Jump Items. It is automatically set to be the same as the url. If the url is longer than 128 characters the hostname will be truncated. _This field only applies to PRA_
+- `id` (String) The unique identifier assigned to this Protocol Tunnel Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
+ _This field only applies to PRA_
+- `jump_group_id` (Number) The unique identifier of the Jump Group or user that owns this Jump Item. _This field only applies to PRA_
 - `jump_group_type` (String) The type of Jump Group that owns this Jump Item. _This field only applies to PRA_
 - `jump_policy_id` (Number) The unique identifier of the Jump Policy used to manage access to this Jump Item. _This field only applies to PRA_
+- `jumpoint_id` (Number) The unique identifier of the Jumpoint through which connections are made. For Kubernetes tunnel Jump Items, only Linux jumpoints are supported. _This field only applies to PRA_
+- `name` (String) The name of the Protocol Tunnel Jump Item. _This field only applies to PRA_
 - `session_policy_id` (Number) The unique identifier of the Session Policy used to control the user's capabilities in the session. _This field only applies to PRA_
 - `tag` (String) The Jump Item's tag. _This field only applies to PRA_
 - `tunnel_definitions` (String) For TCP tunnel Jump Items, this describes the tunnels that should be created for the remote system as pairs of local and remote ports.
@@ -79,8 +78,3 @@ This is a required field when the tunnel type is 'tcp' and ignored for other typ
  _This field only applies to PRA_
 - `url` (String) The url used for Kubernetes tunnel Jump Items. This field is required when `tunnel_type` is `k8s`. _This field only applies to PRA_
 - `username` (String) The database username required for MSSQL tunnel Jump Items. _This field only applies to PRA_
-
-Read-Only:
-
-- `id` (String) The unique identifier assigned to this Protocol Tunnel Jump Item by Privileged Remote Access. Other Jump Item types, like Remote RDP Jump Items, may duplicate this identifier. The combination of Jump Item Type + id uniquely identifies any Jump Item in the system.
- _This field only applies to PRA_

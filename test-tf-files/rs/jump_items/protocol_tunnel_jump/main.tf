@@ -33,6 +33,25 @@ resource "sra_protocol_tunnel_jump" "test_sql" {
   username      = var.random_bits
 }
 
+# hostname is omitted: for k8s the appliance derives it from url. The fixture
+# jumpoint is linux-x86, which k8s requires. The appliance only stores the
+# certificate, so a placeholder PEM is enough; trimspace() drops the heredoc's
+# trailing newline, which the appliance would trim.
+resource "sra_protocol_tunnel_jump" "test_k8s" {
+  name          = var.name
+  url           = "https://k8s-${var.random_bits}.example.com:6443"
+  jumpoint_id   = module.jump_resources.jumpoint.id
+  jump_group_id = module.jump_resources.jump_group.id
+  tag           = var.random_bits
+  tunnel_type   = "k8s"
+  ca_certificates = trimspace(<<-EOT
+    -----BEGIN CERTIFICATE-----
+    MIIBdummyPlaceholderCertificateForTerraformProviderTests
+    -----END CERTIFICATE-----
+  EOT
+  )
+}
+
 data "sra_protocol_tunnel_jump_list" "list" {
   tag = var.random_bits
 }

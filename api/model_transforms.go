@@ -345,8 +345,8 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 			continue
 		}
 
-		sraTag := tfObj.Type().Field(i).Tag.Get("sra")
-		if sraTag != "" && slices.Contains(strings.Split(sraTag, ","), "persist_state") {
+		sraOpts := strings.Split(tfObjField.Tag.Get("sra"), ",")
+		if slices.Contains(sraOpts, "persist_state") {
 			continue
 		}
 		setToNil := false
@@ -368,7 +368,11 @@ func CopyAPItoTF(ctx context.Context, apiObj reflect.Value, tfObj reflect.Value,
 
 		switch fieldKind {
 		case reflect.String:
-			if setToNil {
+			// sra:"null_as_empty" reads a missing value as "": for a field older
+			// appliances never return, whose schema default is "".
+			if setToNil && slices.Contains(sraOpts, "null_as_empty") {
+				tfObj.Field(i).Set(reflect.ValueOf(types.StringValue("")))
+			} else if setToNil {
 				tfObj.Field(i).Set(reflect.ValueOf(types.StringNull()))
 			} else {
 				tfObj.Field(i).Set(reflect.ValueOf(types.StringValue(field.String())))

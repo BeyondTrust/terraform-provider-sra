@@ -47,38 +47,38 @@ func (d *jumpointDataSource) Schema(ctx context.Context, _ datasource.SchemaRequ
 							Optional: false,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"code_name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"comments": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"platform": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"enabled": schema.BoolAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"connected": schema.BoolAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"clustered": schema.BoolAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"shell_jump_enabled": schema.BoolAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"external_jump_item_network_id": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"protocol_tunnel_enabled": schema.BoolAttribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 						"rdp_service_account_id": schema.Int64Attribute{
-							Optional:    true,
+							Computed:    true,
 							Description: "This field only applies to PRA",
 						},
 					},

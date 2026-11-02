@@ -52,61 +52,51 @@ For descriptions of individual fields, please see the Configuration API document
 							Optional: false,
 						},
 						"name": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"jumpoint_id": schema.Int64Attribute{
-							Required: true,
+							Computed: true,
 						},
 						"hostname": schema.StringAttribute{
-							Required: true,
+							Computed: true,
 						},
 						"jump_group_id": schema.Int64Attribute{
-							Required: true,
+							Computed: true,
 						},
 						"jump_group_type": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"tag": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"comments": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"jump_policy_id": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 						"session_policy_id": schema.Int64Attribute{
-							Optional: true,
+							Computed: true,
 						},
 						"tunnel_listen_address": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"tunnel_definitions": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"tunnel_type": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"username": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"database": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"url": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 						"ca_certificates": schema.StringAttribute{
-							Optional: true,
 							Computed: true,
 						},
 					},
