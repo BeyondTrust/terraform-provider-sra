@@ -20,6 +20,8 @@ so almost nothing was captured. That automation has been removed.
 - `sra_oracle_tunnel_jump` and `sra_oracle_tunnel_jump_list`, for Oracle tunnel Jump Items. PRA only, PRA 26.3.1 or later. The attributes use the provider's standard names. The Oracle API calls three of them by other names: `jumpoint_id` is sent as `gateway_id`, `jump_group_id` as `asset_group_id` and `jump_group_type` as `asset_group_type`. API errors use those names.
 - On both new resources, `tunnel_listen_address` is sent to the API as `local_address`. It must be an IPv4 address within `127.0.0.0/24`. When omitted it keeps the value the appliance holds, and defaults to `127.0.0.1` on create. Neither type can be used in a vault account `jump_item_association`, which the appliance limits to MSSQL protocol tunnels.
 - `sra_vault_username_password_account` supports `password_wo` and `password_wo_version` for ephemeral passwords. The write-only password is sent to the appliance on create and when the version changes, without being stored in Terraform plan or state. Terraform 1.11 or later is required to use write-only arguments.
+- `sra_group_policy`: manage PRA and RS group policies, including product-specific permissions, with import support and explicit defaults that revoke permissions removed from configuration. The four RS `perm_support_button_*` permissions in the API specification are not offered, because the Configuration API doesn't accept them; the `sra_group_policy_list` data source still lists them, always null.
+- `sra_group_policy_member`: manage and provision individual group policy memberships by user ID, LDAP distinguished name, or group name, with import support and recovery of accepted creations after ID-discovery or provisioning failures.
 
 ### Changed
 
@@ -61,6 +63,7 @@ so almost nothing was captured. That automation has been removed.
 
 ### Internal
 
+- E2E: `TestGroupPolicy` removes a product-only permission with no schema default (`perm_invite_external_user` on PRA, `perm_accept_team_sessions` on RS) from the configuration and checks that the plan sets it to `false`, that the appliance no longer grants it, and that it settles in one apply.
 - E2E: `TestVaultUserPass` creates an account with `password_wo`, checks that neither the password nor a later rotated one reaches state or the plan, and checks that bumping `password_wo_version` updates in place and settles in one apply. The user/pass fixtures need Terraform 1.11 or later.
 - E2E: `make teste2e` uses CI's 30-minute timeout.
 - `go generate` pins the Terraform that `tfplugindocs` downloads to read the schema (1.13.4). A local Terraform older than 1.11 dropped the write-only marking from `password_wo` in the docs.
