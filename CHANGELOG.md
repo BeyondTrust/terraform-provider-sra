@@ -19,6 +19,9 @@ so almost nothing was captured. That automation has been removed.
 - `sra_mongodb_tunnel_jump` and `sra_mongodb_tunnel_jump_list`, for MongoDB tunnel Jump Items. PRA only, PRA 26.1.1 or later. `auth_database` requires PRA 26.3.1 or later: it is sent only when set, because older appliances reject the field, and it reads as `""` on every version. Setting it back to `""` clears it in place.
 - `sra_oracle_tunnel_jump` and `sra_oracle_tunnel_jump_list`, for Oracle tunnel Jump Items. PRA only, PRA 26.3.1 or later. The attributes use the provider's standard names. The Oracle API calls three of them by other names: `jumpoint_id` is sent as `gateway_id`, `jump_group_id` as `asset_group_id` and `jump_group_type` as `asset_group_type`. API errors use those names.
 - On both new resources, `tunnel_listen_address` is sent to the API as `local_address`. It must be an IPv4 address within `127.0.0.0/24`. When omitted it keeps the value the appliance holds, and defaults to `127.0.0.1` on create. Neither type can be used in a vault account `jump_item_association`, which the appliance limits to MSSQL protocol tunnels.
+- `sra_vault_username_password_account` supports `password_wo` and `password_wo_version` for ephemeral passwords. The write-only password is sent to the appliance on create and when the version changes, without being stored in Terraform plan or state. Terraform 1.11 or later is required to use write-only arguments.
+- `sra_group_policy`: manage PRA and RS group policies, including product-specific permissions, with import support and explicit defaults that revoke permissions removed from configuration. The four RS `perm_support_button_*` permissions in the API specification are not offered, because the Configuration API doesn't accept them; the `sra_group_policy_list` data source still lists them, always null.
+- `sra_group_policy_member`: manage and provision individual group policy memberships by user ID, LDAP distinguished name, or group name, with import support and recovery of accepted creations after ID-discovery or provisioning failures.
 
 ### Changed
 
@@ -40,6 +43,7 @@ so almost nothing was captured. That automation has been removed.
   - a mysql, psql, mongodb, oracle or ip item was imported through this resource.
 - `sra_protocol_tunnel_jump`: a field that doesn't apply to the tunnel type is now a plan-time error when it is non-empty. Those fields are `tunnel_definitions` and `tunnel_listen_address` outside `tcp`, `username` and `database` outside `mssql`, and `url` and `ca_certificates` outside `k8s`. These configurations already failed to apply, with a `400` or an inconsistent result. Empty values are still accepted, so existing state and generated configuration are unaffected.
 - `sra_protocol_tunnel_jump`: a tcp `tunnel_listen_address` must be a plain IPv4 address in `127.0.0.0/24`; IPv4-mapped forms such as `::ffff:127.0.0.1` are rejected. An empty `hostname` or `tunnel_listen_address` is a plan-time error. All of these already failed to plan or apply.
+- `sra_vault_username_password_account` now accepts either the existing state-backed `password` or the new write-only password. Existing configurations using `password` continue to work.
 
 ### Fixed
 
@@ -55,10 +59,14 @@ so almost nothing was captured. That automation has been removed.
 - `sra_protocol_tunnel_jump`: required fields set from another resource's output, or from a variable under `terraform validate`, no longer fail validation while their value is unknown.
 - `sra_protocol_tunnel_jump`: `tunnel_listen_address` on a non-tcp tunnel now gives a clear error instead of an invalid plan. An omitted listen address keeps the value the appliance holds, so an imported item listening on, say, `127.0.0.5` no longer plans a change back to `127.0.0.1`.
 - `sra_protocol_tunnel_jump`: the `k8s` usage example used a resource type that doesn't exist and a `url` with no scheme. The import example named the wrong resource address.
+- Updates to username/password, SSH, and token Vault accounts no longer send `personal`, `owner_user_id`, or `last_checkout_timestamp`, which the Configuration API marks as read-only.
 
 ### Internal
 
+- E2E: `TestGroupPolicy` removes a product-only permission with no schema default (`perm_invite_external_user` on PRA, `perm_accept_team_sessions` on RS) from the configuration and checks that the plan sets it to `false`, that the appliance no longer grants it, and that it settles in one apply.
+- E2E: `TestVaultUserPass` creates an account with `password_wo`, checks that neither the password nor a later rotated one reaches state or the plan, and checks that bumping `password_wo_version` updates in place and settles in one apply. The user/pass fixtures need Terraform 1.11 or later.
 - E2E: `make teste2e` uses CI's 30-minute timeout.
+- `go generate` pins the Terraform that `tfplugindocs` downloads to read the schema (1.13.4). A local Terraform older than 1.11 dropped the write-only marking from `password_wo` in the docs.
 - E2E: fixture markers are now `e2e` plus a creation timestamp plus 6 `crypto/rand` characters, replacing terratest's `UniqueId`. `TestE2EOrphanSweep` (`make sweepe2e`) lists, and in delete mode removes, objects that interrupted runs leaked; see CONTRIBUTING.md. CI runs it as a dry-run before the suite, and runs its offline tests with the unit tests.
 - `sra_vault_account_group`: the `jump_item_association` request body now uses the same encoder as the vault account resources. A missing `criteria` was sent as five explicit nulls; it is now omitted for `any_jump_items` and `no_jump_items`, and sent as five empty arrays under `criteria`. The appliance treats both forms alike, so its behaviour doesn't change.
 

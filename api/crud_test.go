@@ -22,6 +22,30 @@ type testAPIResource struct {
 	Location string
 }
 
+func TestEmptySuccessBodyIsOnlyAcceptedForCreate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/oauth2/token" {
+			_, _ = w.Write([]byte(`{"token_type":"Bearer","expires_in":3600,"access_token":"test"}`))
+			return
+		}
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+		}
+	}))
+	defer server.Close()
+	id, secret := "id", "secret"
+	client, err := NewClient(server.URL, &id, &secret)
+	assert.NoError(t, err)
+	created, err := CreateItem(client, testAPIResource{})
+	assert.NoError(t, err)
+	assert.Nil(t, created)
+	_, err = ListItemsEndpoint[testAPIResource](client, "members")
+	assert.Error(t, err, "empty HTTP 200 must not be treated as a successful empty member list")
+	_, err = GetItemEndpoint[testAPIResource](client, "member/1")
+	assert.Error(t, err, "empty HTTP 200 must not be treated as a successful read")
+}
+
 func (t testAPIResource) Endpoint() string {
 	return fmt.Sprintf("test-resource/%s", t.Location)
 }
@@ -375,6 +399,8 @@ func TestCreateItem(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 				_, err := w.Write([]byte(""))
 				assert.Nil(t, err)
+			} else if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "test-resource/empty-created") {
+				w.WriteHeader(http.StatusCreated)
 			} else if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "test-resource/error") {
 				w.WriteHeader(http.StatusBadRequest)
 				_, err := w.Write([]byte("error"))
@@ -401,6 +427,13 @@ func TestCreateItem(t *testing.T) {
 
 	{
 		test := testAPIResource{nil, "the_sewers"}
+		resp, err := CreateItem(c, test)
+		assert.Nil(t, err)
+		assert.Nil(t, resp)
+	}
+
+	{
+		test := testAPIResource{nil, "empty-created"}
 		resp, err := CreateItem(c, test)
 		assert.Nil(t, err)
 		assert.Nil(t, resp)
