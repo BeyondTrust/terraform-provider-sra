@@ -431,7 +431,7 @@ var (
 	accountGroupNameRE = regexp.MustCompile(`^` + fixtureNameAlt + ` ` + markerToken + `(?: (?:Nothing|GP|JIA))?$`)
 	toggleGroupNameRE  = regexp.MustCompile(`^This is a Name ` + markerToken + ` Toggle$`)
 	policyNameRE       = regexp.MustCompile(`^` + fixtureNameAlt + ` ` + markerToken + `(?: False| Mixed)?$`)
-	accountNameRE      = regexp.MustCompile(`^(?:Group UP|Standalone UP(?: GP| JIA| Both)?|Group Key|Standalone Key(?: GP| JIA| Both| Any| None)?|Standalone CA Key|Standalone CA|Group TOKEN|Standalone TOKEN(?: GP| JIA| Both)?) ` +
+	accountNameRE      = regexp.MustCompile(`^(?:Group UP|Standalone UP(?: GP| JIA| Both| WO)?|Group Key|Standalone Key(?: GP| JIA| Both| Any| None)?|Standalone CA Key|Standalone CA|Group TOKEN|Standalone TOKEN(?: GP| JIA| Both)?) ` +
 		fixtureNameAlt + ` ` + markerToken + `$`)
 	jumpGroupOrPointNameRE = regexp.MustCompile(`^Test (JG|JP)( GP)? ` + markerToken + `$`)
 	itemNameRE             = regexp.MustCompile(`^` + fixtureNameAlt + `(?:-secondary)?$`)

@@ -160,9 +160,11 @@ func TestMongodbUpdateClearsAuthDatabaseInPlace(t *testing.T) {
 			r := &mongodbTunnelJumpResource{}
 			r.ApiClient = mongodbClient(t, mongodbResponseBody(&echo), &patched)
 
+			plan := mongodbPlan(t, sch, mongodbModel(tc.plan))
 			req := resource.UpdateRequest{
-				State: mongodbState(t, sch, mongodbModel(tc.state)),
-				Plan:  mongodbPlan(t, sch, mongodbModel(tc.plan)),
+				State:  mongodbState(t, sch, mongodbModel(tc.state)),
+				Plan:   plan,
+				Config: tfsdk.Config{Schema: sch, Raw: plan.Raw},
 			}
 			resp := &resource.UpdateResponse{State: tfsdk.State{Schema: sch}}
 			r.Update(ctx, req, resp)
@@ -218,7 +220,8 @@ func TestMongodbMissingAuthDatabaseReadsBackEmpty(t *testing.T) {
 		r.ApiClient = mongodbClient(t, body, nil)
 		m := mongodbModel(types.StringValue(""))
 		resp := &resource.UpdateResponse{State: tfsdk.State{Schema: sch}}
-		r.Update(ctx, resource.UpdateRequest{State: mongodbState(t, sch, m), Plan: mongodbPlan(t, sch, m)}, resp)
+		plan := mongodbPlan(t, sch, m)
+		r.Update(ctx, resource.UpdateRequest{State: mongodbState(t, sch, m), Plan: plan, Config: tfsdk.Config{Schema: sch, Raw: plan.Raw}}, resp)
 		require.False(t, resp.Diagnostics.HasError(), "%v", resp.Diagnostics)
 		check(t, resp.State)
 	})

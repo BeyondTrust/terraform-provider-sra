@@ -133,6 +133,7 @@ func TestSweepMatchers(t *testing.T) {
 		{"policy with another code name", "vault_account_policy", sweepRow{"name": "fun_policy " + T, "code_name": "payroll"}, false},
 
 		{"user/pass account", "vault_account", sweepRow{"name": "Group UP This is a Name " + T, "type": "username_password", "username": T}, true},
+		{"write-only user/pass account", "vault_account", sweepRow{"name": "Standalone UP WO This is a Name " + T, "type": "username_password", "username": T}, true},
 		{"ssh account any", "vault_account", sweepRow{"name": "Standalone Key Any This is a Name " + T, "type": "ssh", "username": T + "any"}, true},
 		{"ssh account in the secret fixture", "vault_account", sweepRow{"name": "Group Key This is a Name2 " + T + "2", "type": "ssh", "username": T + "2"}, true},
 		{"token account", "vault_account", sweepRow{"name": "Standalone TOKEN GP fun_account " + T, "type": "opaque_token"}, true},
