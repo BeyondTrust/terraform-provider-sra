@@ -63,6 +63,7 @@ so almost nothing was captured. That automation has been removed.
 
 ### Internal
 
+- Release: a tag with a hyphen, a semver prerelease such as `v1.4.0-rc1`, no longer runs the release job. It used to publish as a full GitHub release and reach the Terraform Registry.
 - E2E: `TestGroupPolicy` removes a product-only permission with no schema default (`perm_invite_external_user` on PRA, `perm_accept_team_sessions` on RS) from the configuration and checks that the plan sets it to `false`, that the appliance no longer grants it, and that it settles in one apply.
 - E2E: `TestVaultUserPass` creates an account with `password_wo`, checks that neither the password nor a later rotated one reaches state or the plan, and checks that bumping `password_wo_version` updates in place and settles in one apply. The user/pass fixtures need Terraform 1.11 or later.
 - E2E: `make teste2e` uses CI's 30-minute timeout.
